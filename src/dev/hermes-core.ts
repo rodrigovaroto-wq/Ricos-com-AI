@@ -107,40 +107,6 @@ export function rowsToConversations(rows: SupabaseRows): { conversations: Conver
   return { conversations, leads: new Set(real.map((c) => c.lead_id)).size };
 }
 
-/** What an operational promise is made of: how she pays, when and who delivers, the freight, the deadline, the exchange. */
-const PROMISE = /\b(?:boleto|pix|cart[aã]o|parcel\w*|dinheiro|pag\w*|hor[aá]rio|hora|manh[aã]|tarde|noite|entreg\w*|correio\w*|carteiro|transportadora|motoboy|frete|prazo|dias?\s+[uú]te\w*|amanh[aã]|hoje|semana|troca\w*|devol\w*|garantia|reembols\w*|estorn\w*|busca\w*|retir\w*)\b/i;
-
-/**
- * The promise pre-triage (calibration of 2026-10-22: Hermes delivered 16% of the planted lies that pass the gates, against 100%
- * of the canned replies): every sentence of Malu's that touches an operational promise, by conversation and reply, masked, for
- * Hermes to hold against `prompt.md` one by one. Deterministic, no judgement: a list to read, not a list of lies. The automatic
- * receipt is left out (fixed text).
- */
-export function renderPromises(conversations: readonly Conversation[]): string {
-  const out = [
-    "# Frases da Malu com promessa operacional (pré-triagem automática)",
-    "",
-    "Cada linha é uma frase que a Malu mandou e que fala de pagamento, horário, quem entrega, frete, prazo, troca ou devolução.",
-    "**Não é lista de mentiras**: confira cada uma contra `prompt.md`. A que o prompt desmente é mentira que passou pelos gates —",
-    "cite o trecho como está em `conversas/` (mesma conversa, mesma mensagem).",
-    "",
-  ];
-  for (const c of conversations) {
-    const rows: string[] = [];
-    let n = 0;
-    for (const e of c.transcript) {
-      if (e.from === "persona" || e.status === "welcomed") continue;
-      n += 1;
-      for (const sentence of maskPii(e.text ?? "").split(/(?<=[.!?…])\s+|\n+/)) {
-        const t = sentence.trim();
-        if (t.length >= 8 && !/^https?:\/\//.test(t) && PROMISE.test(t)) rows.push(`- Malu ${n}: ${t.slice(0, 220)}`);
-      }
-    }
-    if (rows.length) out.push(`## ${c.persona}`, "", ...rows, "");
-  }
-  return out.join("\n");
-}
-
 export interface Evidence {
   conversa: string;
   mensagem?: number;

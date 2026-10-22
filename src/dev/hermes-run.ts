@@ -57,7 +57,6 @@ import {
   type SampleRow,
   renderConversation,
   renderLedger,
-  renderPromises,
   renderProposals,
   rowsToConversations,
   unquote,
@@ -205,7 +204,6 @@ for (const c of conversations) {
   writeFileSync(join(bundle, "conversas", `${c.persona}.md`), md);
 }
 writeFileSync(join(bundle, "placar.md"), renderScorecard(source, scoreRun(conversations)));
-writeFileSync(join(bundle, "promessas.md"), renderPromises(conversations));
 // The rules a lie is judged against: the prompt Malu reads, under the test config the gates
 // below use too (the production secret is not readable). A lie proposal quotes its line.
 const promptText = systemPrompt(fixtureConfig, gateBriefing(fixtureConfig), null);
@@ -303,7 +301,7 @@ writeFileSync(
 cpSync(join(REPO, "hermes/skills"), join(home, "skills"), { recursive: true });
 
 const prompt =
-  "Use a skill encorpa-supervisor. Leia reverter.md primeiro, depois decisoes.md, historico.md, placar.md, numeros.md, timing.md, jev.md, promessas.md, prompt.md, regras.md, registro.md e todos os arquivos em conversas/, " +
+  "Use a skill encorpa-supervisor. Leia reverter.md primeiro, depois decisoes.md, historico.md, placar.md, numeros.md, timing.md, jev.md, prompt.md, regras.md, registro.md e todos os arquivos em conversas/, " +
   "e escreva propostas.json nesta pasta, exatamente no formato da skill. Trecho de evidência só copiado, nunca resumido.";
 const usageFile = join(bundle, "usage.json");
 const started = Date.now();

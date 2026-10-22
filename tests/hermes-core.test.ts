@@ -486,32 +486,3 @@ describe("premiseCount", () => {
     expect(premiseCount(null, batch)).toBeNull();
   });
 });
-
-describe("renderPromises: a pré-triagem das promessas (calibração de 2026-10-22)", () => {
-  it("lista as frases da Malu com promessa operacional, mascaradas, sem a recepção e sem a cliente", async () => {
-    const { renderPromises } = await import("../src/dev/hermes-core.js");
-    const md = renderPromises([
-      {
-        persona: "conversa-x",
-        transcript: [
-          { from: "persona", text: "posso pagar no boleto?" },
-          { from: "valen", status: "welcomed", text: "Oi! Pagamento na entrega." },
-          { from: "valen", text: "Oi! Você pode pagar no boleto também. Qual o número da calça?" },
-          { from: "persona", text: "44" },
-          { from: "valen", text: "O horário da entrega você escolhe no checkout, CEP 01310-100." },
-        ],
-      },
-    ]);
-    expect(md).toContain("- Malu 1: Você pode pagar no boleto também.");
-    expect(md).toContain("- Malu 2: O horário da entrega você escolhe no checkout, CEP [cep].");
-    expect(md).not.toContain("Qual o número da calça");
-    expect(md).not.toContain("posso pagar");
-    expect(md).toContain("**Não é lista de mentiras**");
-  });
-  it("o runner põe promessas.md no pacote e manda o Hermes ler", async () => {
-    const { readFileSync } = await import("node:fs");
-    const run = readFileSync("src/dev/hermes-run.ts", "utf8");
-    expect(run).toContain('writeFileSync(join(bundle, "promessas.md"), renderPromises(conversations));');
-    expect(run).toContain("jev.md, promessas.md, prompt.md");
-  });
-});
