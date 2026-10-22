@@ -2,7 +2,7 @@
 # already trusts to run code against it: CI is the sandbox (R11.7).
 #
 # Daily, it asks `hermes_backlog` whether 50 leads arrived since the last production run
-# (R6.2). If so, it runs Hermes over the last 50 conversations — PII masked before anything
+# (R6.2), or 25 once 10 days passed (0031, operator 2026-10-22) — before installing Hermes. If so, it runs Hermes over the last 50 conversations — PII masked before anything
 # leaves for the model, standard Muse only (never -contributor on real customers) — writes
 # the run and the valid proposals to Supabase with status 'proposed', and opens a pull
 # request with the proposals document — excerpts and quoted text replaced, since git never
@@ -55,6 +55,15 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # Asked first (P1.1, 2026-10-22): until then every day spent ~8 minutes installing Hermes to learn it was not due.
+      - name: Is a run due?
+        id: due
+        if: ${{ !inputs.force }}
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: pnpm hermes --source=supabase --check-due
+
       # Pinned: a supervisor that reads customer conversations does not float on main.
       # The official shell installer (A6, L0.7): hermes-agent refuses to build a wheel, so the
       # `uv tool install git+…` this step used failed in all six runs up to 2026-09-30. The
@@ -65,6 +74,7 @@ jobs:
       # (run 7, 2026-09-30). The job's token goes to this download only: the installer runs
       # in the next step, which never sees it (the job's token can write to this repository).
       - name: Download the Hermes installer
+        if: ${{ inputs.force || steps.due.outputs.due == 'true' }}
         env:
           HERMES_COMMIT: ac4181fdfaa4fa3b0682ea7b592c7a3ee6465e62
           GH_TOKEN: ${{ github.token }}
@@ -73,6 +83,7 @@ jobs:
             "https://raw.githubusercontent.com/NousResearch/hermes-agent/$HERMES_COMMIT/scripts/install.sh" -o "$RUNNER_TEMP/hermes-install.sh"
 
       - name: Install Hermes Agent
+        if: ${{ inputs.force || steps.due.outputs.due == 'true' }}
         env:
           HERMES_COMMIT: ac4181fdfaa4fa3b0682ea7b592c7a3ee6465e62
         run: |
@@ -81,6 +92,7 @@ jobs:
           "$HOME/.local/bin/hermes" --version
 
       - name: Run Hermes
+        if: ${{ inputs.force || steps.due.outputs.due == 'true' }}
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -91,6 +103,7 @@ jobs:
         run: pnpm hermes --source=supabase --write-db ${{ inputs.force && ' ' || '--only-if-due' }}
 
       - name: Open the proposals for the operator
+        if: ${{ inputs.force || steps.due.outputs.due == 'true' }}
         uses: peter-evans/create-pull-request@v7
         with:
           branch: hermes/propostas
@@ -100,6 +113,6 @@ jobs:
             Propostas do Hermes sobre as últimas conversas reais — cada uma validada (trecho
             copiado da conversa, nada da lista do que não se faz) e testada contra os gates de hoje.
 
-            **Nada aqui foi aplicado.** A decisão é pelo link que chega por e-mail para cada
-            proposta (R14.14); este PR só guarda o documento da rodada.
+            **Nada aqui foi aplicado.** A decisão é sua, na Rotina "Hermes – decisão"
+            (`hermes/DECIDIR.md`); o e-mail só avisa os títulos. Este PR só guarda o documento da rodada.
           add-paths: docs/agente-ia/08-mudancas/propostas/*

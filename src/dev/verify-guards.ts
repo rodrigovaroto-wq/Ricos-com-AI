@@ -5865,6 +5865,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/scarcity-real-stock.test.ts"],
   },
   {
+    id: "R30-frete-do-kit-em-regiao-de-entrega",
+    bug: "o frete do kit G+M guardado numa região de entrega iria à cliente de 1 peça no turno seguinte (/code-review da onda 0)",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "if (region && (region.cod || freightFor === null || region.prepayFreightFor !== freightFor)) region =",
+    to: "if (false) region =",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/plan16-wiring.test.ts"],
+  },
+  {
     id: "R30-frete-do-kit-quantidade",
     bug: "GG+GG iria à consulta como um GG só: o frete de uma peça no kit (Playwright de 2026-10-22, 20,36)",
     files: ["src/agent/availability.ts", "supabase/functions/turn/availability.ts"],

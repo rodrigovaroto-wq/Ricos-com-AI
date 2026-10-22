@@ -10,7 +10,8 @@
  * --limit=N (supabase: N conversations, default 50, picked by `hermes_sample` — flagged first,
  * then a control of plain ones) · --write-db (insert into hermes_runs and hermes_proposals,
  * and measure every published proposal's check before and after it went live) ·
- * --only-if-due (supabase: exit quietly unless `hermes_backlog.due`).
+ * --only-if-due (supabase: exit quietly unless `hermes_backlog.due`) · --check-due (supabase: only print whether a run is
+ * due, as `due=true|false` in $GITHUB_OUTPUT when set, and exit: hermes.yml asks it before installing Hermes).
  *
  * Environment: HERMES_BIN (default `hermes`), MODEL_API_KEY or META_API_KEY, and for the
  * supabase source SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY. HERMES_MAX_USD (optional): a run
@@ -26,7 +27,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { gateBriefing, runGates } from "../agent/guardrails.js";
@@ -75,6 +76,10 @@ const model = flag("model") ?? process.env.HERMES_MODEL ?? "muse-spark-1.3";
 const limit = Number(flag("limit") ?? 50);
 const writeDb = args.includes("--write-db");
 const onlyIfDue = args.includes("--only-if-due");
+const checkDue = args.includes("--check-due");
+// Where the proposals document goes (default: the registry folder, which hermes.yml's PR carries). The calibration points it at
+// its own temp folder: a calibration on real conversations must leave nothing with customer text in the repository.
+const outDir = flag("out-dir");
 const HERMES = process.env.HERMES_BIN ?? "hermes";
 const REPO = resolve(".");
 
@@ -158,8 +163,15 @@ const backlog =
   source === "supabase"
     ? (await rest<Array<{ due: boolean; leads_since_last_run: number; last_run_at: string | null }>>("hermes_backlog?select=due,leads_since_last_run,last_run_at"))[0]
     : undefined;
+const waiting = `hermes: ${backlog?.leads_since_last_run ?? 0} leads desde a última execução — espera 50, ou 25 depois de 10 dias (R6.2, P1.2)`;
+if (checkDue && source === "supabase") {
+  // The workflow's gate (P1.1): the daily job no longer spends ~8 minutes installing Hermes to learn it has nothing to read.
+  console.log(backlog?.due ? "hermes: rodada devida" : waiting);
+  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `due=${backlog?.due === true}\n`);
+  process.exit(0);
+}
 if (onlyIfDue && source === "supabase" && !backlog?.due) {
-  console.log(`hermes: ${backlog?.leads_since_last_run ?? 0} leads desde a última execução — espera 50 (R6.2)`);
+  console.log(waiting);
   process.exit(0);
 }
 
@@ -316,7 +328,7 @@ const md = scrubSecrets(
     `\n---\nModelo ${model} · skill ${skillSha} · commit ${commitSha.slice(0, 12)} · ${conversations.length} conversas · ${Math.round((Date.now() - started) / 1000)} s · ` +
     `custo US$ ${costUsd != null ? costUsd.toFixed(4) : "?"} (${tok("total_tokens")} tokens, ${tok("api_calls")} chamadas)\n`,
 );
-const dest = join(REPO, "docs/agente-ia/08-mudancas/propostas");
+const dest = outDir ? resolve(outDir) : join(REPO, "docs/agente-ia/08-mudancas/propostas");
 mkdirSync(dest, { recursive: true });
 const file = join(dest, `${day}-${label}.md`);
 writeFileSync(file, md);

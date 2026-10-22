@@ -61,11 +61,13 @@ describe("o −10 do toque sem resposta, na varredura (§4.2, resíduo resolvido
 
   it("a varredura grava só sobre o score que leu (score_at), depois do envio reivindicado", () => {
     const sent = turn.indexOf('if (!(await leave("sent"))) {');
-    const lowered = turn.indexOf("afterUnansweredTouch(lead.score)");
+    const lowered = turn.indexOf("afterUnansweredTouch(loweredScores.get(lead.id) ?? lead.score)");
     expect(sent).toBeGreaterThan(0);
     expect(lowered).toBeGreaterThan(sent);
     expect(turn).toContain("leads?id=eq.${lead.id}&score_at=eq.${encodeURIComponent(lead.score_at)}");
     expect(turn).toContain("address,score,score_band,score_at");
+    // Two touches of one lead in one sweep: the second lowers from the first's result.
+    expect(turn).toContain("afterUnansweredTouch(loweredScores.get(lead.id) ?? lead.score)");
   });
 
   it("a fria que esfriou durante a régua não recebe o segundo nem o terceiro toque", () => {
@@ -172,7 +174,10 @@ describe("index.ts — a fiação do plano 16", () => {
     expect(turn).toContain("else if (region.prepayFreightFor !== freightFor) {");
     // After the kit's own coverage, which can turn the kit prepaid; and kept in the cache the turn writes on the lead.
     expect(at("const freightPieces: Size[] | null = units === 1")).toBeGreaterThan(at("if (missing) region = { ...region, cod: false"));
-    expect(turn).toContain("if (freshRegion) freshRegion = { ...freshRegion, prepayFreightBrl, prepayFreightFor: freightFor };");
+    expect(turn).toContain("if (freshRegion && !freshRegion.cod) freshRegion = { ...freshRegion, prepayFreightBrl, prepayFreightFor: freightFor };");
+    // /code-review of wave 0: a kit freight cached on a delivery region (G+M made prepaid) never reaches the next turn's one piece.
+    expect(turn).toContain("if (region && (region.cod || freightFor === null || region.prepayFreightFor !== freightFor)) region = { ...region, prepayFreightBrl: null, prepayFreightFor: null };");
+    expect(at("if (region && (region.cod || freightFor === null")).toBeLessThan(at("const { stockLine, stockLeft, prepayFreightBrl } = regionTurnFacts(CONFIG, {"));
     // The offer's own freight line is one piece's: a kit's freight is said by the model, under the kit.
     expect(turn).toContain("offerBubbles(CONFIG, { cod, dates: region.dates, prepayFreightBrl: units === 1 ? prepayFreightBrl : null }, new Date(),");
   });

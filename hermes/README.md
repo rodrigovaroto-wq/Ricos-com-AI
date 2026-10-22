@@ -48,7 +48,7 @@ or a persona round)
 | Command | What |
 |---|---|
 | `pnpm hermes --source=personas:<dir>` | Supervise a persona round (synthetic data). `--model=muse-spark-1.3-contributor` allowed here only. |
-| `pnpm hermes --source=supabase --write-db --only-if-due` | Production: runs when 50 leads arrived since the last run (R6.2, view `hermes_backlog`). |
+| `pnpm hermes --source=supabase --write-db --only-if-due` | Production: runs when 50 leads arrived since the last run, or 25 once 10 days passed (R6.2, P1.2; view `hermes_backlog`, 0031). `--check-due` only answers whether it is due. |
 | `pnpm hermes:calibrar <dir>` | Plants three known defects in a copy of a round and checks Hermes finds all three. Rerun after changing the skill or the model. |
 
 Production runs daily from `.github/workflows/hermes.yml` (needs the secrets

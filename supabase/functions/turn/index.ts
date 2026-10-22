@@ -1664,6 +1664,8 @@ const runFollowupSweep = async () => {
   let retriedTurns = 0;
   /** Conversations that got "Ainda está aí?" in this sweep: their other silence touch waits a sweep. */
   const nudged = new Set<string>();
+  /** The score each lead has after this sweep's −10s (`afterUnansweredTouch`): every row carries the score as the select read it. */
+  const loweredScores = new Map<string, number>();
 
   // One row at a time, each on its own (second review, 2026-09-28): a throw in one row —
   // the `messages` insert after the claim, typically — aborted the whole sweep, and every
@@ -2018,8 +2020,10 @@ const runFollowupSweep = async () => {
     }
     // Plan 16 §4.2: the touch that left counts −10 until she answers — her turn rescores from scratch. Only over the score this
     // sweep read (`score_at`): a turn that rescored meanwhile is newer, and its score stands. Index: leads_pkey.
-    const lowered = inSilenceRuler(kind) && typeof lead.score_at === "string" ? afterUnansweredTouch(lead.score) : null;
+    // Two touches of one lead in the same sweep each take their 10: the second reads the first's result, not the row's copy (/code-review).
+    const lowered = inSilenceRuler(kind) && typeof lead.score_at === "string" ? afterUnansweredTouch(loweredScores.get(lead.id) ?? lead.score) : null;
     if (lowered) {
+      loweredScores.set(lead.id, lowered.score);
       await db(`leads?id=eq.${lead.id}&score_at=eq.${encodeURIComponent(lead.score_at)}`, { method: "PATCH", body: JSON.stringify(lowered) }).catch(() => undefined);
     }
     await db("messages", {
@@ -3933,10 +3937,14 @@ const handleTurn = async (
     else if (region.prepayFreightFor !== freightFor) {
       const prepayFreightBrl = await prepayFreight(regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS), addressDraft.cep, region.place, freightPieces);
       region = { ...region, prepayFreightBrl, prepayFreightFor: freightFor };
-      // Cached on the lead with the region this turn looked up; a cached region is not re-cached (its age is the stock's).
-      if (freshRegion) freshRegion = { ...freshRegion, prepayFreightBrl, prepayFreightFor: freightFor };
+      // Cached on the lead with the region this turn looked up, and only where that region itself is prepaid: a kit made prepaid
+      // above rides on a cached `cod: true`, and a freight kept there would be served to the next turn's other pieces (/code-review).
+      // A cached region is not re-cached (its age is the stock's).
+      if (freshRegion && !freshRegion.cod) freshRegion = { ...freshRegion, prepayFreightBrl, prepayFreightFor: freightFor };
     }
   }
+  // Only the freight of these pieces on a prepaid region goes on: any other one (a cache written before, a delivery region) is dropped.
+  if (region && (region.cod || freightFor === null || region.prepayFreightFor !== freightFor)) region = { ...region, prepayFreightBrl: null, prepayFreightFor: null };
 
   // A CEP she typed with the wrong number of digits is never read, and the model told her "Recebi seu
   // CEP" and "Anotei" (second real test, grafo §66). Without a CEP read, the model is told so.
