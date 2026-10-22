@@ -39,9 +39,8 @@ test-results/
 # Configuração local de negócio (o .example é versionado)
 config/business.json
 
-# Claude Code — settings do desenvolvedor. O settings.json carrega um bloco
-# `env` e é criado a partir do .example, que é o versionado.
-.claude/settings.json
+# Claude Code — settings do desenvolvedor. O settings.local.json é o pessoal (segredos e `env`
+# vão aqui). O settings.json é versionado e só leva mods (marketplaces + enabledPlugins): sem segredo.
 .claude/settings.local.json
 
 # OS / editor
