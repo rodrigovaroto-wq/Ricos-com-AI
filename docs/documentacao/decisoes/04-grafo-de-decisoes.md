@@ -4077,7 +4077,12 @@ kit, `allowUnverified`); `tests/jev.test.ts`, `tests/hermes-calibrate.test.ts`, 
 Correios, e você paga pra ele" passam em todos os gates e o prompt desmente as três — candidatas a gate quando aparecerem numa conversa real
 (R21.6). (b) O CEP geral de Recife (50010000) não acha região na consulta do agente.
 
-**Estado (2026-10-22, parada a pedido do operador):** tudo commitado na branch, **nada publicado e nenhuma migração aplicada**. Calibração:
+**Estado final (2026-10-22, noite):** `turn` **v41 no ar** (commit `e64bb7c`, função v153; alarme de cobertura `healthy` depois do deploy);
+0030–0032 aplicadas. Hermes: primeira rodada de produção feita (43 conversas, 4 propostas, US$ 1,82; o PR automático falhou por permissão do
+repositório). Calibração final (skill v2): resposta pronta 100%, link 91%, mentira 16% (a pré-triagem `promessas.md` foi medida, não ajudou e foi
+revertida). JEV: 7 de 16 perguntas aprovadas no teste em português (`hermes/jev-avaliacao.md`). Detalhe no quadro do `HANDOFF.md`.
+
+**Estado (2026-10-22, parada a pedido do operador; superado pela linha acima):** tudo commitado na branch, **nada publicado e nenhuma migração aplicada**. Calibração:
 2 de 8 rodadas, abaixo da barra (mentira 25%, resposta pronta 50%, link 50%). O JEV espera a chave da TypeSafe e o `jev:avaliar`. O que falta
 está no quadro do topo do `HANDOFF.md`.
 

@@ -26,8 +26,26 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 >   falando por último, 39 delas num lembrete da régua.
 > - **Validação:** mutações 753/753; `pnpm test` 8797 verdes; `typecheck`, `lint`, `typecheck:function`.
 > - **Calibração do Hermes** (`-contributor`, sintético, 8 rodadas × 4 defeitos por classe): skill v2 (uma evidência por conversa, campos
->   obrigatórios) → resposta pronta 32/32 (100%), link repetido 29/32 (91%), **mentira 5/32 (16%)**. A skill v3 com `promessas.md` (pré-triagem
->   das frases de promessa) está sendo medida; o resultado entra aqui.
+>   obrigatórios) → resposta pronta 32/32 (100%), link repetido 29/32 (91%), **mentira 5/32 (16%)**. A v3 com `promessas.md` (pré-triagem
+>   das frases de promessa) não subiu a mentira (16%) e baixou as outras (88%, 72%): **revertida** (`af2a4e4`). Gasto total das calibrações
+>   ≈ US$ 0,85. **A mentira de detalhe operacional que passa nos gates continua sendo o ponto cego do Hermes** — é o lugar do JEV e de gate.
+> - **Primeira rodada de produção do Hermes (P1.5), 22/10 21h36 UTC** (`hermes.yml` forçado na branch): 43 conversas, 4 propostas válidas
+>   (H-1 tirar o pedido de e-mail do fechamento; H-2 link da entrega quando ela confirma a entrega; H-3 vetar medida de corpo que ela não deu;
+>   H-4 responder nota fiscal/loja/foto antes do link), 1 descartada, **US$ 1,82**. Esperam a decisão do operador na Rotina "Hermes – decisão".
+>   O passo final (abrir o PR das propostas) **falhou**: o repositório não deixa o GitHub Actions criar PR — o documento ficou na branch
+>   `hermes/propostas`. **Operador:** Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests".
+> - **JEV no ar com a Hermes (chave `TYPESAFE_API_KEY` já está nos segredos do GitHub):** na rodada de produção, 47 chamadas por US$ 0,0016
+>   (prontidão em 43 conversas + segunda opinião nas 4 propostas, em `evidence.jev`). **Teste em português (P2.4)**, `hermes.yml` com
+>   `jev_avaliar`, 230 itens, US$ 0,014: **7 de 16 aprovadas** (90% no sim e no não) — `quer_comprar`, `promete_prazo`, `promete_saude`,
+>   `oferece_desconto`, `escassez`, `gatilho_nao_usado`, `duas_perguntas` (`hermes/jev-avaliacao.md`, `hermes/jev-aprovadas.json`). Reprovadas:
+>   objeção (77%), irritação (86%), `diz_ser_pessoa` (9% no "não": a instrução está mal lida), `compra_sem_passo`, `objecao_sem_resposta`,
+>   `pergunta_ignorada`, `kit_nao_oferecido`, `sem_proximo_passo`, `desconfianca_sem_garantia`. A partir da próxima rodada do Hermes as 7
+>   aprovadas rodam em sombra. **A amostra de 30 do conjunto de ouro (`hermes/jev-ouro-amostra.md`) ainda espera a conferência do operador.**
+> - **Primeira comparação de prontidão (P5.2):** das 43 conversas, o JEV leu 13 frias, 25 mornas, 5 quentes; a única lead com faixa gravada
+>   (quente, 70) o JEV leu fria. Nenhum pedido ainda: a comparação com o pedido espera tráfego.
+> - **Falta:** (1) operador: liberar o Actions a criar PR; conferir a amostra de 30; decidir H-1 a H-4; (2) reescrever as perguntas reprovadas
+>   (nova versão, medida de novo) se o operador quiser mais que as 7; (3) a mentira de detalhe operacional (boleto, horário, correio): gate
+>   quando aparecer numa conversa real (R21.6) ou pergunta do JEV nova; (4) PR desta branch para a `main` (não aberto: pedir).
 > - **Cuidado no container:** o Hermes instalado guarda o Python dentro da PRIMEIRA pasta `HERMES_HOME` temporária que usou; apagar
 >   `/tmp/hermes-home-*` quebra o Hermes (aconteceu em 22/10; foi reinstalado). Cada rodada deixa ~2 GB em `/tmp`.
 
