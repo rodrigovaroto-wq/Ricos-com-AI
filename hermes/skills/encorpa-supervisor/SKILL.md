@@ -84,7 +84,8 @@ segue esta skill.
    e a que os gates de hoje **não** pegam é a que só você acha. **Faça esta leitura antes de qualquer outra:**
    abra a lista de tarefas (`todo`) com um item por conversa; em cada uma, leia **toda** resposta da Malu
    frase por frase contra `prompt.md` (forma de pagar, horário, quem entrega, prazo, troca e devolução,
-   preço, frete) e só marque o item depois de comparar cada promessa. Uma frase que `prompt.md` desmente
+   preço, frete) e só marque o item depois de comparar cada promessa. **`promessas.md` lista essas frases já separadas,**
+   conversa por conversa: comece por ela, segure cada frase contra `prompt.md` e confirme o trecho em `conversas/`. Uma frase que `prompt.md` desmente
    é mentira mesmo que pareça detalhe: a mentira de detalhe operacional passa nos gates com facilidade.
 2. **Resposta pronta** — veja qual gate vetou três vezes e se a frase vetada era honesta.
 3. **Venda perdida no caminho** — ela decidiu comprar e o link não saiu; pergunta repetida;
