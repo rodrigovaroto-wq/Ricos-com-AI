@@ -35,7 +35,7 @@ entregue pelo operador em 2026-09-03.
 > ÷ R$ 51,70. Os fixos entram no resultado só quando vencem, e a necessidade de caixa é só da operação (sem fixos, sem o teto de R$ 1.075).
 >
 > Imposto da Meta 13,83%, WhatsApp R$ 0,04 por pedido e IA R$ 0,27 por lead não mudaram. **Recalculados na planilha em 17/10:** lucro por
-> venda **COD R$ 26,18 · antecipado R$ 45,31 · mix 70/30 R$ 31,92** (R$ 33,99 sem o imposto da Meta); **pico de caixa R$ 571 (07/11) e
+> venda **COD R$ 26,18 · antecipado R$ 45,31 · mix 70/30 R$ 31,92** (R$ 33,99 sem o imposto da Meta); **pico de caixa R$ 571 (ao fim da Região) e
 > sobra R$ 504**; dobrar a verba falta R$ 66 (ver `docs/operacao/taxas-antecipadas-cod.md`). Os números de 09/10 abaixo ficam como história.
 
 > ### Atualização de 2026-10-09 — caixa do teste, manuseio R$ 5,00 e devolução completa (devolução, transação e margem do COD superadas por R27, 17/10)
@@ -59,8 +59,8 @@ entregue pelo operador em 2026-09-03.
 > A tabela de 02/10 logo abaixo dava R$ 24,31 / R$ 49,50 / R$ 31,86; a diferença vem da devolução, do manuseio e do imposto.
 >
 > **Reserva de caixa do teste, no lugar da conta de L3.2 abaixo:** com R$ 700 de verba (7 dias a R$ 50/dia na Copy, 2 dias de pausa e 7 dias a R$ 50/dia
-> na Região, a partir de 23/10) e R$ 1.325 de caixa, o **pico é R$ 752** (07/11) e **sobram R$ 323** sobre os R$ 1.075 utilizáveis (R$ 250 de
-> segurança). O anúncio vence na fatura de 29/11, depois do primeiro repasse (08/11). Dobrar a verba falta R$ 430; antecipado
+> na Região, a partir de quando o operador ligar o tráfego) e R$ 1.325 de caixa, o **pico é R$ 752** (ao fim da Região) e **sobram R$ 323** sobre os R$ 1.075 utilizáveis (R$ 250 de
+> segurança). O anúncio vence na fatura do cartão seguinte ao fim do teste, depois do primeiro repasse. Dobrar a verba falta R$ 430; antecipado
 > retido por 14 dias falta R$ 1.032. O parágrafo "A conta da reserva de L3 não fecha" da caixa de 02/10 está **superado**.
 
 > ### Lucro por venda com o custo real — 1, 2 e 3 peças (2026-10-02) — histórico: margem do COD e devolução superadas por R27 (17/10)

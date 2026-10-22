@@ -999,7 +999,7 @@ lead, em métrica intermediária, com a regra de leitura escrita antes.
 
 ### J. Roadmap
 
-**FASE 1 — correções críticas (antes de 23/10, antes de gastar R$ 1 em anúncio)**
+**FASE 1 — correções críticas (antes de gastar R$ 1 em anúncio)**
 1. Alarme de cobertura e integração. Cron de 15 min com 3 CEPs com COD → e-mail. Falha de
    consulta nunca vira "não tem".
 2. Conserto do retry do n8n → "duplicate" → resposta não enviada.
@@ -1335,7 +1335,7 @@ sobre o que é medido e o que é hipótese.
 
 ### Roadmap revisado (substitui a ordem da §15.J)
 
-**FASE 1 — antes de 23/10:**
+**FASE 1 — antes de ligar o tráfego:**
 1. Recusa como estado (§18).
 2. Alarme de integração e cobertura.
 3. Correção do retry → "duplicate".

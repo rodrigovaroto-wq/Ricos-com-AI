@@ -4028,6 +4028,10 @@ consulta, `turn` local sobe `healthy`). **O operador ainda não o colou no segre
 Migração `0029` aplicada em produção. **Não provado ao vivo:** o balão do gancho antes da oferta e a gravação do score; a primeira conversa
 real na v40 prova (`leads.score`, `turn_outcomes.agent_version = 40`). Decisões do operador na noite: R29.12–R29.14.
 
+**Atualização (2026-10-22, R29.15):** o operador mandou tirar todas as datas predefinidas de ação de todos os documentos e esquecer o congelamento
+por inteiro (R29.2 só superava as datas). Removidos dos planos 13, 14 e 16, de `06-modelo-economico.md`, `taxas-antecipadas-cod.md` e da memória
+`modelo-de-caixa-do-teste`; as datas de fatos já ocorridos ficam. Guarda: nenhum documento novo marca dia de ação futura (sequência e condição, não calendário).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

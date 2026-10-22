@@ -98,8 +98,8 @@ demonstração que a vendedora vai mandar.
 
 ## 5. Proposta de ordem (para o operador decidir)
 
-1. **Agora (antes da L3, 23/10):** nada novo. A prioridade é fechar os 2 furos da rodada de testes de 13/10 (HANDOFF.md) — eles mexem
+1. **Agora (antes da L3):** nada novo. A prioridade é fechar os 2 furos da rodada de testes de 13/10 (HANDOFF.md) — eles mexem
    diretamente na taxa de resolução.
 2. **Durante a L3:** B + C (motivo do handoff e etiqueta) — são baratos e fazem a L3 render informação.
-3. **Leitura da L3 (08–09/11):** A (painel por versão), já com dados de verdade.
+3. **Leitura da L3 (ao fim do teste):** A (painel por versão), já com dados de verdade.
 4. **Depois da L3, com volume:** D e E, se as frases reais e o volume de entregas justificarem.

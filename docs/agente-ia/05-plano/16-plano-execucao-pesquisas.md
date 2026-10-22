@@ -29,8 +29,8 @@
 
 ## 0. Três restrições que valem para todas as mudanças
 
-1. **A agente congela de 23/10 a 09/11** (L3, [`14-experimentos-l3.md`](14-experimentos-l3.md)): nenhum deploy de prompt, gate ou config de venda. A
-   exceção é bug que perde venda ou que mente. Hoje é 21/10: o que mexe no texto da Malu cai em **E7, a partir de 10/11**.
+1. ~~**A agente congela de 23/10 a 09/11**~~ — **corrigido em 2026-10-22 (R29.15):** não existe congelamento nem data predefinida;
+   testa e publica quando estiver bom (R29.2). O L3 está em [`14-experimentos-l3.md`](14-experimentos-l3.md), sem datas.
 2. **Toda mudança de prompt ou gate passa pela mesma régua**: espelho byte a byte em `supabase/functions/turn/`, `tests/prompt.test.ts`,
    `pnpm dev:gates`, `pnpm test && pnpm dev:conversas && pnpm typecheck:function`, a eval de venda (`pnpm dev:eval --compare`), entrada no grafo, e
    **gate só muda por frase real** (R21.6).
@@ -186,16 +186,16 @@
 
 | Quando | O quê |
 |---|---|
-| **21–22/10** (antes do L3, sem deploy de prompt) | M1 (operador), M14 (operador + config), M12 (roda na rodada de personas do tópico d), M5 (só auditoria) |
-| **23/10–09/11** (L3, agente congelada) | Só medir: link → pedido por caminho (M2), objeções reais (M4), resposta por toque (M5), recusa por caminho (M8), ponto de parada real (M13) |
-| **10/11 em diante** (E7) | M13 (calibrar), depois M11 como régua; com ela, M2, M3, M4 e M10, um de cada vez, cada um com eval e braço A/B |
+| **Antes do L3** | M1 (operador), M14 (operador + config), M12 (roda na rodada de personas do tópico d), M5 (só auditoria) |
+| **Durante o L3** | Só medir: link → pedido por caminho (M2), objeções reais (M4), resposta por toque (M5), recusa por caminho (M8), ponto de parada real (M13) |
+| **Depois da leitura do L3** (E7) | M13 (calibrar), depois M11 como régua; com ela, M2, M3, M4 e M10, um de cada vez, cada um com eval e braço A/B |
 
 ---
 
 ## 3. Passos para trás: o veredito
 
 Reli as 14 respostas contra três perguntas: **já existe? a evidência sustenta o custo? cabe no calendário?** Quatro eram coisas que o
-código já faz, uma estava em conflito com o funil validado, e as de prompt não podem entrar antes de 09/11.
+código já faz, uma estava em conflito com o funil validado, e as de prompt só entram depois da leitura do L3.
 
 | # | Veredito | Motivo |
 |---|---|---|
@@ -224,7 +224,7 @@ conforme os dados do L3 apontarem onde mais se perde.
 ## 4. Decisões do operador (21/10) e a especificação que vai ao código
 
 **Caminho A**: três ondas numa branch, uma publicação, depois o segundo smoke test. **Sem datas**: o L3, o congelamento e as
-datas do plano 14 deixam de valer; testa e congela quando estiver bom (operador, 21/10). Referência de mercado no lugar do
+datas do plano 14 deixam de valer; testa quando estiver bom (operador, 21/10; o congelamento saiu por inteiro em 22/10, R29.15). Referência de mercado no lugar do
 humano (não existe histórico): conversa → pedido 5–15%; recusa na porta 20–30% sem confirmação, 10–15% com (números de
 fornecedor, só referência). Saem: M5 (a régua da copy v4 não tem pressão), M6, M7 (feito na v39, §121), M8, M9.
 

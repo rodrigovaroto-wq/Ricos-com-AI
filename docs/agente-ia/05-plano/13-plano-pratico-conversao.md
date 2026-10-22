@@ -5,7 +5,7 @@
 > **Escrito em:** sáb. 11/10/2026 (status atualizado em 13/10, noite).
 > - **No ar (15/10):** `turn` v26 (R26; função v119), `whatsapp` v38, modelo `muse-spark-1.3-contributor`. Validada: mutações 598/598 + 2/2, três revisões Opus (grafo §100).
 > - **Volume:** 5 leads, 0 pedidos.
-> - **Anúncios (L3):** começam **qui. 23/10**. Copy de 23 a 29/10, pausa de 30 a 31/10, Região de 01 a 07/11, leitura e decisão de 08 a 09/11.
+> - **Anúncios (L3):** começam quando o operador ligar o tráfego, sem data predefinida (R29.2, R29.15; o calendário e o congelamento anteriores foram removidos em 2026-10-22). Sequência: Copy, pausa, Região, leitura e decisão ao fim.
 
 ## ▶ Status de execução (atualizado 2026-10-13) — LEIA PRIMEIRO
 
@@ -34,8 +34,8 @@ Branch `claude/pipeline-e4-fix-exp-b`. Grafo de decisões §69–§88. E1–E3, 
 | Testes reais | Rodada de 3 (operador, sócio, mãe) | ⬜ próximo | `docs/operacao/roteiro-testes-reais.md`, `pnpm dev:arquivar-teste` |
 | Testes reais r2–r3 | Testadores …3720, …1632 e a irmã do operador (…6682) | ✅ analisados e consertados (R23, R24, v23–v24) | grafo §92, §95 |
 | Cobertura | 138 situações, 55 personas ao mesmo tempo (`dev:personas:todas`) | ✅ ferramenta; v25 a verificar | grafo §96–§98, doc 15 |
-| E5 | Ensaio com dinheiro real | ⬜ | 20–21/10, depois da rodada de testes reais |
-| E6 | L3 2×2 (23/10–09/11) | ⬜ | ligar `experiments.fastOpening` e (depois de construído) `linkAfterChoice` |
+| E5 | Ensaio com dinheiro real | ⬜ | depois da rodada de testes reais |
+| E6 | L3 2×2 | ⬜ | ligar `experiments.fastOpening` e (depois de construído) `linkAfterChoice` |
 | E7–E8 | Otimização e escala | ⬜ | ver seções abaixo |
 
 **Bloqueio de produção:** resolvido em 12–13/10 (token da API de gerência liberado pelo operador; revogar ao fim).
@@ -70,19 +70,18 @@ Cada tarefa traz:
 
 ---
 
-## Calendário
+## Ordem das etapas (sem datas, R29.15)
 
-| Datas | Etapa | Bloqueia L3? |
+| Ordem | Etapa | Bloqueia L3? |
 |---|---|---|
-| 12/10 | **E0 — Decisões do operador** | Sim |
-| 13–16/10 | **E1 — Proteção** (não perder venda nem o número) | Sim |
-| 13–17/10 | **E2 — Medição** (sem ela, o L3 não ensina nada) | Sim |
-| 15–19/10 | **E3 — Primeiro contato e humanização v1** | Sim (o mínimo) |
-| 13–20/10 (paralelo, fora da produção) | **E4 — Eval comercial sintético** | Parcial: E3 precisa da versão mínima |
-| 20–21/10 | **E5 — Ensaio geral com dinheiro real** | Sim |
-| 22/10 | Congelamento: nada sobe | — |
-| 23/10–09/11 | **E6 — L3 com experimentos** | — |
-| 10/11 em diante | **E7 — Otimização com dado real** | — |
+| 1 | **E0 — Decisões do operador** | Sim |
+| 2 | **E1 — Proteção** (não perder venda nem o número) | Sim |
+| 3 | **E2 — Medição** (sem ela, o L3 não ensina nada) | Sim |
+| 4 | **E3 — Primeiro contato e humanização v1** | Sim (o mínimo) |
+| 5 (paralelo, fora da produção) | **E4 — Eval comercial sintético** | Parcial: E3 precisa da versão mínima |
+| 6 | **E5 — Ensaio geral com dinheiro real** | Sim |
+| 7 | **E6 — L3 com experimentos** (começa quando o operador ligar o tráfego) | — |
+| 8 | **E7 — Otimização com dado real** (depois da leitura do E6) | — |
 | Depois da decisão de escala | **E8 — Escala e limpeza** | — |
 
 **Caminho crítico:**
@@ -91,7 +90,7 @@ Cada tarefa traz:
 3. E2.1 e E2.3.
 4. E3.1.
 5. E5.
-6. 23/10.
+6. E6 (quando o operador ligar o tráfego).
 
 Se algo atrasar, **corta-se de E3, nunca de E1 ou E2**.
 
@@ -349,13 +348,13 @@ Se algo atrasar, **corta-se de E3, nunca de E1 ou E2**.
 
 ---
 
-## E4 — Eval comercial sintético (13–20/10, paralelo, fora da produção)
+## E4 — Eval comercial sintético (paralelo, fora da produção)
 
 **Objetivo:** medir venda e naturalidade sem o operador conversar, para aprovar mudanças antes de subir.
 
 **Portão de saída:**
 - a versão **mínima** (E4.1 + E4.2 + E4.4) roda sobre a v16 e sobre a versão de E3, e dá um número comparável;
-- o juiz (E4.3) pode vir até 20/10 ou entrar na E7, se D7 e a calibração não fecharem a tempo.
+- o juiz (E4.3) pode vir antes do E6 ou entrar na E7, se D7 e a calibração não fecharem a tempo.
 
 ### E4.1 — Comprador com propensão oculta
 - **O quê:**
@@ -439,14 +438,14 @@ Se algo atrasar, **corta-se de E3, nunca de E1 ou E2**.
 
 ---
 
-## E6 — L3 com experimentos (23/10–09/11)
+## E6 — L3 com experimentos
 
 **Objetivo:** aprender o máximo com ~470 leads sem mexer na agente durante o teste.
 
-**Portão de saída:** a leitura de 08–09/11 feita pelas regras escritas **antes** de começar.
+**Portão de saída:** a leitura, ao fim do teste, feita pelas regras escritas **antes** de começar.
 
-### E6.1 — Regras do teste, escritas antes de 23/10
-- **Agente congelada.** Nenhum deploy de prompt ou gate durante o L3. Só correção de bug que perde venda ou que mente, com o operador.
+### E6.1 — Regras do teste, escritas antes de começar
+- ~~**Agente congelada.** Nenhum deploy de prompt ou gate durante o L3.~~ ✅ removido em 2026-10-22 (R29.15): não há congelamento; testa e publica quando estiver bom.
 - **Desenho 2×2 por lead:**
   - **A** = abertura rápida + digitação curta × atual;
   - **B** = link após a escolha × dados no chat.
@@ -474,7 +473,7 @@ Se algo atrasar, **corta-se de E3, nunca de E1 ou E2**.
 - **Onde:** `pnpm dev:painel`, ou o portal se já existir.
 - **Quem:** operador; o Hermes roda normalmente, só proposta, nada se publica (D8).
 
-### E6.3 — Leitura e decisão (08–09/11)
+### E6.3 — Leitura e decisão (ao fim do teste)
 - **O quê:**
   1. Decisão de escala (tabela L3.7: conversão, CPL, ROI).
   2. Vencedor de A e de B, ou empate.
@@ -486,7 +485,7 @@ Se algo atrasar, **corta-se de E3, nunca de E1 ou E2**.
 
 ---
 
-## E7 — Otimização com dado real (a partir de 10/11)
+## E7 — Otimização com dado real (depois da leitura do E6)
 
 **Objetivo:** usar o que o L3 mostrou para a próxima rodada. Cada item passa pelo eval (E4) antes de subir, e em produção, só um A/B por vez.
 

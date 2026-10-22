@@ -1,6 +1,6 @@
 ---
 name: modelo-de-caixa-do-teste
-description: Caixa do teste de L3 (R$ 700 de verba no cartão, 7 dias a R$ 50/dia por fase, R$ 1.325 em caixa, 23/10): produto e taxas do COD saem do saldo de expedição, o resto no cartão (fecha 22, vence 29); devolução fechada R$ 30 COD / R$ 50 antecipado (R27, 17/10). Pico R$ 571, sobra R$ 504.
+description: Caixa do teste de L3 (R$ 700 de verba no cartão, 7 dias a R$ 50/dia por fase, R$ 1.325 em caixa, sem data predefinida): produto e taxas do COD saem do saldo de expedição, o resto no cartão (fecha 22, vence 29); devolução fechada R$ 30 COD / R$ 50 antecipado (R27, 17/10). Pico R$ 571, sobra R$ 504.
 metadata:
   type: business-rule
 ---
@@ -8,7 +8,7 @@ metadata:
 Operador, 2026-10-09 (R19.1, grafo §68). A conta mora em `docs/operacao/taxas-antecipadas-cod.md` e na planilha
 `docs/operacao/modelo-caixa-anuncios.xlsx` (premissas editáveis, fluxo de 90 dias). Três coisas que não saem de ler o código:
 
-- **O pico de caixa vem antes do primeiro repasse do COD** (dia 16 de 90, 07/11), e não do anúncio: produto, entrega concluída,
+- **O pico de caixa vem antes do primeiro repasse do COD** (dia 16 de 90, ao fim da Região), e não do anúncio: produto, entrega concluída,
   manuseio e transação saem do saldo de expedição quando o pedido vai para "em separação"; o repasse do COD vem 14 dias depois
   do pagamento na porta. Anúncio, API de IA, WhatsApp e fixos vão para o cartão (fatura fecha dia 22, vence dia 29) e o operador
   paga sacando do saldo (R$ 3,99, D+1 a D+2) — por isso o anúncio é financiado pelas vendas.

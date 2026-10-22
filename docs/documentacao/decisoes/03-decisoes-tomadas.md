@@ -2275,5 +2275,8 @@ Os itens R20.1 a R20.9 seguem a numeração D1–D8 do plano, mais a regra de fi
 - **R29.14 — Dado de saúde (dor) fica guardado no Supabase e usado como gatilho de conversão** (operador, 21/10, noite). O risco da LGPD art. 11
   (dado sensível; consentimento e aviso de privacidade) foi apresentado e o operador decidiu manter. Continua valendo R29.6 (nunca vai a anúncio
   da Meta nem à Conversions API) e a view `lead_profiles_v` sem `pain` nem `hook`.
+- **R29.15 — Sem datas predefinidas de ação em nenhum documento** (operador, 2026-10-22); o congelamento sai por inteiro, não só as datas.
+  Planos 13, 14 e 16 e os docs de negócio perderam o calendário do L3 (23/10, 08–09/11, E7 a partir de 10/11); o L3 começa quando o operador
+  ligar o tráfego e a leitura é ao fim dele. Completa R29.2 (que só superava as datas).
 - ~~**Perguntas abertas ao operador (conformidade):** âncora de R$ 216,50 já praticada?~~ ✅ respondida em R29.12; ~~LGPD art. 11~~ ✅ decidida em
   R29.14. **Ainda abertas:** ANVISA em "pós-parto"/"postura"; Logzz e desconto por quantidade com pedido pendente; retirar `allowUnverified` do segredo.

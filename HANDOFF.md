@@ -74,7 +74,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 >   pode reduzir até 3 números de calça" (texto do operador, já no parecer de conformidade de 19/10).
 > - **Para publicar:** `pnpm deploy:turn`; `scarcity.lowStock: 20` no `BUSINESS_CONFIG`; **assunto do e-mail no n8n ainda sem o `scoreTag`**
 >   (hoje `Aviso — a Malu não conseguiu resolver sozinha a conversa de {{ $json.phone }}`); mesclar a branch do portal.
-> - **Plano 14 (datas do L3, congelamento 23/10 a 09/11) está SUPERADO** pela decisão do operador de 21/10: sem datas (R29.2).
+> - **Plano 14 (datas do L3, congelamento 23/10 a 09/11) está SUPERADO** pela decisão do operador de 21/10: sem datas (R29.2). **Atualizado em 2026-10-22 (R29.15):** as datas e o congelamento foram removidos dos planos 13, 14 e 16 e dos docs de negócio (não só superados); o congelamento não existe mais. O L3 começa quando o operador ligar o tráfego.
 > - **Resíduos deixados de propósito (R21.6):** "O GG está acabando 😮" passa o `scarcity_claim` sem consulta; "esgota amanhã" passa com estoque
 >   real; contadores do perfil podem dobrar no caso parcial de turno substituído; a varredura não aplica o −10 do toque sem resposta; frete do kit não lido.
 > - **Perguntas abertas ao operador (conformidade):** âncora de R$ 216,50 já praticada?; ANVISA em "pós-parto"/"postura"; Logzz e desconto por
