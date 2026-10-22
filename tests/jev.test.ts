@@ -115,7 +115,7 @@ describe("analyse e renderJev: suspeitas para o Hermes conferir, divergências p
     expect(md).toContain("**Tudo aqui é suspeita a\nconferir lendo a conversa**");
     expect(md).toContain("**o gate tem a palavra final**");
     expect(md).toContain("Contou a ocasião e a Malu não usou** (`gatilho_nao_usado`): 2 de 2");
-    expect(md).toContain("Prontidão no fim (JEV): fria 0 · morna 0 · quente 1");
+    expect(md).toContain("Prontidão no fim (JEV, pergunta ainda não medida no conjunto de ouro): fria 0 · morna 0 · quente 1");
     expect(disagreements(run, null).map((j) => j.question)).toEqual(["promete_prazo", "promete_prazo"]);
   });
   it("Jev fora do ar: conta as falhas e segue", async () => {
@@ -196,5 +196,65 @@ describe("o conjunto de ouro (hermes/jev-ouro.json)", () => {
     expect(raw).not.toMatch(/\b\d{10,13}\b/);
     expect(raw).not.toMatch(/\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/);
     expect(raw.replace(/contato@encorpa-fashion\.com\.br/g, "")).not.toMatch(/[\w.]+@[\w-]+\.\w+/);
+  });
+});
+
+describe("dado pessoal (revisão de segurança de 2026-10-22)", () => {
+  const link = "https://app.coinzz.com.br/checkout/encorpa-pagamento-antecipado-0?name=Ana+Souza&phone=11987654321&document=52998224725";
+  const c: Conversation = {
+    persona: "conversa-pii",
+    transcript: [
+      { from: "persona", text: "meu cep é 01310-100, quero comprar" },
+      { from: "valen", text: `Aqui o link: ${link}` },
+    ],
+  };
+  it("ao JEV vai o texto original sem a query do link (nome, telefone e CPF do checkout)", async () => {
+    const { forJev } = await import("@/dev/jev-questions.js");
+    expect(forJev(`Aqui: ${link} 💛`)).toBe("Aqui: https://app.coinzz.com.br/checkout/encorpa-pagamento-antecipado-0 💛");
+    const x = exchanges(c)[0]!;
+    expect(replyState(x)).not.toMatch(/11987654321|52998224725|Ana\+Souza/);
+    expect(x.cliente).toContain("01310-100");
+  });
+  it("jev.md e timing.md, que o modelo do Hermes lê, saem mascarados", async () => {
+    const ask = async (_s: string, qs: Record<string, unknown>) => ({ model: JEV_MODEL, inputTokens: 1, costUsd: 0, answers: Object.fromEntries(Object.keys(qs).map((q) => [q, { type: "noul" as const, noul: 0.9 }])) });
+    const md = renderJev(await analyse([c], new Set(["quer_comprar", "compra_sem_passo"]), ask), null, { conversations: 1 });
+    expect(md).toContain("[cep]");
+    expect(md).not.toContain("01310-100");
+    const t = renderTiming({ latency: [], ruler: [], byHour: [], lastWord: [{ body: `Aqui o link: ${link}` }] });
+    expect(t).not.toMatch(/11987654321|52998224725|Ana\+Souza/);
+  });
+  it("probabilidades: só números das chaves perguntadas; versão só no formato jev-*", async () => {
+    expect(readAnswer(INBOUND.objecao!, { choice: "preco", confidence: 1, probabilities: { preco: 0.9, pensar: "x", hack: 1 } })).toEqual({
+      type: "choice", choice: "preco", confidence: 1, probabilities: { preco: 0.9 },
+    });
+    const r = await askJev("s", { q: AUDIT.escassez! }, { apiKey: "k", budget: new JevBudget(), fetch: ok({ model: "<script>", answers: { q: { noul: 0.2 } } }) });
+    expect(r?.model).toBe(JEV_MODEL);
+  });
+});
+
+describe("revisão de código de 2026-10-22", () => {
+  it("passado o prazo, nenhuma chamada começa: contadas como puladas", async () => {
+    let calls = 0;
+    const run = await analyse([conv], new Set(["quer_comprar"]), async () => (calls++, null), { deadline: Date.now() - 1 });
+    expect([calls, run.skipped]).toEqual([0, 3]);
+  });
+  it("chamadas em paralelo, todas registradas", async () => {
+    let live = 0;
+    let peak = 0;
+    const ask = async () => {
+      live++;
+      peak = Math.max(peak, live);
+      await new Promise((r) => setTimeout(r, 5));
+      live--;
+      return { model: JEV_MODEL, inputTokens: 1, costUsd: 0, answers: { quer_comprar: { type: "noul" as const, noul: 0.1 } } };
+    };
+    const run = await analyse([conv, { ...conv, persona: "conversa-def" }], new Set(["quer_comprar"]), ask, { concurrency: 4 });
+    expect(run.calls).toBe(6);
+    expect(peak).toBeGreaterThan(1);
+    expect(peak).toBeLessThanOrEqual(4);
+  });
+  it("mensagem dela respondida só pela recepção não vira troca com o número de outra resposta", () => {
+    const c: Conversation = { persona: "x", transcript: [{ from: "persona", text: "oi" }, { from: "valen", status: "welcomed", text: "Olá" }, { from: "persona", text: "tem G?" }, { from: "valen", text: "Tem sim!" }] };
+    expect(exchanges(c).map((x) => [x.mensagem, x.cliente])).toEqual([[1, "tem G?"]]);
   });
 });

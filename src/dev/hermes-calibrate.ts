@@ -83,7 +83,9 @@ for (let t = 0; t < trials; t++) {
   writeFileSync(join(dir, "plantados.json"), JSON.stringify(one.planted, null, 1));
   if (one.short) console.warn(`rodada ${t + 1}: conversas insuficientes para ${perClass} por classe — plantou ${one.planted.length}`);
   try {
-    execFileSync("pnpm", ["-s", "hermes", `--source=personas:${dir}`, `--model=${model}`, `--out-dir=${dir}`], { stdio: "inherit" });
+    // Without Jev: the calibration measures Hermes, and its cost is the run's alone (code review).
+    const { TYPESAFE_API_KEY: _jev, ...env } = process.env;
+    execFileSync("pnpm", ["-s", "hermes", `--source=personas:${dir}`, `--model=${model}`, `--out-dir=${dir}`], { stdio: "inherit", env });
   } catch (e) {
     console.error(`rodada ${t + 1}: hermes falhou (${(e as Error).message.slice(0, 160)})`);
   }

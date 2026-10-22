@@ -13,6 +13,48 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-22 — sessão `claude/determined-brown-7x0gx6`: R30 (resíduos do plano 16, Hermes, JEV). PARADA A PEDIDO DO OPERADOR no meio da execução.**
+>
+> - **Conferido em produção (banco, 22/10):** `turn` v40 no ar (4 turnos com `agent_version = 40`); score gravando (`leads.score` 70, faixa
+>   quente, com perfil e gancho); balão do gancho ainda não provado (nenhuma conversa na v40 chegou à oferta). O segredo `BUSINESS_CONFIG` não
+>   foi lido (a sessão barrou a leitura de credencial); o operador diz que colou o de 21/10.
+> - **Causa do Hermes não ter rodado:** confirmada — `hermes_runs` vazia; a Action roda todo dia e sai em 2 s com "42 leads, espera 50".
+> - **Feito e commitado (nada publicado, nenhuma migração aplicada):**
+>   - Datas e congelamento fora de todos os planos e docs (R29.15).
+>   - Onda 0: −10 por toque sem resposta na varredura (`afterUnansweredTouch`; lead que esfria não recebe `silence_2/3`); frete do kit lido
+>     (`prepayFreight` com todas as peças; Playwright 13/13 iguais ao checkout); linha de estoque volta uma vez (`profileMarks`); pergunta vaga
+>     adiada marca; marcas por `lead_profile_mark` (0030); `allowUnverified` fora do código; referência de mercado
+>     (`docs/agente-ia/10-auditoria/referencia-de-mercado.md`). Revisão Opus: 1 bloqueante (frete do kit em região de entrega) corrigido.
+>   - Onda 1: `hermes_backlog` 50 leads ou 25 em 10 dias (0031); `--check-due` antes de instalar o Hermes; calibração nova (rodadas, 4
+>     defeitos por classe, transcrições sintéticas da auditoria); skill com auditoria de promessas resposta por resposta.
+>   - Ondas 2–5 (JEV, em sombra, só no CI): `jev.ts`, `jev-questions.ts` (16 perguntas), `jev-analysis.ts`, `jev-gold.ts` + `pnpm jev:avaliar`,
+>     `timing.ts` + 0032 (views de tempo, `jev_judgments`), segunda opinião na Rotina (`DECIDIR.md`), conjunto de ouro de 230 itens
+>     (`hermes/jev-ouro.json`) e amostra de 30 para o operador (`hermes/jev-ouro-amostra.md`). Revisões de código e de segurança (Opus):
+>     achados corrigidos (dado pessoal mascarado em `jev.md`/`timing.md`, query dos links fora do que vai à TypeSafe, prazo de 6 min e 4
+>     chamadas em paralelo, `hermes_runs` sem as colunas do JEV antes da 0032, latência sem a recepção, régua só com os toques dela).
+>   - Validação no último commit: `pnpm test` 8794 verdes, `typecheck`, `lint`, `typecheck:function` (Deno), `dev:conversas` 1655/1655,
+>     `dev:gates` 0 afrouxamentos; mutações 750/752 (as 2 que escaparam foram atualizadas, **não reconferidas**).
+> - **Parou no meio:**
+>   - **Calibração do Hermes:** 2 de 8 rodadas novas (US$ 0,018, `-contributor`, sintético): mentira 2/8 (25%), resposta pronta 4/8, link
+>     repetido 4/8 — **abaixo da barra de 80%**. A 1ª rodada (modelo padrão, US$ 0,62) plantou mentiras que os gates já vetam (0/4: erro do
+>     desenho, corrigido). Gasto total da calibração ≈ US$ 0,64.
+>   - **Mutações:** não rodadas de novo depois das últimas mudanças (`pnpm verificar:guardas`).
+> - **Falta, nesta ordem:**
+>   1. Rodar `pnpm verificar:guardas` e uma revisão Opus final do diff `53476ec..HEAD`.
+>   2. Aplicar em produção 0030 (antes do deploy), 0031 e 0032; `NODE_USE_ENV_PROXY=1 pnpm deploy:turn` (v41); `job:"health"`.
+>   3. Calibração: terminar as rodadas (`pnpm hermes:calibrar --trials=8 --model=muse-spark-1.3-contributor`) e melhorar a skill até 80% por
+>      classe; depois a primeira rodada de produção forçada (P1.5: workflow `hermes.yml` com `force`, depois do merge).
+>   4. **JEV — precisa do operador:** criar a conta na TypeSafe e gravar `TYPESAFE_API_KEY` no GitHub Actions **depois** da 0032; conferir a
+>      amostra `hermes/jev-ouro-amostra.md`; rodar `TYPESAFE_API_KEY=… pnpm jev:avaliar` (grava `hermes/jev-aprovadas.json`; sem esse arquivo
+>      nenhuma pergunta de mensagem é feita).
+>   5. P3.3: avaliar custo e eficiência da análise "o que a Malu deveria ter dito" nas primeiras rodadas reais (`hermes_runs.jev_cost_usd`,
+>      vereditos em `jev_judgments.label`). P5.2: comparar prontidão do JEV × `score_band` × pedido com tráfego real.
+>   6. PR desta branch para a `main` (não aberto).
+> - **Achados para o operador:** "pode pagar no boleto", "o horário você escolhe no checkout" e "quem leva é o carteiro dos Correios" passam em
+>   todos os gates e o prompt desmente as três (gate só por frase real, R21.6); o CEP geral de Recife (50010000) não acha região na consulta
+>   do agente; pós-parto no prompt (P0.1) não feito porque somaria tokens em todo turno.
+> - Grafo [§124](docs/documentacao/decisoes/04-grafo-de-decisoes.md), decisões R30 em `docs/documentacao/decisoes/03-decisoes-tomadas.md`.
+
 > **2026-10-21 (noite) — `turn` v40 NO AR (plano 16). Corrige o bloco da tarde logo abaixo, que dizia "NÃO publicado" e "v39 no ar".**
 >
 > - **No ar:** `turn` **v40** = `agent_versions` 40, função `turn` v150, commit `fbb6f19`, 21/10 ~21h11 UTC, via `pnpm deploy:turn`. A v39 que

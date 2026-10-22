@@ -2,6 +2,8 @@
  * The timing of the conversations, for Hermes (P3.3, operator 2026-10-22): read from the SQL views of 0032, never computed by a
  * model ("SQL, porque o JEV erra em tempo"). Pure: rows in, markdown out.
  */
+import { maskPii } from "./hermes-core.js";
+
 type Row = Record<string, unknown>;
 const n = (x: unknown) => (typeof x === "number" ? x : Number(x ?? 0));
 const pct = (a: number, b: number) => (b > 0 ? `${Math.round((100 * a) / b)}%` : "—");
@@ -17,7 +19,8 @@ export const renderTiming = (t: { latency: Row[]; ruler: Row[]; byHour: Row[]; l
   const answered = t.byHour.filter((r) => n(r.sent) >= 3).sort((a, b) => n(b.answered_24h) / n(b.sent) - n(a.answered_24h) / n(a.sent));
   const words = new Map<string, number>();
   for (const r of t.lastWord) {
-    const k = String(r.body ?? "").replace(/\s+/g, " ").slice(0, 120);
+    // Malu's checkout link carries her name, phone and CPF in the query: masked like the conversations (security review, 2026-10-22).
+    const k = maskPii(String(r.body ?? "")).replace(/\s+/g, " ").slice(0, 120);
     words.set(k, (words.get(k) ?? 0) + 1);
   }
   return [

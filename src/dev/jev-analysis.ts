@@ -21,6 +21,7 @@ import {
   type Exchange,
 } from "./jev-questions.js";
 import type { Conversation } from "./persona-scorecard.js";
+import { maskPii } from "./hermes-core.js";
 
 export type Ask = (state: string, questions: Readonly<Record<string, JevQuestion>>) => Promise<JevResult | null>;
 
@@ -38,14 +39,25 @@ export interface JevRun {
   exchanges: Exchange[];
   calls: number;
   failed: number;
+  /** Calls not made because the wall-clock deadline passed (the job's 30 minutes are shared with Hermes). */
+  skipped: number;
   costUsd: number;
 }
 
 const pick = (all: Readonly<Record<string, JevQuestion>>, ids: ReadonlySet<string>) => Object.fromEntries(Object.entries(all).filter(([id]) => ids.has(id)));
 
-/** Asks the approved questions: one call per exchange for her message, one for Malu's reply, one per conversation for readiness. */
-export const analyse = async (conversations: readonly Conversation[], approved: ReadonlySet<string>, ask: Ask): Promise<JevRun> => {
-  const run: JevRun = { judgments: [], exchanges: [], calls: 0, failed: 0, costUsd: 0 };
+/**
+ * Asks the approved questions: one call per exchange for her message, one for Malu's reply, one per conversation for readiness.
+ * `concurrency` calls at a time; past `deadline` (epoch ms) no call starts — the rest is counted as `skipped` (code review: 800
+ * serial calls would eat the job's 30 minutes).
+ */
+export const analyse = async (
+  conversations: readonly Conversation[],
+  approved: ReadonlySet<string>,
+  ask: Ask,
+  opts: { deadline?: number; concurrency?: number } = {},
+): Promise<JevRun> => {
+  const run: JevRun = { judgments: [], exchanges: [], calls: 0, failed: 0, skipped: 0, costUsd: 0 };
   const inbound = pick(INBOUND, approved);
   const reply = { ...pick(AUDIT, approved), ...pick(MISSED, approved) };
   const readiness = pick(READINESS, approved);
@@ -58,14 +70,28 @@ export const analyse = async (conversations: readonly Conversation[], approved: 
     run.costUsd += r.costUsd;
     for (const [question, answer] of Object.entries(r.answers)) run.judgments.push({ conversa, mensagem, question, answer, model: r.model });
   };
+  const tasks: Array<() => Promise<void>> = [];
+  const call = (state: string, qs: Readonly<Record<string, JevQuestion>>, conversa: string, mensagem: number) =>
+    tasks.push(async () => {
+      if (opts.deadline !== undefined && Date.now() > opts.deadline) {
+        run.skipped += 1;
+        return;
+      }
+      record(await ask(state, qs), conversa, mensagem);
+    });
   for (const c of conversations) {
     for (const x of exchanges(c)) {
       run.exchanges.push(x);
-      if (Object.keys(inbound).length) record(await ask(inboundState(x), inbound), x.conversa, x.mensagem);
-      if (x.answeredByModel && Object.keys(reply).length) record(await ask(replyState(x), reply), x.conversa, x.mensagem);
+      if (Object.keys(inbound).length) call(inboundState(x), inbound, x.conversa, x.mensagem);
+      if (x.answeredByModel && Object.keys(reply).length) call(replyState(x), reply, x.conversa, x.mensagem);
     }
-    if (Object.keys(readiness).length) record(await ask(conversationState(c), readiness), c.persona, 0);
+    if (Object.keys(readiness).length) call(conversationState(c), readiness, c.persona, 0);
   }
+  let next = 0;
+  const worker = async () => {
+    while (next < tasks.length) await tasks[next++]!();
+  };
+  await Promise.all(Array.from({ length: Math.max(1, Math.min(opts.concurrency ?? 1, tasks.length)) }, worker));
   return run;
 };
 
@@ -97,8 +123,9 @@ export const renderJev = (run: JevRun, approved: Approved | null, meta: { conver
   const ex = (j: Judgment) => run.exchanges.find((x) => x.conversa === j.conversa && x.mensagem === j.mensagem);
   const line = (j: Judgment) => {
     const x = ex(j);
-    const said = (x?.maluDepois ?? "").replace(/\s+/g, " ").slice(0, 160);
-    const her = (x?.cliente ?? "").replace(/\s+/g, " ").slice(0, 120);
+    // Masked like the conversations Hermes reads (R6.3; security review of 2026-10-22): jev.md goes to the Hermes model too.
+    const said = maskPii(x?.maluDepois ?? "").replace(/\s+/g, " ").slice(0, 160);
+    const her = maskPii(x?.cliente ?? "").replace(/\s+/g, " ").slice(0, 120);
     return `  - ${j.conversa}, Malu ${j.mensagem}: cliente "${her}" → Malu "${said}"`;
   };
   const section = (title: string, ids: readonly string[]) => {
@@ -119,10 +146,10 @@ export const renderJev = (run: JevRun, approved: Approved | null, meta: { conver
     "conferir lendo a conversa**, não fato: cite só o que você confirmar no texto de `conversas/`. Onde o JEV aponta promessa numa",
     "resposta que saiu, os gates de hoje a deixaram passar — **o gate tem a palavra final** até a confiabilidade do JEV ser medida.",
     "",
-    `Conversas: ${meta.conversations} · trocas lidas: ${run.exchanges.length} · chamadas: ${run.calls} (falharam ${run.failed}) · custo US$ ${run.costUsd.toFixed(4)}` +
+    `Conversas: ${meta.conversations} · trocas lidas: ${run.exchanges.length} · chamadas: ${run.calls} (falharam ${run.failed}, puladas pelo tempo ${run.skipped}) · custo US$ ${run.costUsd.toFixed(4)}` +
       ` (US$ ${(run.costUsd / Math.max(meta.conversations, 1)).toFixed(5)} por conversa)`,
     objCount ? `\nObjeções por tipo: ${objCount}` : "",
-    ready.length ? `\nProntidão no fim (JEV): fria ${ready.filter((r) => r === 0).length} · morna ${ready.filter((r) => r === 1).length} · quente ${ready.filter((r) => r === 2).length}` : "",
+    ready.length ? `\nProntidão no fim (JEV, pergunta ainda não medida no conjunto de ouro): fria ${ready.filter((r) => r === 0).length} · morna ${ready.filter((r) => r === 1).length} · quente ${ready.filter((r) => r === 2).length}` : "",
     "",
     ...section("A cliente (analista de mensagens)", Object.keys(INBOUND)),
     ...section("Promessas que passaram pelos gates (divergência gate × JEV: o gate vale)", Object.keys(AUDIT)),

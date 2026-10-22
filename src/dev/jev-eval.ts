@@ -31,6 +31,8 @@ for (const item of items) {
 const scores = scoreGold(items, answers);
 const report = renderGold(scores, { model, items: items.length, costUsd: budget.spentUsd });
 writeFileSync("hermes/jev-avaliacao.md", `${report}\n`);
-writeFileSync("hermes/jev-aprovadas.json", `${JSON.stringify(approvedFile(scores, model, new Date().toISOString()), null, 2)}\n`);
+// The pinned id, not the API's spelling of it: `approvedOf` compares with JEV_MODEL (code review).
+if (model !== JEV_MODEL) console.warn(`jev: a API respondeu como ${model}; as aprovadas ficam para ${JEV_MODEL}, o fixado`);
+writeFileSync("hermes/jev-aprovadas.json", `${JSON.stringify(approvedFile(scores, JEV_MODEL, new Date().toISOString()), null, 2)}\n`);
 console.log(report);
 console.log(`\nchamadas ${budget.calls} · recusadas pelo teto ${budget.refused}`);

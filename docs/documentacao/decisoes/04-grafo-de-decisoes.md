@@ -4077,6 +4077,10 @@ kit, `allowUnverified`); `tests/jev.test.ts`, `tests/hermes-calibrate.test.ts`, 
 Correios, e você paga pra ele" passam em todos os gates e o prompt desmente as três — candidatas a gate quando aparecerem numa conversa real
 (R21.6). (b) O CEP geral de Recife (50010000) não acha região na consulta do agente.
 
+**Estado (2026-10-22, parada a pedido do operador):** tudo commitado na branch, **nada publicado e nenhuma migração aplicada**. Calibração:
+2 de 8 rodadas, abaixo da barra (mentira 25%, resposta pronta 50%, link 50%). O JEV espera a chave da TypeSafe e o `jev:avaliar`. O que falta
+está no quadro do topo do `HANDOFF.md`.
+
 **Resíduos aceitos.** A lead que esfria no meio da régua chega a `perdido` no `silence_3`, não no `silence_1`; a linha de estoque não usada volta
 uma vez só; P4.1 e a prontidão (P5.2) não passam pelo conjunto de ouro (não há ouro de proposta nem de conversa inteira): ficam informativas.
 

@@ -33,7 +33,7 @@ uma. Nada do que você escreve vai para produção sem ele.
   escolhidas: primeiro as que tiveram opt-out, resposta pronta, handoff ou veto, depois
   algumas sem sinal nenhum — leia as duas, a mentira que passou não deixa sinal. Em cada resposta da Malu aparecem os
   vetos que ela levou antes de sair (`veto: <gate> — <motivo>`) e o desfecho do turno. Dados
-  pessoais estão mascarados (`[telefone]`, `[cpf]`, `[cep]`, `[email]`). Nas conversas de
+  pessoais estão mascarados (`[telefone]`, `[cpf]`, `[cep]`, `[email]`), em `conversas/`, `jev.md` e `timing.md`. Nas conversas de
   produção, a linha `versão da Malu: vN` diz sob que versão ela rodou.
 - `timing.md` — o tempo das conversas, das views do banco: quanto a Malu demora, qual toque da régua traz a
   cliente de volta, o horário em que ela responde e **a última mensagem da Malu antes de a cliente sumir**. Use os

@@ -95,7 +95,15 @@ export interface Exchange {
 }
 
 const MAX_MALU = 1200;
-const clip = (s: string, n = MAX_MALU) => (s.length > n ? `${s.slice(0, n)}…` : s);
+/**
+ * The text as it goes to Jev: the original message (operator, P2.3), minus the query string of a link — Malu's checkout link
+ * carries the lead's name, phone and CPF there, which is no part of what any question reads (security review of 2026-10-22).
+ */
+export const forJev = (s: string): string => s.replace(/(https?:\/\/[^\s?]+)\?\S*/g, "$1");
+const clip = (s: string, n = MAX_MALU) => {
+  const t = forJev(s);
+  return t.length > n ? `${t.slice(0, n)}…` : t;
+};
 
 /**
  * Every exchange of a conversation where Malu answered her: the receipt (`welcomed`) and the opening are not Malu deciding what to
@@ -129,7 +137,12 @@ export const exchanges = (c: Conversation): Array<Exchange & { answeredByModel: 
       replies.push(e.text ?? "");
     }
     if (replies.length === 0) break;
-    out.push({ conversa: c.persona, mensagem: first || maluCount, maluAntes: clip(lastMalu), cliente: hers.join("\n").trim(), maluDepois: clip(replies.join("\n\n")), answeredByModel: model });
+    // Answered only by the receipt: no reply of Malu's to number (code review: it took the previous reply's number).
+    if (!first) {
+      lastMalu = replies.at(-1) ?? "";
+      continue;
+    }
+    out.push({ conversa: c.persona, mensagem: first || maluCount, maluAntes: clip(lastMalu), cliente: forJev(hers.join("\n").trim()), maluDepois: clip(replies.join("\n\n")), answeredByModel: model });
     lastMalu = replies.at(-1) ?? "";
   }
   return out;
@@ -141,7 +154,7 @@ export const replyState = (x: Exchange): string => `${inboundState(x)}\n\nRespos
 
 /** The whole conversation for the readiness score, newest end kept when it is long. */
 export const conversationState = (c: Conversation, max = 6000): string => {
-  const text = c.transcript.map((e) => `${e.from === "persona" ? "Cliente" : "Malu"}: ${e.text ?? ""}`).join("\n");
+  const text = forJev(c.transcript.map((e) => `${e.from === "persona" ? "Cliente" : "Malu"}: ${e.text ?? ""}`).join("\n"));
   return text.length > max ? `…${text.slice(-max)}` : text;
 };
 

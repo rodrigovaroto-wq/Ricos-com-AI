@@ -5,7 +5,8 @@
 --    operator's verdict on a flag, null until given: the precision of each question is measured from it, and the gate keeps
 --    the last word until it is (P3.2).
 -- 2. Timing views (P3.3: "SQL, porque o JEV erra em tempo"): the reply latency, the ruler touch that brings her back, the hour
---    a touch is answered, and Malu's last word before a lead went silent. Counts and Malu's own text only — no customer text.
+--    a touch is answered, and Malu's last word before a lead went silent. Counts and Malu's own text only — no message of hers;
+--    but Malu's checkout link carries the lead's name, phone and CPF in its query, so `renderTiming` masks it (`maskPii`).
 -- 3. `hermes_runs.jev_*`: what Jev cost a run and how many calls it made (P3.3: weigh the analysis at scale).
 --
 -- Idempotent. Applied before or after the code: the code swallows a missing table or view (the run goes on without it).
@@ -49,6 +50,13 @@ join lateral (
   order by m.created_at limit 1
 ) o on true
 where i.direction = 'inbound' and l.phone not like '5500099%'
+  -- Not her first message: its "reply" is the automatic receipt, sent in about a second (code review).
+  and i.created_at > (select min(m.created_at) from public.messages m where m.conversation_id = i.conversation_id and m.direction = 'outbound')
+  -- The last message of a burst only: the reply answers the burst, timed from her last word.
+  and not exists (
+    select 1 from public.messages b
+    where b.conversation_id = i.conversation_id and b.direction = 'inbound' and b.created_at > i.created_at and b.created_at < o.created_at
+  )
 group by 1;
 
 -- Which ruler touch brings her back: of the touches sent, how many got a message of hers within 24 h.
@@ -65,6 +73,7 @@ from public.followups f
 join public.conversations c on c.id = f.conversation_id
 join public.leads l on l.id = c.lead_id
 where f.status = 'sent' and f.sent_at is not null and l.phone not like '5500099%'
+  and f.kind in ('still_there', 'silence_1', 'silence_2', 'silence_3', 'checkout_reminder')
 group by f.kind;
 
 -- The hour (São Paulo) a touch goes out and whether it is answered within 24 h: when to touch.
@@ -81,6 +90,7 @@ from public.followups f
 join public.conversations c on c.id = f.conversation_id
 join public.leads l on l.id = c.lead_id
 where f.status = 'sent' and f.sent_at is not null and l.phone not like '5500099%'
+  and f.kind in ('still_there', 'silence_1', 'silence_2', 'silence_3', 'checkout_reminder')
 group by 1;
 
 -- Malu's last word before a lead with no order went silent for a day: the message that "killed" the conversation, Malu's own

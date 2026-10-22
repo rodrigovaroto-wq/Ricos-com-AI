@@ -256,8 +256,9 @@ const jevIds = new Set([
   ...Object.keys(approvedOf(MISSED, jevApproved, JEV_MODEL)),
   ...Object.keys(READINESS),
 ]);
+// A wall-clock budget too (code review): the job has 30 minutes for install, Jev and Hermes; Jev gets 6 of them, 4 calls at a time.
 const jevRun: JevRun | null = jevKey
-  ? await analyse(conversations, jevIds, (state, questions) => askJev(state, questions, { apiKey: jevKey, budget: jevBudget }))
+  ? await analyse(conversations, jevIds, (state, questions) => askJev(state, questions, { apiKey: jevKey, budget: jevBudget }), { deadline: Date.now() + 6 * 60_000, concurrency: 4 })
   : null;
 writeFileSync(
   join(bundle, "jev.md"),
@@ -389,9 +390,9 @@ console.log(md);
 console.log(`\nescrito em ${file}`);
 
 if (writeDb) {
-  const [run] = await rest<Array<{ id: string }>>("hermes_runs", {
-    method: "POST",
-    body: JSON.stringify({
+  // Before 0032 the jev columns do not exist: the row goes again without them, never lost after Hermes was paid (code review).
+  const insertRun = (row: Record<string, unknown>) => rest<Array<{ id: string }>>("hermes_runs", { method: "POST", body: JSON.stringify(row) });
+  const runRow: Record<string, unknown> = {
       source,
       model,
       conversations_seen: conversations.length,
@@ -406,7 +407,12 @@ if (writeDb) {
       ...(conversationIds.length ? { conversation_ids: conversationIds } : {}),
       // 0032: only when Jev ran, so a run without the key never names the columns.
       ...(jevRun ? { jev_cost_usd: Math.round(jevBudget.spentUsd * 1e6) / 1e6, jev_calls: jevBudget.calls } : {}),
-    }),
+  };
+  const [run] = await insertRun(runRow).catch((e: Error) => {
+    if (!jevRun) throw e;
+    console.warn(`hermes_runs sem as colunas do JEV (0032 não aplicada?): ${e.message.slice(0, 120)}`);
+    const { jev_cost_usd: _c, jev_calls: _n, ...withoutJev } = runRow;
+    return insertRun(withoutJev);
   });
   // Every Jev answer of a production run, by conversation and reply, never the text (0032): the operator's verdicts on the flags
   // (`label`) measure each question's precision; until then the gate keeps the last word (P3.2).

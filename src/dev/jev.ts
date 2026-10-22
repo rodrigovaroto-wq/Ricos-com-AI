@@ -51,7 +51,10 @@ export const readAnswer = (q: JevQuestion, a: unknown): JevAnswer | null => {
   const o = a as Record<string, unknown> | null;
   if (!o || typeof o !== "object") return null;
   if (q.type === "noul") return num(o.noul) && o.noul >= 0 && o.noul <= 1 ? { type: "noul", noul: o.noul } : null;
-  const probabilities = o.probabilities && typeof o.probabilities === "object" ? (o.probabilities as Record<string, number>) : null;
+  // Only finite numbers under the keys asked: the rest of the API's object never reaches jev_judgments (security review, LOW 3).
+  const keys = q.type === "choice" ? Object.keys(q.criteria) : q.criteria.map((_, i) => String(i));
+  const raw = o.probabilities && typeof o.probabilities === "object" ? (o.probabilities as Record<string, unknown>) : null;
+  const probabilities = raw ? Object.fromEntries(keys.filter((k) => num(raw[k])).map((k) => [k, raw[k] as number])) : null;
   if (!probabilities || !num(o.confidence)) return null;
   if (q.type === "choice") return typeof o.choice === "string" && o.choice in q.criteria ? { type: "choice", choice: o.choice, confidence: o.confidence, probabilities } : null;
   return num(o.score) && o.score >= 0 && o.score <= q.criteria.length - 1 ? { type: "score", score: o.score, confidence: o.confidence, probabilities } : null;
@@ -103,7 +106,9 @@ export const askJev = async (
       const a = readAnswer(q, j.answers?.[id]);
       if (a) answers[id] = a;
     }
-    return { model: typeof j.model === "string" ? j.model : (opts.model ?? JEV_MODEL), answers, inputTokens, costUsd };
+    // The version that answered, only in its own shape (security review, LOW 4).
+    const answeredBy = typeof j.model === "string" && /^jev-[\w.]+$/.test(j.model) ? j.model : (opts.model ?? JEV_MODEL);
+    return { model: answeredBy, answers, inputTokens, costUsd };
   } catch {
     return null;
   }
