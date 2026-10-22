@@ -5,7 +5,8 @@
  *   TYPESAFE_API_KEY=… pnpm jev:avaliar            # writes hermes/jev-aprovadas.json and hermes/jev-avaliacao.md
  *
  * The gold set (`hermes/jev-ouro.json`) is synthetic: persona conversations of the audit, labeled by Claude against the rubric
- * of 2026-10-22 and checked by the operator on a sample of 30. Cost: ~150 items × 2 calls, a few cents; capped at US$ 0.15.
+ * of 2026-10-22, plus 80 items written for the questions the transcripts had too few "sim" for (`fonte: escrito`), checked by the operator
+ * on a sample of 30 (`hermes/jev-ouro-amostra.md`). Cost: 230 items × 2 calls, a few cents; capped at US$ 0.15.
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { JevBudget, JEV_MODEL, askJev, type JevAnswer } from "./jev.js";

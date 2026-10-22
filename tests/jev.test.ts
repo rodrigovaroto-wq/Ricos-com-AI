@@ -177,3 +177,24 @@ describe("renderTiming: números das views, nunca do modelo", () => {
     expect(md).toContain('- 2× "Qual o número da calça?"');
   });
 });
+
+describe("o conjunto de ouro (hermes/jev-ouro.json)", () => {
+  it("toda pergunta de sim/não tem pelo menos 10 casos de sim e de não; todo item rotula as 16", async () => {
+    const { readFileSync } = await import("node:fs");
+    const gold = JSON.parse(readFileSync("hermes/jev-ouro.json", "utf8")) as Array<{ id: string; labels: Record<string, unknown> }>;
+    const ids = Object.keys({ ...INBOUND, ...AUDIT, ...MISSED });
+    expect(gold.length).toBeGreaterThanOrEqual(150);
+    for (const g of gold) expect(Object.keys(g.labels).sort(), g.id).toEqual([...ids].sort());
+    for (const q of ids.filter((q) => typeof gold[0]!.labels[q] === "boolean")) {
+      expect(gold.filter((g) => g.labels[q] === true).length, q).toBeGreaterThanOrEqual(MIN_EACH);
+      expect(gold.filter((g) => g.labels[q] === false).length, q).toBeGreaterThanOrEqual(MIN_EACH);
+    }
+  });
+  it("só texto sintético: nenhum telefone, CPF ou e-mail", async () => {
+    const { readFileSync } = await import("node:fs");
+    const raw = readFileSync("hermes/jev-ouro.json", "utf8");
+    expect(raw).not.toMatch(/\b\d{10,13}\b/);
+    expect(raw).not.toMatch(/\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/);
+    expect(raw.replace(/contato@encorpa-fashion\.com\.br/g, "")).not.toMatch(/[\w.]+@[\w-]+\.\w+/);
+  });
+});

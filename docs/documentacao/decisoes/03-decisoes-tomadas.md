@@ -2279,4 +2279,28 @@ Os itens R20.1 a R20.9 seguem a numeração D1–D8 do plano, mais a regra de fi
   Planos 13, 14 e 16 e os docs de negócio perderam o calendário do L3 (23/10, 08–09/11, E7 a partir de 10/11); o L3 começa quando o operador
   ligar o tráfego e a leitura é ao fim dele. Completa R29.2 (que só superava as datas).
 - ~~**Perguntas abertas ao operador (conformidade):** âncora de R$ 216,50 já praticada?~~ ✅ respondida em R29.12; ~~LGPD art. 11~~ ✅ decidida em
-  R29.14. **Ainda abertas:** ANVISA em "pós-parto"/"postura"; Logzz e desconto por quantidade com pedido pendente; retirar `allowUnverified` do segredo.
+  R29.14. ~~**Ainda abertas:** ANVISA em "pós-parto"/"postura"; Logzz e desconto por quantidade com pedido pendente; retirar `allowUnverified` do segredo.~~
+  ✅ fechadas em R30.2–R30.3 (2026-10-22).
+
+## Rodada 30 — operador, 2026-10-22: resíduos do plano 16, Hermes destravado, JEV ao lado do Hermes
+
+Grafo [§124](04-grafo-de-decisoes.md). Propostas P0–P5 aprovadas, ajustadas ou recusadas pelo operador numa resposta só.
+
+- **R30.1 — Referência de mercado:** sem histórico do fluxo manual, a régua é a mediana de mercado
+  ([`referencia-de-mercado.md`](../../agente-ia/10-auditoria/referencia-de-mercado.md)): conversa → pedido 10%, recusa na porta 25% (12,5% com
+  confirmação). Completa R29.3.
+- **R30.2 — Postura liberada, pós-parto fora:** "ajuda na postura / dá apoio enquanto está vestido" segue (já no ar desde R16.6); pós-parto fica
+  fora. A linha de prompt sobre pós-parto (P0.1) **não foi feita**: o operador condicionou a não aumentar custo, e toda linha de prompt soma
+  tokens em todo turno; o gate `health_claim` e a proibição do gancho seguem valendo.
+- **R30.3 — `allowUnverified` sai:** só escassez real (estoque da Logzz, `scarcity.lowStock`). A chave sai do tipo, do gate e do fallback do
+  código (`scarcity: { unitsLeft: 12, allowUnverified: true }`); um segredo que ainda a traga não libera nada. "Desconto por quantidade com
+  pedido pendente na Logzz": o operador disse que não há o que fazer.
+- **R30.4 — Resíduos do plano 16 resolvidos:** o −10 do toque sem resposta, o frete do kit, a linha de estoque que volta uma vez, a marca nos
+  caminhos que encerram antes e a marca que grava só as próprias chaves. **Marcados "isso não é um problema"** pelo operador: "O GG está acabando"
+  sem consulta, "esgota amanhã" com estoque real, e os contadores do perfil em dobro no turno substituído.
+- **R30.5 — Hermes:** roda com 50 leads **ou** 25 leads depois de 10 dias (0031); a Action pergunta antes de instalar; calibração com 30–50
+  defeitos por classe. Os números de teste do operador continuam contando (P1.3: "não precisa").
+- **R30.6 — JEV:** integração direta (sem o pacote hermes-jev-skills inteiro), só no CI, em modo sombra; o texto **original** vai à TypeSafe
+  (P2.3); uma pergunta só entra com **90%** no conjunto de ouro em português; teto de **US$ 0,15** por rodada; onde o JEV e o gate discordam, **o
+  gate vale** até a confiabilidade do JEV ser medida; a análise do que a Malu deveria ter dito é avaliada em custo e eficiência antes de ficar.
+
