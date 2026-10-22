@@ -4032,6 +4032,54 @@ real na v40 prova (`leads.score`, `turn_outcomes.agent_version = 40`). Decisões
 por inteiro (R29.2 só superava as datas). Removidos dos planos 13, 14 e 16, de `06-modelo-economico.md`, `taxas-antecipadas-cod.md` e da memória
 `modelo-de-caixa-do-teste`; as datas de fatos já ocorridos ficam. Guarda: nenhum documento novo marca dia de ação futura (sequência e condição, não calendário).
 
+## 124. Resíduos do plano 16, Hermes destravado e o JEV ao lado do Hermes (operador, 2026-10-22)
+
+Decisões R30 em [`03-decisoes-tomadas.md`](03-decisoes-tomadas.md). Branch `claude/determined-brown-7x0gx6`.
+
+**Sintoma.** (1) Cinco resíduos do §123 seguiam no ar: a varredura não tirava os 10 pontos do toque sem resposta; o frete do kit não era lido
+(o kit dizia "aparece no checkout"); a linha de estoque oferecida e não usada pelo modelo nunca voltava; o caminho adiado não marcava a
+pergunta vaga; a marca regravava o perfil inteiro. (2) O Hermes nunca rodou: `hermes_runs` vazia, a Action diária saía em 2 s. (3) O fallback
+do código ainda declarava `scarcity: { unitsLeft: 12, allowUnverified: true }`.
+
+**Causa.** (1) Atalhos aceitos no §123 por falta de frase real; o operador mandou resolver (R30.4). (2) `hermes_backlog.due` exige 50 leads e
+havia 42 (em 5 dias); e a Action instalava o Hermes (~8 min) antes de perguntar. (3) A chave de 2026-09-08 nunca saiu do fallback.
+
+**Correção.**
+- `afterUnansweredTouch` (profile.ts): cada toque que sai tira 10, sobre o `score_at` que a varredura leu (o turno que recalculou vence); uma
+  lead que esfriou na régua não recebe `silence_2`/`silence_3` (`rulerForBand([row], …)` no `sweepRow`); dois toques do mesmo lead na mesma
+  varredura tiram 20 (`loweredScores`, revisão).
+- `prepayFreight` e `availabilityQuery` pedem todas as peças numa consulta, como o checkout do kit da Coinzz (Playwright 2026-10-22: G+GG em SP
+  33,17; G+GG+XGG 35,97; GG+GG 20,36 = um produto com quantidade 2; 13 casos iguais em 4 cidades onde os dois lados leram valor). O turno guarda
+  as peças lidas (`prepayFreightFor`), relê quando mudam e **descarta qualquer frete que não seja dessas peças numa região antecipada** — a
+  revisão Opus achou o frete G+M guardado numa região de entrega indo à cliente de 1 peça no turno seguinte (bloqueante, corrigido).
+- `profileMarks` + `MAX_STOCK_OFFERS = 2`: a linha de estoque conta como dita quando a resposta do modelo a diz (`claimsStock`, o leitor do
+  gate) ou depois da 2ª oferta não usada; a pergunta vaga adiada para a manhã marca; as marcas vão por `lead_profile_mark` (0030, `jsonb ||`).
+- `allowUnverified` saiu do tipo, do gate e do fallback (R30.3).
+- Hermes: `hermes_backlog` com 50 leads **ou** 25 depois de 10 dias (0031); `--check-due` antes da instalação; texto do PR corrigido.
+- Calibração nova (`hermes-calibrate-core.ts`): N rodadas com sementes, 4 defeitos por classe em conversas distintas mais 4 limpas, revocação por
+  classe, sobre as ~200 transcrições sintéticas da auditoria (`parsePersonaMd`).
+- JEV (TypeSafe) ao lado do Hermes, em sombra (R30.6): `jev.ts`, `jev-questions.ts` (16 perguntas), `jev-analysis.ts` (`jev.md`), `jev-gold.ts` /
+  `pnpm jev:avaliar` (230 itens; aprovada = 90% no "sim" **e** no "não", 10 de cada), `timing.ts` + views de tempo (0032), segunda opinião em
+  `evidence.jev` mostrada na Rotina, `jev_judgments` para o veredito do operador. O gate vale onde os dois discordam.
+
+**Caminhos que falharam.**
+- **Calibração com mentiras que os gates vetam** ("chega amanhã", "curar a dor"): 0/4 na primeira rodada. Não era o Hermes: a skill manda
+  deixar de fora a mentira "já vetada hoje". A mentira plantada tem de passar nos gates de hoje e ser desmentida por uma frase do prompt
+  (`LIES`: boleto, horário, correio; um teste exige as duas coisas).
+- **Calibração sobre as conversas reais:** 43 mensagens de cliente em 42 conversas, quase todas com uma resposta da Malu; não cabem 12 defeitos.
+- **Conjunto de ouro só das transcrições:** zero casos "sim" de saúde, desconto e escassez (os gates cortam). 80 itens escritos completaram.
+
+**Guardas.** Mutações `R30-*` em `verify-guards.ts` (toque sem resposta, toque sobre score novo, frete do kit em região de entrega, quantidade do
+kit, `allowUnverified`); `tests/jev.test.ts`, `tests/hermes-calibrate.test.ts`, `tests/persona-md.test.ts`, `tests/prepay-freight.test.ts`,
+`tests/profile.test.ts`, `tests/scarcity-real-stock.test.ts`.
+
+**Achados fora do pedido.** (a) "Você pode pagar no boleto também", "o horário da entrega você escolhe no checkout" e "quem leva é o carteiro dos
+Correios, e você paga pra ele" passam em todos os gates e o prompt desmente as três — candidatas a gate quando aparecerem numa conversa real
+(R21.6). (b) O CEP geral de Recife (50010000) não acha região na consulta do agente.
+
+**Resíduos aceitos.** A lead que esfria no meio da régua chega a `perdido` no `silence_3`, não no `silence_1`; a linha de estoque não usada volta
+uma vez só; P4.1 e a prontidão (P5.2) não passam pelo conjunto de ouro (não há ouro de proposta nem de conversa inteira): ficam informativas.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

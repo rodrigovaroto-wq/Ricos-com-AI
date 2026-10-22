@@ -6028,8 +6028,8 @@ const MUTATIONS: Mutation[] = [
     id: "P16-pergunta-vaga-pelo-perfil",
     bug: "a pergunta da objeção vaga saía de novo quando o modelo a reescrevia (quatro rodadas de /code-review do PR 77)",
     files: ["supabase/functions/turn/index.ts"],
-    from: "  const askedVague = guideReasons.includes(VAGUE_OBJECTION_REASON) && fallbackReason === null;",
-    to: "  const askedVague = false;",
+    from: "    vagueAsked: guideReasons.includes(VAGUE_OBJECTION_REASON) && fallbackReason === null,",
+    to: "    vagueAsked: false,",
     guard: ["pnpm", "-s", "vitest", "run", "tests/plan16-wiring.test.ts"],
   },
   {
@@ -6044,8 +6044,8 @@ const MUTATIONS: Mutation[] = [
     id: "P16-pergunta-marcada-na-resposta-pronta",
     bug: "a resposta pronta depois de cinco vetos marcava a pergunta da objeção vaga como feita (rodada 6 do /code-review do PR 77)",
     files: ["supabase/functions/turn/index.ts"],
-    from: "  const askedVague = guideReasons.includes(VAGUE_OBJECTION_REASON) && fallbackReason === null;",
-    to: "  const askedVague = guideReasons.includes(VAGUE_OBJECTION_REASON);",
+    from: "    vagueAsked: guideReasons.includes(VAGUE_OBJECTION_REASON) && fallbackReason === null,",
+    to: "    vagueAsked: guideReasons.includes(VAGUE_OBJECTION_REASON),",
     guard: ["pnpm", "-s", "vitest", "run", "tests/plan16-wiring.test.ts"],
   },
   {
