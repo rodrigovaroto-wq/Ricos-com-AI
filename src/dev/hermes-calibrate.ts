@@ -5,8 +5,13 @@
  * limpa, nada a propor" is only worth something if Hermes finds the problem when there is one — rerun after every change
  * to the skill (hermes/skills/encorpa-supervisor) or to the model.
  *
- *   pnpm hermes:calibrar --source=supabase [--trials=10] [--per-class=4] [--clean=4] [--seed=1]
+ *   pnpm hermes:calibrar --source=auditoria [--trials=10] [--per-class=4] [--clean=4] [--seed=1]
+ *   pnpm hermes:calibrar --source=supabase
  *   pnpm hermes:calibrar --source=personas:data/persona-runs/<dir> [--model=muse-spark-1.3-contributor]
+ *
+ * `auditoria` (the default for a calibration): the ~220 synthetic persona transcripts kept in git under
+ * docs/agente-ia/10-auditoria/personas-* (`parsePersonaMd`) — the real conversations were 43 messages on 2026-10-22, too few
+ * to plant 12 defects a trial, and most of them have one reply of Malu's.
  *
  * `supabase` reads real conversations (copies; nothing is written back) and runs the STANDARD model only — the
  * `-contributor` variant gives Meta the text for training (hermes-run refuses it on real conversations, and so does this).
@@ -20,18 +25,19 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { rowsToConversations, type Checked, type SupabaseRows } from "./hermes-core.js";
 import { renderCalibration, score, trial, type Planted } from "./hermes-calibrate-core.js";
+import { parsePersonaMd } from "./persona-md.js";
 import { SYNTHETIC_PHONE_PREFIX } from "./persona-run-core.js";
 import type { Conversation } from "./persona-scorecard.js";
 
 const args = process.argv.slice(2);
 const flag = (name: string) => args.find((a) => a.startsWith(`--${name}=`))?.split("=").slice(1).join("=");
-const source = flag("source") ?? "";
+const source = flag("source") ?? "auditoria";
 const trials = Number(flag("trials") ?? 10);
 const perClass = Number(flag("per-class") ?? 4);
 const clean = Number(flag("clean") ?? 4);
 const seed = Number(flag("seed") ?? 1);
 const model = flag("model") ?? "muse-spark-1.3";
-if (!/^personas:.+|^supabase$/.test(source)) throw new Error("uso: pnpm hermes:calibrar --source=supabase | --source=personas:<pasta>");
+if (!/^personas:.+|^supabase$|^auditoria$/.test(source)) throw new Error("uso: pnpm hermes:calibrar --source=auditoria | supabase | personas:<pasta>");
 if (source === "supabase" && model.includes("contributor"))
   throw new Error("a variante -contributor cede os dados para treino da Meta: proibida sobre conversa real (LGPD)");
 
@@ -43,7 +49,14 @@ const rest = async <T>(path: string): Promise<T> => {
   return (await res.json()) as T;
 };
 
+const AUDIT = "docs/agente-ia/10-auditoria";
 const pool = async (): Promise<Conversation[]> => {
+  if (source === "auditoria") {
+    const files = readdirSync(AUDIT, { recursive: true, encoding: "utf8" })
+      .filter((f) => /personas-[^/]+\/.+\.md$/.test(f) && !/(?:^|\/)_/.test(f))
+      .sort();
+    return files.map((f, i) => parsePersonaMd(readFileSync(join(AUDIT, f), "utf8"), `persona-${String(i + 1).padStart(3, "0")}-${f.split("/").pop()!.replace(/\.md$/, "")}`));
+  }
   if (source.startsWith("personas:")) {
     const dir = source.slice("personas:".length);
     return readdirSync(dir).filter((f) => /^persona-.+\.json$/.test(f)).map((f) => JSON.parse(readFileSync(join(dir, f), "utf8")) as Conversation);

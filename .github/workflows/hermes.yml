@@ -11,7 +11,7 @@
 # operator's call. Nothing here deploys.
 #
 # Secrets (repository → Settings → Secrets and variables → Actions):
-#   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, META_API_KEY
+#   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, META_API_KEY, TYPESAFE_API_KEY (optional: Jev)
 name: Hermes
 
 on:
@@ -97,6 +97,8 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           META_API_KEY: ${{ secrets.META_API_KEY }}
+          # Jev, beside Hermes in shadow (P2.1, 2026-10-22). Absent: the run goes on without it.
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
           HERMES_BIN: hermes
           # Optional ceiling per run, in US$ (repository → Settings → Variables). Unset = none.
           HERMES_MAX_USD: ${{ vars.HERMES_MAX_USD }}

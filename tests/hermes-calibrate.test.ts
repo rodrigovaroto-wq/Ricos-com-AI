@@ -23,7 +23,7 @@ describe("plant: um defeito numa cópia, nunca no original", () => {
     const c = conv(1);
     const { conversation, planted } = plant(c, "mentira", 2);
     expect(planted).toEqual({ conversa: c.persona, cls: "mentira", needle: LIES[2] });
-    expect(conversation.transcript.at(-1)!.text).toContain("Ele ajuda a curar a dor nas costas também.");
+    expect(conversation.transcript.at(-1)!.text).toContain("Quem leva é o carteiro dos Correios, e você paga pra ele.");
     expect(c.transcript.at(-1)!.text).toBe("resposta 2 da Malu");
   });
   it("resposta pronta: a última resposta vira o texto pronto, com três vetos", () => {
@@ -68,7 +68,7 @@ describe("trial: perClass por classe em conversas distintas, mais as limpas", ()
 describe("found e score: a revocação por classe", () => {
   const p = { conversa: "conversa-00000001", cls: "mentira" as const, needle: LIES[0] };
   it("achado quando uma proposta válida cita o trecho, ou o run o pôs de lado porque os gates de hoje já vetam", () => {
-    expect(found([checkedCiting(p.conversa, `Ok! E chega amanhã certinho aí, pode ficar tranquila.`)], p)).toBe(true);
+    expect(found([checkedCiting(p.conversa, `Ok! Você pode pagar no boleto também.`)], p)).toBe(true);
     expect(found([checkedCiting(p.conversa, LIES[0], false, [ALREADY_VETOED])], p)).toBe(true);
   });
   it("não achado: outra conversa, proposta inválida por outro motivo, trecho curto demais", () => {
@@ -85,8 +85,25 @@ describe("found e score: a revocação por classe", () => {
     expect(scores.find((s) => s.cls === "mentira")).toEqual({ cls: "mentira", planted: 2, found: 1, trialsFound: 1, trials: 2 });
     expect(scores.find((s) => s.cls === "link_repetido")).toMatchObject({ planted: 1, found: 0, trials: 1 });
     const md = renderCalibration(scores, { trials: 2, costUsd: 0.12, model: "muse-spark-1.3", source: "supabase" });
-    expect(md).toContain("| mentira (prazo, desconto, saúde, escassez) | 2 | 1 | 50% | 1/2 |");
+    expect(md).toContain("| mentira que passa nos gates (boleto, horário, correio) | 2 | 1 | 50% | 1/2 |");
     expect(md).toContain("**Abaixo da barra:** link repetido (0%)");
     expect(md).toContain("US$ 0.1200");
+  });
+});
+
+describe("as mentiras plantadas passam nos gates de hoje e o prompt as desmente", () => {
+  it("nenhum gate veta, nos dois caminhos — a mentira que só o Hermes pode achar", async () => {
+    const { runGates } = await import("@/agent/guardrails.js");
+    const { ctx } = await import("./fixtures.js");
+    for (const lie of LIES)
+      for (const paymentPath of ["cod", "prepay"] as const)
+        expect(runGates(lie, ctx({ paymentPath, regionKnown: false })).traces.filter((t) => t.verdict === "block"), `${lie} / ${paymentPath}`).toEqual([]);
+  });
+  it("o prompt tem a frase que cada uma contradiz", async () => {
+    const { systemPrompt } = await import("@/agent/prompt.js");
+    const { gateBriefing } = await import("@/agent/guardrails.js");
+    const { config } = await import("./fixtures.js");
+    const p = systemPrompt(config, gateBriefing(config), null);
+    for (const rule of ["boleto não tem.", "Horário não se escolhe: ela escolhe o dia no checkout", "O pagamento na entrega não vem pelo correio"]) expect(p).toContain(rule);
   });
 });

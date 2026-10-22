@@ -312,7 +312,8 @@ describe("hermes: o documento de produção não leva citação de cliente", () 
     expect(run).toContain("const published = production ? withoutQuotes(checked) : checked;");
     expect(run).toContain("renderProposals(title, resumo, published)");
     expect(run).toContain("JSON.stringify({ resumo, checked: published, usage, costUsd }");
-    expect(run).toMatch(/ok\.map\(\(c, i\) =>[\s\S]*evidence: \{ \.\.\.storedEvidence\(c\), source \}/);
+    // Since 2026-10-22 (P4.1) Jev's second opinion rides beside the original, when it ran.
+    expect(run).toMatch(/ok\.map\(\(c, i\) =>[\s\S]*evidence: \{ \.\.\.storedEvidence\(c\), source, \.\.\.\(secondOpinion\.has\(i\) \? \{ jev: secondOpinion\.get\(i\) \} : \{\}\) \}/);
   });
 
   it("o banco grava só as chaves de uma proposta, com o trecho original", async () => {

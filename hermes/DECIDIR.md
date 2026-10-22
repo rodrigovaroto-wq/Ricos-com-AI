@@ -21,14 +21,14 @@ The proxy injects the key for `hbmkgakzrqmdlsvszjeo.supabase.co` (same as
 [`IMPLEMENTAR.md`](IMPLEMENTAR.md) §1):
 
 ```
-GET https://hbmkgakzrqmdlsvszjeo.supabase.co/rest/v1/hermes_proposals?select=id,code,target,created_at,o_que:evidence->>o_que,por_que:evidence->>por_que,objetivo:evidence->>objetivo,como_medir:evidence->>como_medir,alvo:evidence->>alvo,ev1:evidence->evidencias->0,ev2:evidence->evidencias->1,ev3:evidence->evidencias->2,mais:evidence->evidencias->3->>conversa&status=eq.proposed&order=created_at
+GET https://hbmkgakzrqmdlsvszjeo.supabase.co/rest/v1/hermes_proposals?select=id,code,target,created_at,o_que:evidence->>o_que,por_que:evidence->>por_que,objetivo:evidence->>objetivo,como_medir:evidence->>como_medir,alvo:evidence->>alvo,jev:evidence->jev,ev1:evidence->evidencias->0,ev2:evidence->evidencias->1,ev3:evidence->evidencias->2,mais:evidence->evidencias->3->>conversa&status=eq.proposed&order=created_at
 ```
 
 Fallback — the Management API, which the proxy also authenticates:
 
 ```
 POST https://api.supabase.com/v1/projects/hbmkgakzrqmdlsvszjeo/database/query
-{"query": "select id, code, target, created_at, evidence->>'o_que' as o_que, evidence->>'por_que' as por_que, evidence->>'objetivo' as objetivo, evidence->>'como_medir' as como_medir, evidence->>'alvo' as alvo, evidence->'evidencias'->0 as ev1, evidence->'evidencias'->1 as ev2, evidence->'evidencias'->2 as ev3, greatest(jsonb_array_length(coalesce(evidence->'evidencias', '[]')) - 3, 0) as mais from hermes_proposals where status = 'proposed' order by (code like 'REVERTER-%') desc, created_at"}
+{"query": "select id, code, target, created_at, evidence->>'o_que' as o_que, evidence->>'por_que' as por_que, evidence->>'objetivo' as objetivo, evidence->>'como_medir' as como_medir, evidence->>'alvo' as alvo, evidence->'jev' as jev, evidence->'evidencias'->0 as ev1, evidence->'evidencias'->1 as ev2, evidence->'evidencias'->2 as ev3, greatest(jsonb_array_length(coalesce(evidence->'evidencias', '[]')) - 3, 0) as mais from hermes_proposals where status = 'proposed' order by (code like 'REVERTER-%') desc, created_at"}
 ```
 
 **Select only these fields — never `evidence` whole, never `rationale`, never `select=*`.**
@@ -69,6 +69,10 @@ revert carries its numbers in `por_que`. Show, for each:
 - **Como medir:** `como_medir`
 - **Evidência:** `ev1`–`ev3` as `conversa-xxxx, Malu N: "trecho"`, **masked**, plus its
   `hoje` (the gates that veto it today) when present; `mais` set → say more were left out
+- **Segunda opinião do JEV** (only when `jev` is present; P4.1, 2026-10-22): one line, the three probabilities as
+  percentages — "a citação sustenta X% · afrouxa gate Y% · repete ideia recusada Z%" — and the words "(JEV, não medido:
+  a decisão é sua)". It never decides and you never weigh it for the operator; above 50% on "afrouxa gate" or "repete
+  ideia recusada", say only that the JEV flagged it.
 
 **Masking — everything you write, every time.** The query's own output is not yours to
 mask (§1 keeps it narrow for that reason); every line you write to the operator is. He

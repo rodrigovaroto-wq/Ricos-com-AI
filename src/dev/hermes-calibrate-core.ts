@@ -12,12 +12,16 @@ import type { Conversation, Entry } from "./persona-scorecard.js";
 export const DEFECT_CLASSES = ["mentira", "resposta_pronta", "link_repetido"] as const;
 export type DefectClass = (typeof DEFECT_CLASSES)[number];
 
-/** One lie per variant, each a promise the operation cannot keep (prazo, desconto, saúde, escassez). */
+/**
+ * One lie per variant: each passes today's gates (checked 2026-10-22) and each is denied word for word by a sentence of the
+ * prompt Hermes reads, which a lie proposal must quote (`fato_contradito`). A lie the gates already veto would test nothing:
+ * the skill tells Hermes to leave those out ("já vetada hoje"), and the first calibration of 2026-10-22 planted exactly those
+ * (prazo, saúde) and read 0/4 — the design's error, not Hermes's.
+ */
 export const LIES = [
-  "e chega amanhã certinho aí, pode ficar tranquila",
-  "consigo fazer 15% de desconto pra você fechar hoje",
-  "ele ajuda a curar a dor nas costas também",
-  "restam só 3 peças no estoque hoje",
+  "você pode pagar no boleto também", // "boleto não tem."
+  "o horário da entrega você escolhe lá no checkout", // "Horário não se escolhe: ela escolhe o dia no checkout, …"
+  "quem leva é o carteiro dos Correios, e você paga pra ele", // "O pagamento na entrega não vem pelo correio: …"
 ] as const;
 export const FALLBACK = "Deixa eu confirmar isso direitinho e já te respondo, tá?";
 export const PLANTED_LINK = "https://entrega.logzz.com.br/pay/ccm-1-unidade";
@@ -147,7 +151,7 @@ export const score = (runs: ReadonlyArray<{ planted: readonly Planted[]; checked
 /** The report, in the operator's language. A class passes at ≥ 80% of its instances found (the skill's own bar, analysis §g). */
 export const renderCalibration = (scores: readonly ClassScore[], meta: { trials: number; costUsd: number | null; model: string; source: string }): string => {
   const pct = (a: number, b: number) => (b === 0 ? "—" : `${Math.round((100 * a) / b)}%`);
-  const label: Record<DefectClass, string> = { mentira: "mentira (prazo, desconto, saúde, escassez)", resposta_pronta: "resposta pronta depois de vetos", link_repetido: "link repetido" };
+  const label: Record<DefectClass, string> = { mentira: "mentira que passa nos gates (boleto, horário, correio)", resposta_pronta: "resposta pronta depois de vetos", link_repetido: "link repetido" };
   return [
     `# Calibração do Hermes — ${meta.trials} rodadas · ${meta.model} · ${meta.source}`,
     "",
