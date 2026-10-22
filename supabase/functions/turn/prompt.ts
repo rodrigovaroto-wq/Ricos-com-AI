@@ -566,8 +566,8 @@ export const stockScarcityLine = (
  * Plan 16 §4.6–4.7: the stock line and the prepaid freight this turn may teach, the same values to the prompt and the gates.
  * Only inside the send window: a reply held for the morning is gated again by the sweep, which has neither. The stock only
  * from a region looked up in THIS turn (`fresh`; the up-to-an-hour cache is stale stock), on the delivery path, one piece,
- * said once (`stockSaid`). The freight only for one piece (a kit's freight is not this lookup's: G+GG in São Paulo is
- * R$ 33,17, docs/operacao/playwright-frete-2026-10-21), on the prepaid path, and never with free shipping on both paths.
+ * said once (`stockSaid`). The freight of what she is buying (the turn reads one piece's, or the kit's with every size, and
+ * drops it when the pieces changed: `prepayFreightFor`, 2026-10-22), on the prepaid path, and never with free shipping on both paths.
  */
 export const regionTurnFacts = (
   config: Pick<PromptConfig, "scarcity" | "delivery">,
@@ -586,7 +586,7 @@ export const regionTurnFacts = (
     stockLine,
     stockLeft: stockLine !== null && r?.size && typeof r.stockQty === "number" ? { size: r.size, qty: r.stockQty } : null,
     prepayFreightBrl:
-      t.openNow && t.units === 1 && t.linkPath === "prepay" && config.delivery.freeShipping !== true && typeof r?.prepayFreightBrl === "number" ? r.prepayFreightBrl : null,
+      t.openNow && t.linkPath === "prepay" && config.delivery.freeShipping !== true && typeof r?.prepayFreightBrl === "number" ? r.prepayFreightBrl : null,
   };
 };
 

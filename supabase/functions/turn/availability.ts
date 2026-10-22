@@ -107,26 +107,36 @@ export interface Availability {
   readonly labelBrl: number | null;
 }
 
-/** The query the checkout itself sends, minus the fields it ignores. */
-export const availabilityQuery = (zip: string, place: Place, code: string): URLSearchParams =>
-  new URLSearchParams({
-    customer_phone_ddi: "55",
-    customer_phone: PLACEHOLDER.phone,
-    customer_document: PLACEHOLDER.document,
-    "products[0][product_id]": PARENT_PRODUCT_ID,
-    "products[0][code]": code,
-    "products[0][quantity]": "1",
-    zip_code: zip,
-    city: place.city,
-    state: place.state,
-    neighbourhood: place.district,
-    number: PLACEHOLDER.number,
-    app_integration_detail_id: APP_INTEGRATION_DETAIL_ID,
-    freight_value: "0",
-    sale_type: "anticipated",
-    "billing_moments[]": "on_delivery",
-    check_to_finish: "false",
-  });
+/**
+ * The query the checkout itself sends, minus the fields it ignores. A kit asks every piece in the same query, one product per size
+ * with its quantity (the Coinzz kit checkout, Playwright 2026-10-22: G+GG is `products[0]` G ×1 and `products[1]` GG ×1; GG+GG is
+ * `products[0]` GG ×2), and its `local_operation` price is the kit's freight.
+ */
+export const availabilityQuery = (
+  zip: string,
+  place: Place,
+  code: string | ReadonlyArray<readonly [code: string, quantity: number]>,
+): URLSearchParams =>
+  new URLSearchParams(<Array<[string, string]>>[
+    ["customer_phone_ddi", "55"],
+    ["customer_phone", PLACEHOLDER.phone],
+    ["customer_document", PLACEHOLDER.document],
+    ...(typeof code === "string" ? [[code, 1] as const] : code).flatMap(([c, q], i): Array<[string, string]> => [
+      [`products[${i}][product_id]`, PARENT_PRODUCT_ID],
+      [`products[${i}][code]`, c],
+      [`products[${i}][quantity]`, String(q)],
+    ]),
+    ["zip_code", zip],
+    ["city", place.city],
+    ["state", place.state],
+    ["neighbourhood", place.district],
+    ["number", PLACEHOLDER.number],
+    ["app_integration_detail_id", APP_INTEGRATION_DETAIL_ID],
+    ["freight_value", "0"],
+    ["sale_type", "anticipated"],
+    ["billing_moments[]", "on_delivery"],
+    ["check_to_finish", "false"],
+  ]);
 
 interface RawWindow {
   deliveryTypeCode?: string;
@@ -210,23 +220,29 @@ const answered = (body: unknown): boolean => {
 };
 
 /**
- * The prepaid freight for one piece of her size at her CEP (4.7). The 1-piece prepaid checkout charges this query's
- * `local_operation[0].price` — `labelBrl` — rounded to the cent (Playwright, 2026-10-20: São Paulo GG 19.345 → "Frete: R$ 19,35",
- * XGG 17,78; grafo §116), so since the freight became hers (2026-09-10) the "operator's cost" is her price on that path.
- * Only the placeholders of `availabilityQuery` go, never her name, phone or CPF. `null` on any failure, timeout, 404 (the M)
- * or a price not read: the reply keeps "aparece no checkout". shortcut: one piece only, the kits' freight is not this query's.
+ * The prepaid freight of what she is buying at her CEP (4.7): one piece of her size, or a kit with the size of each piece. The
+ * prepaid checkout charges this query's `local_operation[0].price` — `labelBrl` — rounded to the cent (Playwright, 2026-10-20: São
+ * Paulo GG 19.345 → "Frete: R$ 19,35", XGG 17,78; grafo §116; the kit checkouts 2026-10-22: G+GG 33,17, G+GG+XGG 35,97, GG+GG 20,36),
+ * so since the freight became hers (2026-09-10) the "operator's cost" is her price on that path. Only the placeholders of
+ * `availabilityQuery` go, never her name, phone or CPF. `null` on any failure, timeout, 404 (the M), no piece or a price not read:
+ * the reply keeps "aparece no checkout".
  */
-export const prepayFreight = (fetcher: Fetcher, zip: string, place: Place, size: Size): Promise<number | null> =>
-  Promise.resolve()
-    .then(() => askSize(fetcher, zip, place, size))
+export const prepayFreight = (fetcher: Fetcher, zip: string, place: Place, sizes: Size | readonly Size[]): Promise<number | null> => {
+  const pieces = typeof sizes === "string" ? [sizes] : sizes;
+  const first = pieces[0];
+  const items = [...new Set(pieces)].map((s) => [SIZE_CODES[s], pieces.filter((x) => x === s).length] as const);
+  if (first === undefined) return Promise.resolve(null);
+  return Promise.resolve()
+    .then(() => fetcher(`${AVAILABILITY_ENDPOINT}?${availabilityQuery(zip.replace(/\D/g, ""), place, items)}`, AVAILABILITY_HEADERS))
     .then((body) => {
-      const p = readAvailability(size, body).labelBrl;
+      const p = readAvailability(first, body).labelBrl;
       // Decimal half-up, as the page shows it: 19.345 * 100 is 1934.4999… in binary.
       // `${p}e2` is NaN for a price JSON writes in exponent form (5e-7): null, never NaN (/code-review).
       const cents = typeof p === "number" ? Math.round(Number(`${p}e2`)) : NaN;
       return Number.isFinite(cents) && cents > 0 ? cents / 100 : null;
     })
     .catch(() => null);
+};
 
 export const checkSize = async (
   fetcher: Fetcher,

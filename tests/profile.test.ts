@@ -3,11 +3,13 @@ import { describe, expect, it } from "vitest";
 import { NEUTRAL_INTERPRETATION, type Interpretation } from "@/agent/interpret.js";
 import {
   EMPTY_PROFILE,
+  MAX_STOCK_OFFERS,
   SCORE_WEIGHTS,
   bandOf,
   isAudioBody,
   mergeProfile,
   profileFold,
+  profileMarks,
   scoreOf,
   storedProfileOf,
   type LeadProfile,
@@ -260,5 +262,57 @@ describe("lead_profiles_v", () => {
   it("deixa a persona de fora, com o prefixo do runner", async () => {
     const { SYNTHETIC_PHONE_PREFIX } = await import("../src/dev/persona-run-core.js");
     expect(view).toContain(`where l.phone not like '${SYNTHETIC_PHONE_PREFIX}%'`);
+  });
+});
+
+describe("profileMarks: as marcas de uma vez por conversa (resíduos do grafo §123, operador 2026-10-22)", () => {
+  const p = (over: Partial<LeadProfile> = {}): LeadProfile => ({ ...EMPTY_PROFILE, ...over });
+  const none = { stockOffered: false, stockSaid: false, vagueAsked: false };
+
+  it("a linha de estoque dita pelo modelo marca de vez", () => {
+    expect(profileMarks(p(), { ...none, stockOffered: true, stockSaid: true })).toEqual({ stock_offers: 1, stock_offered: true });
+  });
+
+  it("oferecida e não usada volta uma vez; na segunda oferta não usada, encerra", () => {
+    expect(profileMarks(p(), { ...none, stockOffered: true })).toEqual({ stock_offers: 1 });
+    expect(MAX_STOCK_OFFERS).toBe(2);
+    expect(profileMarks(p({ stock_offers: 1 }), { ...none, stockOffered: true })).toEqual({ stock_offers: 2, stock_offered: true });
+  });
+
+  it("já marcada, nada muda; nada oferecido, nada grava", () => {
+    expect(profileMarks(p({ stock_offered: true, stock_offers: 1 }), { ...none, stockOffered: true, stockSaid: true })).toBeNull();
+    expect(profileMarks(p(), none)).toBeNull();
+    expect(profileMarks(p(), { ...none, stockSaid: true })).toBeNull();
+  });
+
+  it("a pergunta da objeção vaga marca uma vez, e só a chave dela vai", () => {
+    expect(profileMarks(p(), { ...none, vagueAsked: true })).toEqual({ vague_asked: true });
+    expect(profileMarks(p({ vague_asked: true }), { ...none, vagueAsked: true })).toBeNull();
+  });
+
+  it("o perfil antigo sem stock_offers lê 0 (mergeProfile)", () => {
+    const old = { ...EMPTY_PROFILE } as Partial<LeadProfile>;
+    delete old.stock_offers;
+    expect(mergeProfile(old, said(), text).stock_offers).toBe(0);
+    expect(mergeProfile({ stock_offers: 1 }, said(), text).stock_offers).toBe(1);
+  });
+});
+
+describe("o turno grava só as marcas, mescladas no perfil (0030), e também na resposta adiada", () => {
+  const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  const sql = readFileSync("supabase/migrations/0030_lead_profile_mark.sql", "utf8");
+  it("lead_profile_mark faz o merge do jsonb, nunca troca o perfil inteiro", () => {
+    expect(sql).toContain("set profile = coalesce(profile, '{}'::jsonb) || p_marks where id = p_lead_id");
+    expect(sql).toContain("grant execute on function public.lead_profile_mark(uuid, jsonb) to service_role;");
+    expect(turn).toContain('db("rpc/lead_profile_mark", { method: "POST", body: JSON.stringify({ p_lead_id: lead.id, p_marks: marks }) })');
+    expect(turn).not.toContain("profile: { ...profile, stock_offered:");
+  });
+  it("a linha dita é lida pelo leitor do gate na resposta do modelo que saiu", () => {
+    expect(turn).toContain("stockSaid: offeredStock && claimsStock(replyText),");
+  });
+  it("a pergunta vaga adiada para a manhã marca", () => {
+    const mark = turn.indexOf("markProfile(profileMarks(profile, { stockOffered: false, stockSaid: false, vagueAsked: guideReasons.includes(VAGUE_OBJECTION_REASON) })),");
+    expect(mark).toBeGreaterThan(-1);
+    expect(turn.indexOf('recordOutcome(conversation.id, "deferred"', mark) - mark).toBeLessThan(400);
   });
 });

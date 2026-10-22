@@ -253,7 +253,7 @@ import {
   type Interpretation,
 } from "./interpret.ts";
 import { asksDeadline, asksPayment, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, logzzSupportPhone, noCodMessage, offerFallbackMessage, openingDirective, paidDeadlineLine, paymentFallbackMessage, priceBeforeCepMessage, registerDirective, regionTurnFacts, triggerUsesSoFar, personalTriggerDirective, MAX_TRIGGER_USES, systemPrompt as buildSystemPrompt } from "./prompt.ts";
-import { isAudioBody, mergeProfile, profileFold, storedProfileOf, scoreOf, bandOf, scoreTag, type LeadProfile } from "./profile.ts";
+import { afterUnansweredTouch, isAudioBody, mergeProfile, profileFold, profileMarks, storedProfileOf, scoreOf, bandOf, scoreTag, type LeadProfile } from "./profile.ts";
 import { sealIsValid } from "./inbound-signature.ts";
 import { agentVersionOf } from "./agent-version.ts";
 import { armOf, armOn } from "./experiments.ts";
@@ -491,10 +491,8 @@ const CONFIG: BusinessConfig = JSON.parse(
       cost: { conversationCapBrl: 1.0, overrunTolerance: 0 },
       coupon: { percent: 20, active: false },
       cod: { physicalOnDeliveryActive: true },
-      // Urgência ligada pelo operador em 2026-09-08. `unitsLeft` dá a ela um número
-      // estável para repetir; `allowUnverified` deixa ela criar urgência sobre o lote
-      // mesmo sem contagem por trás. Trocar aqui, ou sobrescrever por BUSINESS_CONFIG.
-      scarcity: { unitsLeft: 12, allowUnverified: true },
+      // Sem escassez no fallback: só a escassez real, do estoque da Logzz (`scarcity.lowStock` no BUSINESS_CONFIG; operador,
+      // 2026-10-22). A urgência sem contagem (`allowUnverified`, "restam 12") saiu do código.
       // `afterpay` é o método da Coinzz que corresponde a pagar depois, confirmado
       // pelo operador em 2026-09-08. `offerHash` ainda vem do painel — sem ele o
       // corpo não é montado, e o turno diz exatamente o que falta em vez de mandar
@@ -1635,7 +1633,7 @@ const runFollowupSweep = async () => {
   const due = await db(
     "followups?status=eq.scheduled&run_at=lte." +
       encodeURIComponent(new Date().toISOString()) +
-      "&select=id,kind,run_at,stop_point,body,order_id,conversation_id,conversations(id,lead_id,stage,last_inbound_at,leads(id,phone,size,opted_out_at,handoff_at,units,units_at,payment_choice,payment_choice_at,address" +
+      "&select=id,kind,run_at,stop_point,body,order_id,conversation_id,conversations(id,lead_id,stage,last_inbound_at,leads(id,phone,size,opted_out_at,handoff_at,units,units_at,payment_choice,payment_choice_at,address,score,score_band,score_at" +
       (ASK_OPT_IN ? ",marketing_opt_in_at,marketing_opt_in_asked_at,marketing_opt_in_suspended_at,marketing_opt_in_declined_at" : "") +
       // Her orders, for `chasesSilence` below. Index: orders_lead_idx (lead_id).
       ",orders(status)))&limit=50",
@@ -1837,6 +1835,13 @@ const runFollowupSweep = async () => {
       }
       return ours;
     };
+    // Plan 16 §4.2: a lead that went cold during the ruler (−10 per touch she left unanswered, `afterUnansweredTouch` below)
+    // gets no `silence_2` nor `silence_3` — the cut `rulerForBand` makes when the ruler is armed (operator, 2026-10-22).
+    if (rulerForBand([row], lead.score_band).length === 0) {
+      await leave("canceled");
+      skipped.push({ followupId: row.id, reason: "lead fria: a régua para no primeiro toque" });
+      return;
+    }
     // A post-order touch speaks of THAT order — its total, pieces and sizes — never the
     // 1-piece price (fifth review, kits).
     const order = kind.startsWith("order_")
@@ -2010,6 +2015,12 @@ const runFollowupSweep = async () => {
     if (!(await leave("sent"))) {
       skipped.push({ followupId: row.id, reason: "ela respondeu antes do envio" });
       return;
+    }
+    // Plan 16 §4.2: the touch that left counts −10 until she answers — her turn rescores from scratch. Only over the score this
+    // sweep read (`score_at`): a turn that rescored meanwhile is newer, and its score stands. Index: leads_pkey.
+    const lowered = inSilenceRuler(kind) && typeof lead.score_at === "string" ? afterUnansweredTouch(lead.score) : null;
+    if (lowered) {
+      await db(`leads?id=eq.${lead.id}&score_at=eq.${encodeURIComponent(lead.score_at)}`, { method: "PATCH", body: JSON.stringify(lowered) }).catch(() => undefined);
     }
     await db("messages", {
       method: "POST",
@@ -3838,15 +3849,15 @@ const handleTurn = async (
    * and the only thing it loses is permission to name a size — which is the correct
    * failure: silence about the size beats a size she cannot receive.
    */
-  // `prepayFreightBrl` (plan 16 §4.7): the prepaid freight of her size at her CEP, read with the region and cached with it.
-  let region: (Region & { prepayFreightBrl?: number | null }) | null = null;
+  // `prepayFreightBrl` (plan 16 §4.7): the prepaid freight at her CEP of the pieces in `prepayFreightFor`, cached with the region.
+  let region: (Region & { prepayFreightBrl?: number | null; prepayFreightFor?: string | null }) | null = null;
   // The city of a CEP whose lookup failed (ViaCEP answered, Coinzz did not): where the Logzz delivers, both checkouts.
   let failedPlace: { city: string; state: string } | null = null;
   // A CEP the Correios do not know (operator, 2026-10-09): she is told it was not found and asked to check it.
   let cepNotFound = false;
   let badCep: string | null = null;
   // E2.4: the same CEP looked up less than an hour ago is not asked again (latency). Only a found region is kept.
-  let freshRegion: CachedRegion | null = null;
+  let freshRegion: (CachedRegion & { prepayFreightBrl?: number | null; prepayFreightFor?: string | null }) | null = null;
   // The region is asked for her size when she has one (R28 review): the G in São Paulo is not the GG's stock.
   const regionSize = (SIZES as readonly string[]).includes(stated?.size ?? lead.size ?? "") ? (stated?.size ?? lead.size) as Size : null;
   const cached = addressDraft.cep ? cachedRegion(storedAddress.region, addressDraft.cep, Date.now(), regionSize) : null;
@@ -3866,11 +3877,6 @@ const handleTurn = async (
         // Not on the sweep's retry nor a revision (review of R26): their short budget is the model's.
         .then((first) => (first.kind === "failed" && !isRetry && !isRevise ? lookupRegion(regionFetcher(RETRY_REGION_TIMEOUT_MS), zip, regionSize, logzzIdsOf(CONFIG.checkout)).catch((): RegionLookup => first) : first));
       region = lookup.kind === "found" ? lookup.region : null;
-      // Plan 16 §4.7: where the delivery does not reach her, the prepaid box says the freight the checkout charges her size there —
-      // one piece only (a kit's freight is not this query's), the same fetcher and timeout, null on any failure ("aparece no checkout").
-      if (region && !region.cod && regionSize && units === 1) {
-        region = { ...region, prepayFreightBrl: await prepayFreight(regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS), zip, region.place, regionSize) };
-      }
       failedPlace = lookup.kind === "failed" ? lookup.place ?? null : null;
       // What the real lookups answer, for the health job (grafo §111). Not the retry or the revision: the same CEP twice is one.
       if (!isRetry && !isRevise) {
@@ -3912,6 +3918,24 @@ const handleTurn = async (
     // not schedule never goes, and a failure never turns a known answer into the two links (review: the offers flip-flopped).
     const missing = answers.find(({ r }) => !(r.kind === "found" && r.region.cod));
     if (missing) region = { ...region, cod: false, dates: [], sameDay: false, size: missing.s };
+  }
+  // Plan 16 §4.7: where the delivery does not reach her, the prepaid box says the freight the checkout charges at her CEP for what she
+  // is buying — one piece of her size, or the kit with the size of each piece, asked in one query like the kit checkout does
+  // (Playwright, 2026-10-22). Read once per pieces: the region's cache carries the freight with the pieces it was read for
+  // (`prepayFreightFor`), and other pieces are read again (the residue of grafo §123, kit back to one piece). Pieces not all known,
+  // or any failure: null ("aparece no checkout"). The same fetcher and timeout as the region.
+  const freightPieces: Size[] | null = units === 1
+    ? regionSize ? [regionSize] : null
+    : unitSizes.length === units && unitSizes.every((x) => (SIZES as readonly string[]).includes(x)) ? unitSizes as Size[] : null;
+  const freightFor = freightPieces ? [...freightPieces].sort().join("+") : null;
+  if (region && !region.cod && addressDraft.cep) {
+    if (freightPieces === null || freightFor === null) region = { ...region, prepayFreightBrl: null, prepayFreightFor: null };
+    else if (region.prepayFreightFor !== freightFor) {
+      const prepayFreightBrl = await prepayFreight(regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS), addressDraft.cep, region.place, freightPieces);
+      region = { ...region, prepayFreightBrl, prepayFreightFor: freightFor };
+      // Cached on the lead with the region this turn looked up; a cached region is not re-cached (its age is the stock's).
+      if (freshRegion) freshRegion = { ...freshRegion, prepayFreightBrl, prepayFreightFor: freightFor };
+    }
   }
 
   // A CEP she typed with the wrong number of digits is never read, and the model told her "Recebi seu
@@ -4380,7 +4404,7 @@ const handleTurn = async (
     thinkCount: profile.think_count,
     // shortcut: a second discount ask counts as one after the agent's "no" (the shop has no discount to give), until a turn reads the no.
     secondDiscountAfterNo: profile.discount_asks >= 2,
-    // She is answering now, so no touch is unanswered at this moment; the sweep does not rescore a touch that goes unanswered.
+    // She is answering now, so no touch is unanswered at this moment; the sweep takes −10 per touch that leaves (`afterUnansweredTouch`).
     unansweredTouches: 0,
     declinedOrOptOut: declined,
     orderCreated: ["pedido_criado", "em_rota", "entregue_pago"].includes(storedStage),
@@ -4390,6 +4414,12 @@ const handleTurn = async (
     method: "PATCH",
     body: JSON.stringify({ profile, score, score_band: scoreBand, score_at: new Date().toISOString() }),
   }).then(() => Object.assign(lead, { score, score_band: scoreBand }), () => undefined);
+  // The once-per-conversation marks (`profileMarks`), merged into the stored profile by `lead_profile_mark` (0030), never the whole
+  // profile over it. Index: leads_pkey. Before 0030 the call answers 404 and is swallowed: the mark is lost, nothing else.
+  const markProfile = (marks: Partial<LeadProfile> | null): Promise<unknown> =>
+    marks
+      ? db("rpc/lead_profile_mark", { method: "POST", body: JSON.stringify({ p_lead_id: lead.id, p_marks: marks }) }).catch(() => undefined)
+      : Promise.resolve();
   // "Use it now" in the reply right after she told it, then free.
   const triggerDirective = declined ? null : personalTriggerDirective(profile, triggerUses, interpretation.occasion !== null || interpretation.pain !== null ? "next_reply" : "free");
   // A datum refused is not the purchase put off (second real test, grafo §66): the model answers.
@@ -4551,7 +4581,7 @@ const handleTurn = async (
       const cod = offerNow === "cod";
       const sent = await sendFunnelTurn(
         await withHook([
-          ...offerBubbles(CONFIG, { cod, dates: region.dates, prepayFreightBrl }, new Date(), checkoutUrl ? null : offerAsk(cod, sizeKnown)),
+          ...offerBubbles(CONFIG, { cod, dates: region.dates, prepayFreightBrl: units === 1 ? prepayFreightBrl : null }, new Date(), checkoutUrl ? null : offerAsk(cod, sizeKnown)),
           ...(checkoutUrl ? [{ text: v3Link(checkoutUrl) }] : []),
         ]),
         checkoutUrl ? `roteiro v3: oferta e link — ${linkFact ?? ""}` : "roteiro v3: oferta",
@@ -4952,6 +4982,9 @@ const handleTurn = async (
     });
     const once = await notifyOnce();
     await Promise.all([
+      // The vague question held for the morning is the question asked (grafo §123 residue: this early path never marked it). The
+      // stock line never rides here: it is offered only inside the send window.
+      markProfile(profileMarks(profile, { stockOffered: false, stockSaid: false, vagueAsked: guideReasons.includes(VAGUE_OBJECTION_REASON) })),
       recordOutcome(conversation.id, "deferred", ["fora da janela de envio", extraNotify].filter(Boolean).join(" | "), rewritesUsed, spent - spentBefore),
       persistStage(conversation.id, storedStage, reachedSoFar),
     ]);
@@ -5149,11 +5182,15 @@ const handleTurn = async (
    */
   const orderReady = order !== null;
   // Plan 16 §4.5/§4.6: the once-per-conversation marks. Past `lateGuard` and the outbound row, so a revision or a retry of this
-  // turn never reads its own early mark (round 5 of the PR 77 review); by what the turn gave the model and the model's reply going
-  // out — never the safe fixed reply after five vetoes, and never by reading the text back (round 6: a paraphrase missed it).
+  // turn never reads its own early mark (round 5 of the PR 77 review); only for the model's reply going out — never the safe fixed
+  // reply after five vetoes (round 6). The stock line is said when that reply says stock by the gate's reader, or after its second
+  // offer (`profileMarks`): a line the model left out comes back once (grafo §123 residue, operator 2026-10-22).
   const offeredStock = stockLine !== null && fallbackReason === null;
-  const askedVague = guideReasons.includes(VAGUE_OBJECTION_REASON) && fallbackReason === null;
-  const marks = (offeredStock && !profile.stock_offered) || (askedVague && !profile.vague_asked);
+  const marks = profileMarks(profile, {
+    stockOffered: offeredStock,
+    stockSaid: offeredStock && claimsStock(replyText),
+    vagueAsked: guideReasons.includes(VAGUE_OBJECTION_REASON) && fallbackReason === null,
+  });
   // Once per conversation (review of v38): a second "quero falar com uma pessoa" does not e-mail again.
   await notifyOnce();
   await Promise.all([
@@ -5178,14 +5215,8 @@ const handleTurn = async (
         orderBuilt: order !== null,
       }),
     ),
-    // shortcut: the whole profile as this turn built it — a concurrent write to it in between would be undone; the conversation's
-    // claim keeps turns apart, so this waits for a jsonb-merge RPC until it shows up in practice. Failure swallowed (the line may go once more).
-    marks
-      ? db(`leads?id=eq.${lead.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ profile: { ...profile, stock_offered: profile.stock_offered || offeredStock, vague_asked: profile.vague_asked || askedVague } }),
-      }).catch(() => undefined)
-      : Promise.resolve(),
+    // Only the marks, merged into the stored profile (0030): nothing else of it is written back. Failure swallowed (the line may go once more).
+    markProfile(marks),
   ]);
 
   return json(200, {

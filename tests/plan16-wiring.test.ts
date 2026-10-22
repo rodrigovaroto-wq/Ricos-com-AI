@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { rulerFor, rulerForBand, type ScheduledFollowup } from "@/agent/followups.js";
-import { scoreTag } from "@/agent/profile.js";
+import { afterUnansweredTouch, scoreTag } from "@/agent/profile.js";
 import { INTERPRETER_SYSTEM, readInterpretation } from "@/agent/interpret.js";
 import { regionTurnFacts } from "@/agent/prompt.js";
 import { config as base } from "./fixtures.js";
@@ -44,6 +44,34 @@ describe("a régua pela faixa do score (§4.2)", () => {
   it("o turno lê a faixa guardada ao armar a régua: só o tamanho e a faixa do lead (0029 aplicada em 21/10)", () => {
     expect(turn).toContain("select=*,leads(size,score_band,orders(status)),followups(kind,sent_at)");
     expect(turn).toContain("body: JSON.stringify(rulerForBand(rows, at?.leads?.score_band)),");
+  });
+});
+
+describe("o −10 do toque sem resposta, na varredura (§4.2, resíduo resolvido em 2026-10-22)", () => {
+  it("cada toque que sai tira 10, sem passar de 0, e a faixa acompanha", () => {
+    expect(afterUnansweredTouch(70)).toEqual({ score: 60, score_band: "quente" });
+    expect(afterUnansweredTouch(65)).toEqual({ score: 55, score_band: "morna" });
+    expect(afterUnansweredTouch(35)).toEqual({ score: 25, score_band: "fria" });
+    expect(afterUnansweredTouch(4)).toEqual({ score: 0, score_band: "fria" });
+  });
+
+  it("lead sem score não ganha número", () => {
+    for (const s of [null, undefined, "70", Number.NaN, Number.POSITIVE_INFINITY]) expect(afterUnansweredTouch(s), String(s)).toBeNull();
+  });
+
+  it("a varredura grava só sobre o score que leu (score_at), depois do envio reivindicado", () => {
+    const sent = turn.indexOf('if (!(await leave("sent"))) {');
+    const lowered = turn.indexOf("afterUnansweredTouch(lead.score)");
+    expect(sent).toBeGreaterThan(0);
+    expect(lowered).toBeGreaterThan(sent);
+    expect(turn).toContain("leads?id=eq.${lead.id}&score_at=eq.${encodeURIComponent(lead.score_at)}");
+    expect(turn).toContain("address,score,score_band,score_at");
+  });
+
+  it("a fria que esfriou durante a régua não recebe o segundo nem o terceiro toque", () => {
+    expect(turn).toContain("if (rulerForBand([row], lead.score_band).length === 0) {");
+    expect(rulerForBand([{ kind: "silence_2" }], "fria")).toEqual([]);
+    expect(rulerForBand([{ kind: "silence_1" }], "fria")).toEqual([{ kind: "silence_1" }]);
   });
 });
 
@@ -138,12 +166,15 @@ describe("index.ts — a fiação do plano 16", () => {
     expect(turn.slice(at("const withHook = async"), at("const withHook = async") + 1500)).toContain("...factsGate,");
   });
 
-  it("frete: lido com a região só onde a entrega não chega, uma peça com tamanho, e só no caminho do antecipado", () => {
-    expect(turn).toContain("if (region && !region.cod && regionSize && units === 1) {");
-    expect(turn).toContain("prepayFreightBrl: await prepayFreight(regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS), zip, region.place, regionSize)");
-    // Read before the region is cached on the lead, so the next turn's cache carries it.
-    expect(at("prepayFreightBrl: await prepayFreight(")).toBeLessThan(at("if (region) freshRegion = { ...region, checkedAt: new Date().toISOString() };"));
-    expect(turn).toContain("offerBubbles(CONFIG, { cod, dates: region.dates, prepayFreightBrl }, new Date(),");
+  it("frete: lido só onde a entrega não chega, para as peças que ela compra (uma, ou cada tamanho do kit), relido quando elas mudam", () => {
+    expect(turn).toContain("if (region && !region.cod && addressDraft.cep) {");
+    expect(turn).toContain("const prepayFreightBrl = await prepayFreight(regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS), addressDraft.cep, region.place, freightPieces);");
+    expect(turn).toContain("else if (region.prepayFreightFor !== freightFor) {");
+    // After the kit's own coverage, which can turn the kit prepaid; and kept in the cache the turn writes on the lead.
+    expect(at("const freightPieces: Size[] | null = units === 1")).toBeGreaterThan(at("if (missing) region = { ...region, cod: false"));
+    expect(turn).toContain("if (freshRegion) freshRegion = { ...freshRegion, prepayFreightBrl, prepayFreightFor: freightFor };");
+    // The offer's own freight line is one piece's: a kit's freight is said by the model, under the kit.
+    expect(turn).toContain("offerBubbles(CONFIG, { cod, dates: region.dates, prepayFreightBrl: units === 1 ? prepayFreightBrl : null }, new Date(),");
   });
 
   it("objeção vaga: uma pergunta, nunca sobre a recusa, e o 'vou pensar' de hoje fica para a segunda vez", () => {
@@ -231,8 +262,9 @@ describe("regionTurnFacts", () => {
     expect(regionTurnFacts(config, { ...turn1, fresh: false, region: noCod, linkPath: "prepay" }).prepayFreightBrl).toBe(18.9);
   });
 
-  it("frete: o kit nunca leva o frete de uma peça (G+GG em São Paulo é R$ 33,17)", () => {
-    for (const units of [2, 3]) expect(regionTurnFacts(config, { ...turn1, units, region: noCod, linkPath: "prepay" }).prepayFreightBrl).toBeNull();
+  it("frete: o kit leva o frete que o turno leu para as peças dele (G+GG em São Paulo é R$ 33,17, não o de uma peça)", () => {
+    for (const units of [2, 3]) expect(regionTurnFacts(config, { ...turn1, units, region: { ...noCod, prepayFreightBrl: 33.17 }, linkPath: "prepay" }).prepayFreightBrl).toBe(33.17);
+    expect(regionTurnFacts(config, { ...turn1, units: 2, region: { ...noCod, prepayFreightBrl: null }, linkPath: "prepay" }).prepayFreightBrl).toBeNull();
   });
 
   it("frete: nunca na entrega, fora da janela, nem com frete grátis nos dois caminhos", () => {
@@ -286,9 +318,10 @@ describe("uma vez por conversa, pelo que o turno decidiu (/code-review do PR 77,
     expect(mergeProfile({ ...EMPTY_PROFILE, vague_asked: true }, NEUTRAL_INTERPRETATION, { audio: false }).vague_asked).toBe(true);
     expect(mergeProfile({ ...EMPTY_PROFILE, stock_offered: true }, NEUTRAL_INTERPRETATION, { audio: false }).vague_asked).toBe(false);
     // Marked past lateGuard and the outbound row, by what the turn gave the model, never the safe fixed reply (rounds 5 and 6).
-    expect(turn).toContain("  const offeredStock = stockLine !== null && fallbackReason === null;\n  const askedVague = guideReasons.includes(VAGUE_OBJECTION_REASON) && fallbackReason === null;");
-    expect(turn).toContain("stock_offered: profile.stock_offered || offeredStock, vague_asked: profile.vague_asked || askedVague");
-    expect(turn).not.toContain("claimsStock(replyText)");
+    // Since 2026-10-22 (grafo §123 residues): the line said by the model's reply that went out, or two offers left unused
+    // (`profileMarks`); the gate's reader reads only the model's reply, never the safe fixed one (`offeredStock` needs no fallback).
+    expect(turn).toContain("  const offeredStock = stockLine !== null && fallbackReason === null;\n  const marks = profileMarks(profile, {");
+    expect(turn).toContain("    stockSaid: offeredStock && claimsStock(replyText),\n    vagueAsked: guideReasons.includes(VAGUE_OBJECTION_REASON) && fallbackReason === null,");
     expect(turn).not.toContain("stock_offered: folded.stock_offered || stockLine !== null");
     const marksAt = turn.indexOf("const offeredStock");
     expect(marksAt).toBeGreaterThan(turn.indexOf("const gaveUp = await lateGuard(rewritesUsed, body);"));

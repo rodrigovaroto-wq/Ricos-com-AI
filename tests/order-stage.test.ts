@@ -120,7 +120,8 @@ describe("7.4: a régua de silêncio termina em perdido", () => {
     // Five: the empty render, the gate, the blocked delivery, the order touch its status made
     // moot, and the eve whose delivery day is not tomorrow (D1).
     // And a sixth (4a): the anchored silence_2/silence_3 whose reopening is past its deadline.
-    expect(afterLeave.match(/await leave\("canceled"\);/g)?.length).toBe(6);
+    // And a seventh (plan 16 §4.2, 2026-10-22): the silence_2/silence_3 of a lead gone cold during the ruler.
+    expect(afterLeave.match(/await leave\("canceled"\);/g)?.length).toBe(7);
     expect(afterLeave).toContain('if (!(await leave("sent"))) {');
     const nullBranch = afterLeave.slice(afterLeave.indexOf("if (text === null) {"));
     expect(nullBranch.indexOf("return;")).toBeGreaterThan(-1);
