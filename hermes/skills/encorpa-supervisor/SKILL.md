@@ -147,6 +147,10 @@ Regras do arquivo:
 - **Todo `trecho` é cópia exata** de uma linha de `conversas/`. Trecho que não existe na
   conversa derruba a proposta inteira na validação — não resuma, não traduza, não corrija.
 - No máximo **5 propostas**, as mais caras primeiro. Sem evidência, sem proposta.
+- **Uma evidência por conversa em que o mesmo problema aparece**, todas as do pacote — não pare no primeiro exemplo: o
+  número de conversas atingidas é o que diz o custo do problema ao operador.
+- **Todo campo é obrigatório** (`o_que`, `por_que`, `evidencias`, `objetivo`, `como_medir`, `severidade`, `classe`):
+  proposta com campo vazio é descartada inteira na validação, e o problema que você achou se perde.
 - `classe` é uma das quatro de "O que procurar": 1 = `mentira`, 2 = `resposta_pronta`,
   3 = `venda_perdida`, 4 = `tom`.
 - **Mentira sem regra não é mentira.** Com `classe: mentira`, `fato_contradito` é uma frase

@@ -113,11 +113,16 @@ const counts = (c: Checked) => c.ok || (c.problems.length === 1 && c.problems[0]
 /** Case and spacing never decide a citation: the lie is planted capitalised, and Hermes may quote it either way. */
 const fold = (s: string): string => s.toLowerCase().replace(/\s+/g, " ").trim();
 
-export const found = (checked: readonly Checked[], p: Planted): boolean => {
+/**
+ * `valid` (default): a citation in a proposal that survived the validation — what reaches the operator. `valid: false`: any
+ * citation, valid or not — whether Hermes SAW it (2026-10-22: the -contributor model left `objetivo` empty and every proposal of a
+ * trial fell in the validation, with the defects cited; seeing and delivering are two different failures).
+ */
+export const found = (checked: readonly Checked[], p: Planted, valid = true): boolean => {
   const needle = fold(p.needle);
   return checked.some(
     (c) =>
-      counts(c) &&
+      (!valid || counts(c)) &&
       c.proposal.evidencias.some((e) => {
         const quote = fold(e.trecho);
         return e.conversa === p.conversa && (quote.includes(needle) || (quote.length >= 12 && needle.includes(quote)));
@@ -129,6 +134,8 @@ export interface ClassScore {
   cls: DefectClass;
   planted: number;
   found: number;
+  /** Cited by Hermes in any proposal, valid or not. */
+  seen: number;
   /** Trials where at least one instance of the class was found. */
   trialsFound: number;
   trials: number;
@@ -141,6 +148,7 @@ export const score = (runs: ReadonlyArray<{ planted: readonly Planted[]; checked
     const withClass = per.filter((xs) => xs.length > 0);
     return {
       cls,
+      seen: runs.flatMap((r) => r.planted.filter((p) => p.cls === cls).map((p) => found(r.checked, p, false))).filter(Boolean).length,
       planted: per.flat().length,
       found: per.flat().filter(Boolean).length,
       trialsFound: withClass.filter((xs) => xs.some(Boolean)).length,
@@ -155,9 +163,9 @@ export const renderCalibration = (scores: readonly ClassScore[], meta: { trials:
   return [
     `# Calibração do Hermes — ${meta.trials} rodadas · ${meta.model} · ${meta.source}`,
     "",
-    "| Classe | Plantados | Achados | Revocação | Rodadas em que achou |",
-    "|---|---|---|---|---|",
-    ...scores.map((s) => `| ${label[s.cls]} | ${s.planted} | ${s.found} | ${pct(s.found, s.planted)} | ${s.trialsFound}/${s.trials} |`),
+    "| Classe | Plantados | Vistos (citados) | Entregues (proposta válida) | Revocação | Rodadas em que achou |",
+    "|---|---|---|---|---|---|",
+    ...scores.map((s) => `| ${label[s.cls]} | ${s.planted} | ${s.seen} | ${s.found} | ${pct(s.found, s.planted)} | ${s.trialsFound}/${s.trials} |`),
     "",
     `Custo total: US$ ${meta.costUsd == null ? "?" : meta.costUsd.toFixed(4)}. Barra: 80% dos plantados por classe.`,
     ...scores.filter((s) => s.planted > 0 && s.found / s.planted < 0.8).map((s) => `- **Abaixo da barra:** ${label[s.cls]} (${pct(s.found, s.planted)}).`),
