@@ -4103,6 +4103,24 @@ link e o `silence_3` colado no 1º. A pré-triagem `promessas.md` (§124) não a
 **Guardas.** `tests/r30-7-ruler.test.ts`, `tests/hermes-bundle.test.ts`; mutações `r30.7-*`.
 **Resíduo.** O `silence_3` só sai com cupom ativo: hoje, um lembrete só. A mentira de detalhe operacional segue o ponto cego do Hermes.
 
+## 126. A consulta da Logzz como o checkout pergunta, o lembrete do cupom que nunca saía, e o JEV para boleto, horário e correio (2026-10-23)
+
+**Sintoma.** (1) O CEP geral de Recife não achava região (achado do §124); conferindo, **todo** CEP de Recife falhava, e o G de São Paulo
+também. (2) O cupom estava ativo e nenhuma mensagem com o código saiu: os 41 lembretes de cupom foram cancelados. (3) As mentiras de detalhe
+operacional (boleto, horário, correio) passavam nos gates e o Hermes as achava 16–33% das vezes.
+**Causa.** (1) A consulta dos dias da Logzz mandava a operação 0 (que a Logzz lista com estoque, mas não existe: 422) e não mandava o produto
+do tamanho (`product_requirements`), sem o qual a Logzz responde "nenhuma opção de entrega" — o checkout real (Playwright) manda o produto e
+deixa a 0 de fora. A operação 0 também inflava a contagem da escassez. (2) O lembrete do cupom cai a ~71 h da entrada, fora da janela de 24 h:
+só sai como template de marketing, e só a quem aceitou ofertas; o aceite estava desligado (`askMarketingOptIn: false`). (3) Mentira de
+detalhe é frase literal: o modelo do Hermes passa por cima; o JEV lê frase literal bem.
+**Correção.** (1) `readLogzzStock` ignora a operação 0 e guarda o produto de cada tamanho; `lookupLogzzUnsafe` pergunta os dias com um
+tamanho (o dela, ou o de mais estoque local) e o produto dele. Bateria contra o checkout real: SP, BH, Recife, Contagem conferidos pela rede.
+(2) `business-config-2026-10-23.min.json` com `askMarketingOptIn: true`. (3) Três perguntas `noul` literais na auditoria do JEV.
+**Caminhos que falharam.** Tirar só a operação 0 fez São Paulo virar "sem entrega" (sem o produto, a Logzz diz que não há opção): o
+alarme de produção dizia o contrário e a investigação parou antes do deploy. A bateria por Playwright lia datas de um tamanho anterior que
+ficavam na página: a verdade é a resposta da rede, não o texto da tela.
+**Guardas.** `tests/logzz-product-requirements.test.ts`, mutações `R30-logzz-*`; `tests/jev.test.ts`.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

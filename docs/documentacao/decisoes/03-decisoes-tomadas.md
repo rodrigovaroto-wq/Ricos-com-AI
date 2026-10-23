@@ -2310,4 +2310,15 @@ Grafo [§124](04-grafo-de-decisoes.md). Propostas P0–P5 aprovadas, ajustadas o
 - **R30.8 — Hermes mais barato** (operador, 2026-10-23: a rodada custou mais que os 42 leads): o pacote vai em dois arquivos (`pacote.md`
   e `conversas.md`), o registro de mudanças vai resumido (título e estado) e a recepção automática vai cortada. Medido nas mesmas 43
   conversas sintéticas: 25 → 8 chamadas, 1,48 M → 291 mil tokens (−80%); no modelo padrão, ~US$ 1,82 → ~US$ 0,37 por rodada.
+- **R30.9 — Propostas do Hermes de 22/10** (operador, 2026-10-23): H-1, H-3 e H-4 recusadas (já corrigida na v28; premissa falsa — o peso
+  veio num áudio; coberta desde a v38); H-2 aprovada e registrada como publicada na v32: a causa era o CEP "306 72000" não lido, corrigido
+  em `a1bafd6` (19/10) com teste e mutação.
+- **R30.10 — Cupom e aceite de ofertas:** o cupom (`SUPER20`, 20%) já estava ativo no segredo de 21/10, mas o lembrete do cupom cai fora da
+  janela de 24 h e só sai como template de marketing a quem aceitou ofertas, e o aceite estava desligado — os 41 foram cancelados.
+  `business-config-2026-10-23.min.json` liga `channel.askMarketingOptIn`: depois do 1º lembrete a Malu pergunta "Posso te mandar ofertas
+  da Encorpa por aqui?" com dois botões.
+- **R30.11 — JEV para a mentira de detalhe operacional** (operador: "pergunta nova no JEV"): `fala_boleto`, `escolhe_horario`,
+  `correio_na_entrega` (versão 2 das perguntas); no teste em português, 100%, 97% e 100%. Aprovadas: 9 de 19.
+- **R30.12 — Logzz como o checkout pergunta:** os dias de entrega são perguntados com o produto do tamanho (`product_requirements`) e sem a
+  operação 0. Antes, todo CEP de Recife (e o G em São Paulo) virava "falha de consulta" em vez da resposta certa (Playwright, 2026-10-23).
 
