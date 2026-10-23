@@ -13,7 +13,11 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
-> **2026-10-23 — R30.7 (sem o 2º lembrete de silêncio) e R30.8 (Hermes mais barato). Ver o fim deste bloco para o deploy.**
+> **2026-10-23 — `turn` v42 NO AR (R30.7, sem o 2º lembrete de silêncio) e R30.8 (Hermes mais barato).**
+>
+> - **No ar:** `turn` **v42** (função v155, commit `7a8e01c`, 13h09 UTC); alarme de cobertura das 13h15 `healthy`, varredura `success`;
+>   mutações 757/757; `pnpm test` 8807 verdes; `typecheck:function`, `dev:conversas` 1655/1655, `dev:regua` 20000 casos sem `silence_2`.
+>   O único `silence_2` ainda agendado (24/10 11h59 UTC) será cancelado pela varredura nova. Gasto de API desta etapa ≈ US$ 0,05.
 >
 > - **R30.7:** `scheduleSilence` arma o 1º lembrete e depois o `silence_3`, que vira o segundo; a varredura cancela um `silence_2` armado
 >   antes do deploy. Revisão dos testes achou dois buracos, corrigidos: (1) a resposta com o link, passada a faixa da entrada, ficava sem
