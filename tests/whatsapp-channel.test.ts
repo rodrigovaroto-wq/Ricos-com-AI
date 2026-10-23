@@ -422,3 +422,20 @@ describe("a recusa de marketing é gravada pela função do WhatsApp", () => {
     expect(source).toContain("body: JSON.stringify({ marketing_opt_in_declined_at: new Date().toISOString(), marketing_opt_in_at: null }),");
   });
 });
+
+/**
+ * The id of her picture on Meta goes to `messages.media` (2026-10-23, operator): the portal shows the original from it
+ * (encorpa-portal › api/media.js) without another model call. Deno I/O no test reaches, so the wiring is pinned by text.
+ */
+describe("o id da imagem que ela mandou fica na mensagem", () => {
+  const source = readFileSync("supabase/functions/whatsapp/index.ts", "utf8");
+  it("depois de entregar ao n8n, grava { kind: image, id } na linha da mensagem, sem sobrescrever", () => {
+    expect(source).toContain("else if (imageId) await recordImage(message.externalId, imageId);");
+    expect(source).toContain("messages?external_id=eq.${encodeURIComponent(externalId)}&media=is.null`");
+    expect(source).toContain('body: JSON.stringify({ media: { kind: "image", id: imageId } }),');
+  });
+  it("espera a turn criar a linha: três tentativas e nunca derruba a entrega", () => {
+    expect(source).toContain("for (const wait of [0, 3_000, 15_000]) {");
+    expect(source).toContain('console.error(`whatsapp: id da imagem não gravado ${externalId}`);');
+  });
+});

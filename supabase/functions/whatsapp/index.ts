@@ -93,6 +93,29 @@ const MAX_BODY_BYTES = 256 * 1024;
 const FORWARD_TIMEOUT_MS = 140_000;
 
 /**
+ * The id of her picture on Meta, on her message's row (`messages.media`, 0001), so the portal can show the original
+ * (portal › api/media.js downloads it from the Graph API; Meta keeps media ~30 days). The turn writes the row, through
+ * n8n, after the forward — so up to three tries, 3 s and 15 s apart; `media=is.null` never overwrites. Never throws.
+ */
+const recordImage = async (externalId: string, imageId: string) => {
+  for (const wait of [0, 3_000, 15_000]) {
+    if (wait) await new Promise((done) => setTimeout(done, wait));
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/messages?external_id=eq.${encodeURIComponent(externalId)}&media=is.null`, {
+        method: "PATCH",
+        headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" },
+        body: JSON.stringify({ media: { kind: "image", id: imageId } }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (res.ok && ((await res.json()) as unknown[]).length) return;
+    } catch {
+      // the next try, or the picture stays only as its description
+    }
+  }
+  console.error(`whatsapp: id da imagem não gravado ${externalId}`);
+};
+
+/**
  * Her refusal is final (0019): only a lead not yet declined is touched, so the first refusal's
  * time stays. `phone` is the unique index. Never throws, and logs no phone — Meta already has
  * its 200 and the messages still go to n8n.
@@ -321,6 +344,7 @@ const forward = async (payload: unknown) => {
           signal: AbortSignal.timeout(FORWARD_TIMEOUT_MS),
         });
         if (!res.ok) console.error(`whatsapp: n8n recusou ${message.externalId} com HTTP ${res.status}`);
+        else if (imageId) await recordImage(message.externalId, imageId);
       } catch (error) {
         console.error(`whatsapp: falha ao entregar ${message.externalId} ao n8n: ${error instanceof Error ? error.name : "erro"}`);
       }
