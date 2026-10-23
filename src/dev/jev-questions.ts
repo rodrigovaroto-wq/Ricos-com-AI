@@ -23,21 +23,23 @@ import type { Conversation } from "./persona-scorecard.js";
  * pieces offered, and a closing without a question or a link is no next step. Measured: 17 of 19 — the closing overshot (58% on
  * "não": a negative "é não só se" read as "sim" almost always).
  * 5 (same day): the closing said as a positive test, and "responde só parte" out of the unanswered question (it flagged answers).
+ * 6 (same day, operator): the objection's gold labels made to follow one rule (`hermes/jev-ouro-objecao.md`, 25 of 276 changed) and
+ * the options say that rule: a neutral question is none, a wish to choose the hour is `prazo`, a fit worry is `tamanho`.
  */
-export const QUESTIONS_VERSION = 5;
+export const QUESTIONS_VERSION = 6;
 
 export const INBOUND: Readonly<Record<string, JevQuestion>> = {
   objecao: {
     type: "choice",
     instructions:
-      "Leia só a mensagem da cliente. Ela mostra um receio, uma reclamação, um impedimento ou um adiamento? Escolha qual. Uma pergunta neutra de informação (quanto custa, qual o frete, qual o prazo, como funciona, serve em mim) é nenhuma: só conta quando ela mostra medo, desconfiança, reclamação ou que não pode. Mandar um dado, cumprimentar, concordar ou pedir o link também é nenhuma.",
+      "Leia só a mensagem da cliente. Ela mostra um receio, uma reclamação, um impedimento ou um adiamento? Escolha qual. Uma pergunta neutra de informação (quanto custa, qual o frete, qual o prazo, que horas chega, como pago, aceita cartão, qual tamanho) é nenhuma: só conta quando ela mostra medo, desconfiança, reclamação, um pedido que a loja pode não atender, ou que não pode. Mandar um dado, cumprimentar, concordar ou pedir o link também é nenhuma. Se houver mais de uma, escolha a primeira que ela diz; um adiamento com motivo dito leva o motivo.",
     criteria: {
-      preco: "diz que está caro, que o dinheiro está curto, ou pede desconto",
+      preco: "diz que está caro, que o dinheiro está curto, pede desconto ou cupom, ou pede frete grátis como condição",
       confianca: "duvida que a loja exista, que o produto seja original ou que vá chegar; fala em golpe ou em ter perdido dinheiro",
-      prazo: "precisa receber até uma data ou um evento, ou quer escolher o horário da entrega",
-      tamanho: "tem medo de não servir, está entre dois tamanhos ou acha que não existe tamanho para ela",
-      pensar: "diz que vai pensar, ver com alguém, comprar depois, ou encerra com \"já te falo\"",
-      pagamento: "não tem ou não aceita um jeito de pagar (cartão, pix, antecipado), ou duvida que dá mesmo para pagar na entrega",
+      prazo: "precisa receber até uma data ou um evento, reclama de atraso, ou quer escolher ou limita o horário da entrega (\"pode ser de manhã?\", \"vou estar no trabalho\")",
+      tamanho: "tem medo de não servir, está entre dois tamanhos, acha que não existe tamanho para ela, ou tem medo de que marque, aperte ou apareça",
+      pensar: "adia a decisão: vai pensar, ver com alguém, comprar depois, ou encerra com \"já te falo\"",
+      pagamento: "pede um jeito de pagar que a loja não tem (boleto), não tem um jeito (cartão, pix), recusa pagar antes, ou duvida que dá mesmo para pagar na entrega",
       nenhuma: "pergunta neutra de informação, um dado, um cumprimento, uma concordância ou o pedido do link",
     },
   },

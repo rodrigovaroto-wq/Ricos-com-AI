@@ -267,12 +267,12 @@ describe("as mentiras de detalhe operacional (operador, 2026-10-23)", () => {
     for (const q of ["fala_boleto", "escolhe_horario", "correio_na_entrega"]) expect(gold.filter((g) => g.labels[q] === true).length, q).toBe(12);
   });
   it("a versão das perguntas subiu: as aprovadas da versão 1 não valem até a nova medida", () => {
-    expect(QUESTIONS_VERSION).toBe(5);
+    expect(QUESTIONS_VERSION).toBe(6);
     expect(approvedOf(AUDIT, { model: JEV_MODEL, questionsVersion: 1, measuredAt: "x", approved: { escassez: { threshold: 0.5, accuracy: 1, n: 230 } } }, JEV_MODEL)).toEqual({});
   });
 });
 
-describe("as dez reescritas, objetivas e claras (operador, 2026-10-23, versões 3 a 5)", () => {
+describe("as dez reescritas, objetivas e claras (operador, 2026-10-23, versões 3 a 6)", () => {
   const all = { ...INBOUND, ...AUDIT, ...MISSED };
   it("pergunta de duas condições diz que a condição ausente é não", () => {
     for (const q of ["compra_sem_passo", "objecao_sem_resposta", "pergunta_ignorada", "kit_nao_oferecido", "desconfianca_sem_garantia"]) {

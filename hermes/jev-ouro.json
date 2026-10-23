@@ -667,7 +667,7 @@
   "cliente": "entendi\nmas aparece por baixo de blusa fina?",
   "maluDepois": "Não aparece, ele é fininho e fica bem assentado por baixo da blusa, sem volume\n\nQual das duas formas fica melhor pra você, na entrega ou no antecipado?",
   "labels": {
-   "objecao": "nenhuma",
+   "objecao": "tamanho",
    "quer_comprar": false,
    "irritacao": 0,
    "promete_prazo": false,
@@ -907,7 +907,7 @@
   "cliente": "129,90 ta bom, e como funciona esse pague na entrega?\n\né dinheiro ou cartao na hora?",
   "maluDepois": "Funciona assim, dependendo da sua região você não paga nada agora e paga uma vez só ao entregador quando o colete chegar, você escolhe a forma que deseja pagar\n\nPagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber.\n\nVocê pensou em usar o colete com qual peça que está parada aí?",
   "labels": {
-   "objecao": "pagamento",
+   "objecao": "nenhuma",
    "quer_comprar": false,
    "irritacao": 0,
    "promete_prazo": false,
@@ -2137,7 +2137,7 @@
   "cliente": "vi esse colete no insta aqui\n\ne esse pagar na entrega e verdade msm",
   "maluDepois": "Recebi sua mensagem, já te respondo por aqui 💛\n\nBoa tarde, sou a Malu, da Encorpa, e a gente vende o Colete Cinta Modeladora, que modela enquanto está vestido.\n\nÉ verdade sim, dependendo da sua região você não paga nada agora e paga só quando o colete chegar na sua mão, me passa seu CEP pra eu ver como fica aí pra você?",
   "labels": {
-   "objecao": "confianca",
+   "objecao": "pagamento",
    "quer_comprar": false,
    "irritacao": 0,
    "promete_prazo": false,
@@ -2917,7 +2917,7 @@
   "cliente": "oi boa tarde\n\nvi o anuncio do colete modelador no instagram, como que funciona esse de pagar na entrega?",
   "maluDepois": "Bom dia, eu sou a Malu, da Encorpa! No pagamento na entrega você não paga nada agora, paga só quando o colete chegar na sua mão, ao entregador, dependendo da sua região.\n\nMe passa seu CEP? Aí eu já vejo como fica a entrega e o pagamento aí pra você.",
   "labels": {
-   "objecao": "pagamento",
+   "objecao": "nenhuma",
    "quer_comprar": false,
    "irritacao": 0,
    "promete_prazo": false,
@@ -3157,7 +3157,7 @@
   "cliente": "entendi, preto entao pros dois\n\nmas me explica esse pagamento na entrega? como funciona? nunca fiz assim",
   "maluDepois": "Funciona assim, dependendo da sua região você não paga nada agora e paga direto ao entregador quando o colete chegar, no dinheiro, no Pix ou no cartão.\n\nPagando na entrega o frete é grátis: você paga só R$ 233,82 quando receber.\n\nMe passa seu CEP pra eu ver se chega aí pra você?",
   "labels": {
-   "objecao": "pagamento",
+   "objecao": "nenhuma",
    "quer_comprar": false,
    "irritacao": 0,
    "promete_prazo": false,
@@ -3457,7 +3457,7 @@
   "cliente": "ah legal\n\nmas aceita pix na hora ne? e cartao na maquininha?\n\no entregador espera eu descer?",
   "maluDepois": "Você escolhe a forma que deseja pagar na hora, então dá pra combinar do jeito que ficar melhor pra você\n\nA entrega é no seu endereço, mas o entregador não espera provar, você recebe e paga ali mesmo\n\nMe passa seu CEP pra eu ver se aí na sua região tem pagamento na entrega?",
   "labels": {
-   "objecao": "pagamento",
+   "objecao": "nenhuma",
    "quer_comprar": false,
    "irritacao": 0,
    "promete_prazo": false,
@@ -3697,7 +3697,7 @@
   "cliente": "ai nao quero nao\n\nse e pra pagar antes eu nao quero nao viu ja perdi dinheiro assim uma vez",
   "maluDepois": "Faz todo sentido você não querer pagar antes depois de ter perdido dinheiro uma vez, dá medo mesmo.\n\nAí na sua região a entrega com pagamento na hora ainda não chegou, então o caminho é o antecipado no pix ou no cartão pelo checkout, com 10% de desconto: R$ 116,91, e o frete aparece pra você lá dentro antes de pagar.\n\nE segue valendo os 7 dias após o recebimento pra devolver se não gostar, com o suporte te atendendo todos os dias pra você não ficar sem notícia, o prazo varia por região, em média 5 dias úteis.",
   "labels": {
-   "objecao": "confianca",
+   "objecao": "pagamento",
    "quer_comprar": false,
    "irritacao": 0,
    "promete_prazo": true,
@@ -3847,7 +3847,7 @@
   "cliente": "entendi\n\nmas esse preco e a vista na entrega? nao tem taxa a mais nao ne?\n\ne como sei o tamanho? eu uso 42 de calca",
   "maluDepois": "É à vista sim, você paga uma vez só ao entregador quando receber, sem taxa a mais.\n\nPagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber.\n\nCom 42 de calça o seu é o G, que é pra cintura de 76 a 84 cm. Tem alguma roupa que você gosta e anda deixando no armário?",
   "labels": {
-   "objecao": "pagamento",
+   "objecao": "preco",
    "quer_comprar": false,
    "irritacao": 0,
    "promete_prazo": false,
@@ -3877,7 +3877,7 @@
   "cliente": "uso 46 de calca\n\nmas esse pagamento na entrega vale aqui pra fortaleza tbm",
   "maluDepois": "Com 46 de calça o seu é o GG, que é pra cintura de 84 a 92 cm e deixa a roupa bem assentada sem apertar.\n\nSobre Fortaleza o pagamento na entrega varia por região, então depende do seu CEP se tem aí com frete grátis e pagamento só quando recebe.",
   "labels": {
-   "objecao": "pagamento",
+   "objecao": "nenhuma",
    "quer_comprar": false,
    "irritacao": 0,
    "promete_prazo": false,
@@ -3937,7 +3937,7 @@
   "cliente": "yo uso talla 42, tienen?\n\ny como puedo pagar cuando llegue?",
   "maluDepois": "Tem sim, com 42 de calça o seu é o G, que é pra cintura de 76 a 84 cm.\n\nPagando na entrega, dependendo da sua região você só paga quando o colete chegar na sua mão, e o frete é grátis.\n\nMe passa seu CEP? Aí eu já vejo como fica a entrega e o pagamento aí na sua região.",
   "labels": {
-   "objecao": "pagamento",
+   "objecao": "nenhuma",
    "quer_comprar": false,
    "irritacao": 0,
    "promete_prazo": false,
@@ -4297,7 +4297,7 @@
   "cliente": "mas qual seria o tamanho pra mim? M ou G?\ne como funciona pra pagar nesse antecipado?",
   "maluDepois": "No antecipado você paga antes, no checkout, no pix ou no cartão em até 12x. No antecipado o frete é calculado por região no checkout, e aparece pra você antes de pagar.\n\nEntre o M e o G eu confirmo pela sua cintura pra não errar, você sabe quanto tá sua cintura em cm?",
   "labels": {
-   "objecao": "nenhuma",
+   "objecao": "tamanho",
    "quer_comprar": false,
    "irritacao": 0,
    "promete_prazo": false,
@@ -5347,7 +5347,7 @@
   "cliente": "to sem dinheiro agr, mes q vem eu compro",
   "maluDepois": "Entendo 💛 Só que mês que vem talvez não tenha mais, o estoque tá zerando. E pagando na entrega você só paga quando receber. Quer ver como fica?",
   "labels": {
-   "objecao": "pensar",
+   "objecao": "preco",
    "quer_comprar": false,
    "irritacao": 0,
    "promete_prazo": false,
@@ -5947,7 +5947,7 @@
   "cliente": "voltei a trabalhar presencial e quero me sentir bonita nas roupa social, aceita cartao?",
   "maluDepois": "Aceita sim! Na entrega você paga ao entregador no dinheiro, pix ou cartão 💛 Me passa seu CEP?",
   "labels": {
-   "objecao": "pagamento",
+   "objecao": "nenhuma",
    "quer_comprar": false,
    "irritacao": 0,
    "promete_prazo": false,
@@ -6217,7 +6217,7 @@
   "cliente": "serve pra quem tem barriga grande?",
   "maluDepois": "Serve sim, ele modela a barriga enquanto você usa 💛 Qual seu número de calça? Já usou algum colete antes?",
   "labels": {
-   "objecao": "nenhuma",
+   "objecao": "tamanho",
    "quer_comprar": false,
    "irritacao": 0,
    "promete_prazo": false,
@@ -7027,7 +7027,7 @@
   "cliente": "como faço pra pagar",
   "maluDepois": "Você escolhe no checkout: boleto, pix ou cartão. Me passa seu nome completo?",
   "labels": {
-   "objecao": "pagamento",
+   "objecao": "nenhuma",
    "quer_comprar": false,
    "irritacao": 0,
    "promete_prazo": false,
@@ -7357,7 +7357,7 @@
   "cliente": "como pago",
   "maluDepois": "Você escolhe: na entrega, quando receber, ou antecipado no pix ou cartão. Qual fica melhor?",
   "labels": {
-   "objecao": "pagamento",
+   "objecao": "nenhuma",
    "quer_comprar": false,
    "irritacao": 0,
    "promete_prazo": false,
@@ -7387,7 +7387,7 @@
   "cliente": "que horas chega?",
   "maluDepois": "Você escolhe o horário da entrega lá no checkout. Me passa seu CEP?",
   "labels": {
-   "objecao": "prazo",
+   "objecao": "nenhuma",
    "quer_comprar": false,
    "irritacao": 0,
    "promete_prazo": false,
@@ -7417,7 +7417,7 @@
   "cliente": "pode ser de manhã?",
   "maluDepois": "Pode sim, você marca a entrega pra manhã no checkout. Quer o link?",
   "labels": {
-   "objecao": "nenhuma",
+   "objecao": "prazo",
    "quer_comprar": false,
    "irritacao": 0,
    "promete_prazo": false,
@@ -7447,7 +7447,7 @@
   "cliente": "trabalho à tarde, dá pra entregar à noite?",
   "maluDepois": "Dá sim, é só escolher o horário da noite no checkout. Te mando o link?",
   "labels": {
-   "objecao": "nenhuma",
+   "objecao": "prazo",
    "quer_comprar": false,
    "irritacao": 0,
    "promete_prazo": false,
@@ -7567,7 +7567,7 @@
   "cliente": "o entregador vem que horas",
   "maluDepois": "Ele vem no horário que você agendar, você escolhe a faixa de horário. Me confirma o CEP?",
   "labels": {
-   "objecao": "prazo",
+   "objecao": "nenhuma",
    "quer_comprar": false,
    "irritacao": 0,
    "promete_prazo": false,
@@ -7627,7 +7627,7 @@
   "cliente": "prefiro receber no sábado de manhã",
   "maluDepois": "Pode sim, você escolhe sábado e o horário da manhã no checkout. Quer seguir?",
   "labels": {
-   "objecao": "nenhuma",
+   "objecao": "prazo",
    "quer_comprar": false,
    "irritacao": 0,
    "promete_prazo": false,
@@ -7657,7 +7657,7 @@
   "cliente": "tem horario fixo?",
   "maluDepois": "Não, você escolhe o horário que preferir na hora de agendar. Me passa seu CEP?",
   "labels": {
-   "objecao": "prazo",
+   "objecao": "nenhuma",
    "quer_comprar": false,
    "irritacao": 0,
    "promete_prazo": false,
@@ -7717,7 +7717,7 @@
   "cliente": "vou estar no trabalho",
   "maluDepois": "Sem problema, você agenda a entrega pro horário em que estiver em casa. Me passa seu CEP?",
   "labels": {
-   "objecao": "nenhuma",
+   "objecao": "prazo",
    "quer_comprar": false,
    "irritacao": 0,
    "promete_prazo": false,
@@ -7747,7 +7747,7 @@
   "cliente": "que horas chega?",
   "maluDepois": "Você escolhe o dia no checkout; o horário não dá pra escolher, chega ao longo do dia. Me passa seu CEP?",
   "labels": {
-   "objecao": "prazo",
+   "objecao": "nenhuma",
    "quer_comprar": false,
    "irritacao": 0,
    "promete_prazo": false,
@@ -8137,7 +8137,7 @@
   "cliente": "se eu nao estiver em casa?",
   "maluDepois": "O carteiro dos Correios volta outro dia e você paga pra ele quando receber. Me passa seu CEP?",
   "labels": {
-   "objecao": "nenhuma",
+   "objecao": "prazo",
    "quer_comprar": false,
    "irritacao": 0,
    "promete_prazo": false,
