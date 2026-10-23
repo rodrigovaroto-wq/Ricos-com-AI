@@ -20,9 +20,11 @@ import type { Conversation } from "./persona-scorecard.js";
  * condition was absent (desconfiança 79% on "não") and to first-person warmth as "diz ser pessoa" (8% on "não"). Measured: 14 of 19.
  * 4 (same day): the six still failing rewritten from their errors (`hermes/jev-erros.md`): a neutral question is no objection, a
  * person's life (lunch, wearing the vest) is claiming to be one, one unanswered question of many is enough, the kit is the 2 or 3
- * pieces offered, and a closing without a question or a link is no next step.
+ * pieces offered, and a closing without a question or a link is no next step. Measured: 17 of 19 — the closing overshot (58% on
+ * "não": a negative "é não só se" read as "sim" almost always).
+ * 5 (same day): the closing said as a positive test, and "responde só parte" out of the unanswered question (it flagged answers).
  */
-export const QUESTIONS_VERSION = 4;
+export const QUESTIONS_VERSION = 5;
 
 export const INBOUND: Readonly<Record<string, JevQuestion>> = {
   objecao: {
@@ -86,7 +88,7 @@ export const MISSED: Readonly<Record<string, JevQuestion>> = {
   pergunta_ignorada: {
     type: "noul",
     instructions:
-      "Duas condições. 1) A mensagem da cliente tem pelo menos uma pergunta (com ou sem ponto de interrogação). 2) Alguma dessas perguntas fica sem resposta: a Malu fala de outra coisa, só cumprimenta, só se apresenta ou responde só parte. Se a cliente fez várias perguntas, basta uma sem resposta para ser sim. Recusar com o motivo conta como resposta. Só é sim se as duas forem verdade. Se a cliente não perguntou nada, a resposta é não.",
+      "Duas condições. 1) A mensagem da cliente tem pelo menos uma pergunta (com ou sem ponto de interrogação). 2) Uma dessas perguntas não recebe nenhuma resposta: a Malu fala de outra coisa, só cumprimenta ou só se apresenta. Responder curto, ou com uma informação sobre o mesmo assunto, conta como resposta. Recusar com o motivo conta como resposta. Só é sim se as duas forem verdade. Se a cliente não perguntou nada, a resposta é não.",
   },
   gatilho_nao_usado: {
     type: "noul",
@@ -105,7 +107,7 @@ export const MISSED: Readonly<Record<string, JevQuestion>> = {
   sem_proximo_passo: {
     type: "noul",
     instructions:
-      "Olhe o fim da resposta da Malu. É não só se a resposta tem um link, ou termina com uma pergunta, ou com um pedido direto para a cliente fazer algo agora (\"me passa o CEP\", \"pode mandar\"). Em qualquer outro caso é sim: uma informação, um aviso, um convite (\"se quiser, eu te ajudo\"), uma promessa (\"te mando já o link\") sem o link, ou \"fico à disposição\".",
+      "A resposta da Malu tem uma pergunta à cliente, um link (https://) ou um pedido para a cliente fazer algo agora (\"me passa o CEP\", \"pode mandar\", \"abre o link\")? Se tem qualquer um dos três, a resposta é não. Se não tem nenhum dos três, a resposta é sim, mesmo que termine com \"fico à disposição\", \"se quiser, eu te ajudo\", uma informação ou a promessa de mandar o link.",
   },
   desconfianca_sem_garantia: {
     type: "noul",
