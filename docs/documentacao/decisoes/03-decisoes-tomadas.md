@@ -2303,4 +2303,11 @@ Grafo [§124](04-grafo-de-decisoes.md). Propostas P0–P5 aprovadas, ajustadas o
 - **R30.6 — JEV:** integração direta (sem o pacote hermes-jev-skills inteiro), só no CI, em modo sombra; o texto **original** vai à TypeSafe
   (P2.3); uma pergunta só entra com **90%** no conjunto de ouro em português; teto de **US$ 0,15** por rodada; onde o JEV e o gate discordam, **o
   gate vale** até a confiabilidade do JEV ser medida; a análise do que a Malu deveria ter dito é avaliada em custo e eficiência antes de ficar.
+- **R30.7 — Sem o 2º lembrete de silêncio** (operador, 2026-10-23): `silence_2` saiu da régua (`scheduleSilence`), porque foi enviado 40
+  vezes e não trouxe ninguém de volta em 24 h (`eval_ruler_returns`), contra 16 de 42 do 1º. A régua é o 1º lembrete e depois o
+  `silence_3`, que passa a ser o segundo. A varredura cancela um `silence_2` armado antes do deploy. **Atenção:** o `silence_3` é o toque
+  do cupom e só sai com `coupon.active` e um código no `BUSINESS_CONFIG`; hoje o cupom está desligado, então na prática só o 1º sai.
+- **R30.8 — Hermes mais barato** (operador, 2026-10-23: a rodada custou mais que os 42 leads): o pacote vai em dois arquivos (`pacote.md`
+  e `conversas.md`), o registro de mudanças vai resumido (título e estado) e a recepção automática vai cortada. Medido nas mesmas 43
+  conversas sintéticas: 25 → 8 chamadas, 1,48 M → 291 mil tokens (−80%); no modelo padrão, ~US$ 1,82 → ~US$ 0,37 por rodada.
 

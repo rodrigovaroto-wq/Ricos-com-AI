@@ -288,7 +288,8 @@ describe("R3 — 'Ainda está aí?' aos 20 min e o lembrete a 1 h, cada um no m�
     const sent = { still_there: new Date(now.getTime() - 2 * 3600_000), silence_1: new Date(now.getTime() - 5 * 3600_000) };
     expect(oncePerDay(ruler, sent).map((f) => f.kind)).not.toContain("still_there");
     expect(oncePerDay(ruler, sent).map((f) => f.kind)).not.toContain("silence_1");
-    expect(oncePerDay(ruler, sent).map((f) => f.kind)).toContain("silence_2");
+    // O resto da régua segue: desde R30.7 (2026-10-22) é só o silence_3 — o silence_2 saiu.
+    expect(oncePerDay(ruler, sent).map((f) => f.kind)).toEqual(["silence_3"]);
   });
   it("enviado há mais de 24 h, ou nunca, arma", () => {
     const ruler = rulerFor(now, "before_size", undefined, false, undefined, true);

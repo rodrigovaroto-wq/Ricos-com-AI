@@ -20,6 +20,12 @@ uma. Nada do que você escreve vai para produção sem ele.
 
 ## O que tem na pasta
 
+**Dois arquivos, uma leitura de cada** (desde 2026-10-22, para baratear a rodada): `pacote.md` traz cada arquivo abaixo
+como uma seção com o cabeçalho `# arquivo: <nome>` (reverter, decisões, histórico, placar, números, tempo, JEV, regras,
+registro e o prompt, nessa ordem), e `conversas.md` traz todas as conversas, uma seção `# <nome>` por conversa. Leia os
+dois **inteiros, uma vez**; não releia trechos — cada leitura a mais custa a rodada inteira de novo. Onde esta skill diz
+`conversas/`, é `conversas.md`; onde diz `prompt.md`, `placar.md` etc., é a seção com esse nome.
+
 - `reverter.md` — **leia antes de tudo.** Se diz **CRÍTICO**, há uma reversão da versão no ar
   esperando o operador: nesta rodada você só pode propor reversão (veja "Reverter a versão
   nova"); qualquer outra proposta é descartada.
@@ -29,7 +35,7 @@ uma. Nada do que você escreve vai para produção sem ele.
   banco não.
 - `prompt.md` — o prompt que a Malu lê, com as regras e os fatos da operação (na config de
   teste). É contra ele que uma mentira é mentira.
-- `conversas/*.md` — cada conversa, mensagem a mensagem. As conversas de produção chegam
+- `conversas.md` — cada conversa, mensagem a mensagem. As conversas de produção chegam
   escolhidas: primeiro as que tiveram opt-out, resposta pronta, handoff ou veto, depois
   algumas sem sinal nenhum — leia as duas, a mentira que passou não deixa sinal. Em cada resposta da Malu aparecem os
   vetos que ela levou antes de sair (`veto: <gate> — <motivo>`) e o desfecho do turno. Dados
@@ -43,7 +49,7 @@ uma. Nada do que você escreve vai para produção sem ele.
   não usada, kit não oferecido). É **suspeita a conferir**: abra a conversa, ache o trecho e só então cite — o trecho
   vem de `conversas/`, nunca de `jev.md`. Onde o JEV e os gates discordam, o gate vale; uma mentira que o JEV
   aponta e você confirma é a proposta mais valiosa da rodada.
-- `registro.md` — o registro de mudanças: tudo que já foi proposto, feito e medido. **Não
+- `registro.md` — o registro de mudanças (título e estado de cada entrada): tudo que já foi proposto, feito e medido. **Não
   proponha de novo o que já está lá**; se uma entrada aberta ou atingida voltou a falhar, cite
   o número dela (M-xx) e proponha o ajuste.
 - `regras.md` — o que o sistema decidiu **não** fazer, e por quê.

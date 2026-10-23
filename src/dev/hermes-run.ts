@@ -27,7 +27,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { gateBriefing, runGates } from "../agent/guardrails.js";
@@ -55,6 +55,9 @@ import {
   storedEvidence,
   withMeasure,
   type SampleRow,
+  BUNDLE_ORDER,
+  bundlePack,
+  registrySummary,
   renderConversation,
   renderLedger,
   renderProposals,
@@ -266,7 +269,7 @@ writeFileSync(
 );
 if (jevRun) console.log(`jev: ${jevRun.calls} chamadas, ${jevRun.failed} sem resposta, US$ ${jevRun.costUsd.toFixed(4)}, ${disagreements(jevRun, jevApproved).length} divergências gate × JEV`);
 
-cpSync(join(REPO, "docs/agente-ia/08-mudancas/registro.md"), join(bundle, "registro.md"));
+writeFileSync(join(bundle, "registro.md"), registrySummary(readFileSync(join(REPO, "docs/agente-ia/08-mudancas/registro.md"), "utf8")));
 // The real cases already audited and what fixed them (operator, 2026-10-08): Hermes's initial history.
 cpSync(join(REPO, "hermes/historico-inicial.md"), join(bundle, "historico.md"));
 // The ledger (operator, 2026-09-25): every earlier decision and its reason, so a refused
@@ -289,6 +292,15 @@ writeFileSync(
     "\n\nR13.6 (operador): escassez e prova social inventadas estão recusadas.\n",
 );
 
+// Two files instead of ~60 (cost cut of 2026-10-22, `bundlePack`): each read re-sends the context read before it.
+{
+  const context = Object.fromEntries(BUNDLE_ORDER.filter((f) => existsSync(join(bundle, f))).map((f) => [f, readFileSync(join(bundle, f), "utf8")]));
+  writeFileSync(join(bundle, "pacote.md"), bundlePack(context));
+  for (const f of Object.keys(context)) rmSync(join(bundle, f));
+  writeFileSync(join(bundle, "conversas.md"), [...rendered.values()].join("\n---\n\n"));
+  rmSync(join(bundle, "conversas"), { recursive: true, force: true });
+}
+
 const home = mkdtempSync(join(tmpdir(), "hermes-home-"));
 // Hermes refuses a data-training tier unattended. Only synthetic persona runs may opt in
 // (the supabase source already refused it above): no real customer is in the bundle.
@@ -301,7 +313,7 @@ writeFileSync(
 cpSync(join(REPO, "hermes/skills"), join(home, "skills"), { recursive: true });
 
 const prompt =
-  "Use a skill encorpa-supervisor. Leia reverter.md primeiro, depois decisoes.md, historico.md, placar.md, numeros.md, timing.md, jev.md, prompt.md, regras.md, registro.md e todos os arquivos em conversas/, " +
+  "Use a skill encorpa-supervisor. Leia pacote.md inteiro (reverter, decisões, histórico, placar, números, tempo, JEV, regras, registro e o prompt, nessa ordem) e depois conversas.md inteiro, uma leitura de cada, " +
   "e escreva propostas.json nesta pasta, exatamente no formato da skill. Trecho de evidência só copiado, nunca resumido.";
 const usageFile = join(bundle, "usage.json");
 const started = Date.now();

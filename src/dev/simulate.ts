@@ -418,11 +418,13 @@ for (const [kind, ctx, over] of [
 }
 
 // A régua de silêncio nunca pode marcar dois toques colados: repetir é o que derruba o número.
+// Desde R30.7 (2026-10-22) são dois toques — silence_1 e silence_3; o silence_2 saiu (0 de 40 respondidos).
 {
-  const [um, dois, tres] = scheduleSilence(new Date("2026-09-08T12:00:00Z"));
+  const ruler = scheduleSilence(new Date("2026-09-08T12:00:00Z"));
+  const [um, dois] = ruler;
   const h = (a: Date, b: Date) => (b.getTime() - a.getTime()) / 3_600_000;
+  check("espaçamento da régua", "toques", "-", "silence_1,silence_3", ruler.map((t) => t.kind).join(","));
   check("espaçamento da régua", "toque 1 → 2", "-", "≥ 6h", h(um!.runAt, dois!.runAt) >= 6 ? "≥ 6h" : `${h(um!.runAt, dois!.runAt).toFixed(1)}h`);
-  check("espaçamento da régua", "toque 2 → 3", "-", "≥ 6h", h(dois!.runAt, tres!.runAt) >= 6 ? "≥ 6h" : `${h(dois!.runAt, tres!.runAt).toFixed(1)}h`);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

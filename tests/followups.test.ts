@@ -47,20 +47,22 @@ const render = (over: Partial<RenderContext> = {}): RenderContext => ({
 describe("régua de silêncio", () => {
   const now = new Date("2026-09-06T14:00:00");
 
-  it("são três toques, espaçados como decidido", () => {
-    const [t1, t2, t3] = scheduleSilence(now);
+  // R30.7 (operador, 2026-10-22): o silence_2 saiu da régua — 40 envios, 0 respostas em 24 h
+  // (`eval_ruler_returns`). São dois toques: o de 1 h e o do cupom.
+  it("são dois toques, espaçados como decidido — sem o silence_2", () => {
+    const regua = scheduleSilence(now);
+    expect(regua.map((t) => t.kind)).toEqual(["silence_1", "silence_3"]);
+    const [t1, t3] = regua;
     expect(t1!.runAt.getTime() - now.getTime()).toBe(60 * 60_000); // 1 h desde 2026-10-07 (grafo §66)
-    expect(horaEmSP(t2!.runAt)).toBe(9);
-    expect(t2!.runAt.getTime()).toBeGreaterThan(now.getTime());
     expect(t3!.runAt.getTime() - now.getTime()).toBe(3 * 24 * 60 * 60_000);
   });
 
-  // O horário é o do negócio, não o do servidor: a Edge Function roda em UTC, onde
-  // "9h" virava 6h da manhã em Brasília.
-  it("o segundo toque cai às 9h de Brasília, venha o instante de onde vier", () => {
+  // Era o teste do 09:00 de Brasília do silence_2 (a Edge Function roda em UTC). Sem o toque,
+  // a sonda vira: em nenhuma hora do dia a régua arma o silence_2.
+  it("nenhum instante do dia arma o silence_2", () => {
     for (let h = 0; h < 24; h++) {
       const at = scheduleSilence(new Date(`2026-09-06T${String(h).padStart(2, "0")}:40:00Z`));
-      expect(horaEmSP(at[1]!.runAt), `entrada ${h}:40Z`).toBe(9);
+      expect(at.map((t) => t.kind), `entrada ${h}:40Z`).toEqual(["silence_1", "silence_3"]);
     }
   });
 
@@ -97,19 +99,14 @@ describe("régua de silêncio", () => {
 describe("régua de checkout não finalizado (§R10.4)", () => {
   const now = new Date("2026-09-06T14:00:00");
 
-  it("sem stopPoint, o comportamento continua o de sempre — três toques", () => {
+  it("sem stopPoint, o comportamento continua o de sempre — dois toques (R30.7)", () => {
     const touches = scheduleSilence(now);
-    expect(touches.map((t) => t.kind)).toEqual(["silence_1", "silence_2", "silence_3"]);
+    expect(touches.map((t) => t.kind)).toEqual(["silence_1", "silence_3"]);
   });
 
-  it("com link_sent, ganha um quarto toque aos 10 minutos do link, antes do de 1 h (L2)", () => {
+  it("com link_sent, ganha um toque aos 10 minutos do link, antes do de 1 h (L2) — e nada de silence_2", () => {
     const touches = scheduleSilence(now, "link_sent");
-    expect(touches.map((t) => t.kind)).toEqual([
-      "checkout_reminder",
-      "silence_1",
-      "silence_2",
-      "silence_3",
-    ]);
+    expect(touches.map((t) => t.kind)).toEqual(["checkout_reminder", "silence_1", "silence_3"]);
     expect(touches[0]!.runAt.getTime() - now.getTime()).toBe(10 * 60_000);
     expect(touches[1]!.runAt.getTime() - now.getTime()).toBe(60 * 60_000);
   });
@@ -923,15 +920,19 @@ describe("régua reancorada recomeça no toque adiado", () => {
   const kinds = (postponed?: Parameters<typeof rulerFor>[2]) =>
     rulerFor(reabertura, "after_price", postponed).map((f) => f.kind);
 
-  it("silence_2 adiado não rearma o silence_1 que já saiu", () => {
-    expect(kinds("silence_2")).toEqual(["silence_2", "silence_3"]);
+  // R30.7: um silence_2 de antes do deploy não chega aqui — a varredura o cancela antes de adiar
+  // (tests/order-stage.test.ts). Ancorada, a régua não tem hora para ele: nada volta, nem o silence_1.
+  it("silence_2 adiado não volta nem rearma o silence_1 que já saiu (régua ancorada)", () => {
+    const anchors = { entry: reabertura, lastInbound: reabertura };
+    expect(rulerFor(reabertura, "after_price", "silence_2", false, anchors)).toEqual([]);
   });
   it("silence_3 adiado não rearma o silence_1 nem o silence_2", () => {
     expect(kinds("silence_3")).toEqual(["silence_3"]);
   });
   it("silence_1 adiado e régua nova seguem inteiras", () => {
-    expect(kinds("silence_1")).toEqual(["silence_1", "silence_2", "silence_3"]);
-    expect(kinds()).toEqual(["silence_1", "silence_2", "silence_3"]);
+    expect(kinds("silence_1")).toEqual(["silence_1", "silence_3"]);
+    expect(kinds()).toEqual(["silence_1", "silence_3"]);
+    expect([...kinds("silence_1"), ...kinds()]).not.toContain("silence_2");
   });
 });
 
@@ -939,7 +940,7 @@ describe("o lembrete de 15 min só no turno que mandou o link", () => {
   const agora = new Date("2026-09-28T15:00:00Z");
   it("o turno depois do link segue em link_sent, sem lembrete novo", () => {
     const regua = rulerFor(agora, "link_sent", undefined, false);
-    expect(regua.map((f) => f.kind)).toEqual(["silence_1", "silence_2", "silence_3"]);
+    expect(regua.map((f) => f.kind)).toEqual(["silence_1", "silence_3"]);
   });
   it("o turno que mandou o link arma o lembrete aos 10 minutos (L2)", () => {
     const [primeiro] = rulerFor(agora, "link_sent", undefined, true);
@@ -1299,40 +1300,41 @@ describe("§4a: a régua dentro das janelas gratuitas", () => {
     expect(s3.runAt.getTime()).not.toBe(agora.getTime() + 3 * 24 * H);
   });
 
-  it("a conversa que durou 65 h não tem silence_3: o silence_2 é o último toque", () => {
+  // R30.7: sem o silence_2, o silence_3 é o toque depois do silence_1 — fica enquanto cair depois dele.
+  it("a conversa que durou 60 h ainda tem o silence_3, a 8 h ou mais do silence_1 e sem silence_2", () => {
     const entrada = sp("2026-10-05T12:00:00");
-    const agora = new Date(entrada.getTime() + 65 * H);
+    const agora = new Date(entrada.getTime() + 60 * H);
     const regua = scheduleSilence(agora, "after_price", { entry: entrada, lastInbound: agora });
-    expect(regua.map((f) => f.kind)).toEqual(["silence_1", "silence_2"]);
+    expect(regua.map((f) => f.kind)).toEqual(["silence_1", "silence_3"]);
+    expect(regua[1]!.runAt).toEqual(silence3At(entrada));
+    expect(regua[1]!.runAt.getTime()).toBeGreaterThan(regua[0]!.runAt.getTime());
   });
 
-  it("silence_2: última mensagem às 08:00 → antes das 08:00 do dia seguinte", () => {
-    const ultima = sp("2026-10-05T08:00:00");
-    const s2 = scheduleSilence(new Date(ultima.getTime() + 60_000), "before_size", { entry: ultima, lastInbound: ultima })[1]!;
-    expect(s2.kind).toBe("silence_2");
-    expect(s2.runAt).toEqual(sp("2026-10-06T07:00:00"));
+  it("a conversa cujo silence_1 cai depois da faixa da entrada não tem silence_3: o silence_1 é o último toque", () => {
+    const entrada = sp("2026-10-05T12:00:00");
+    const agora = new Date(entrada.getTime() + 70.5 * H); // silence_1 às 71 h 30, o silence_3 às 71 h
+    const regua = scheduleSilence(agora, "after_price", { entry: entrada, lastInbound: agora });
+    expect(regua.map((f) => f.kind)).toEqual(["silence_1"]);
   });
 
-  it("silence_2: última mensagem às 23:00 → 09:00 do dia seguinte", () => {
-    const ultima = sp("2026-10-05T23:00:00");
-    const s2 = scheduleSilence(new Date(ultima.getTime() + 60_000), "before_size", { entry: ultima, lastInbound: ultima })[1]!;
-    expect(s2.runAt).toEqual(sp("2026-10-06T09:00:00"));
+  it("borda: o silence_3 na mesma hora do silence_1 não é armado (só depois dele)", () => {
+    const entrada = sp("2026-10-05T12:00:00");
+    const agora = new Date(silence3At(entrada).getTime() - H); // silence_1 cai exatamente na hora do silence_3
+    const regua = scheduleSilence(agora, "after_price", { entry: entrada, lastInbound: agora });
+    expect(regua.map((f) => f.kind)).toEqual(["silence_1"]);
   });
 
-  it("silence_2: última mensagem às 02:00 → 23:30 do mesmo dia", () => {
-    const ultima = sp("2026-10-05T02:00:00");
-    const s2 = scheduleSilence(new Date(ultima.getTime() + 60_000), "before_size", { entry: ultima, lastInbound: ultima })[1]!;
-    expect(s2.runAt).toEqual(sp("2026-10-05T23:30:00"));
-  });
-
-  it("silence_2 nunca passa de 24 h da última mensagem dela, nunca de madrugada, sempre depois do silence_1", () => {
+  // Eram as quatro sondas de horário do silence_2 (08:00, 23:00, 02:00 e o dia inteiro). Sem o toque
+  // (R30.7), a sonda do dia inteiro vira: nenhuma hora arma o silence_2, o silence_1 sai a 1 h e o
+  // silence_3 fica na hora da entrada.
+  it("ancorada, nenhuma hora da última mensagem arma o silence_2", () => {
     for (let m = 0; m < 24 * 60; m += 10) {
       const ultima = new Date(sp("2026-10-05T00:00:00").getTime() + m * 60_000);
-      const [s1, s2] = scheduleSilence(new Date(ultima.getTime() + 60_000), "after_price", { entry: ultima, lastInbound: ultima });
-      expect(s2!.kind).toBe("silence_2");
-      expect(horas(ultima, s2!.runAt), ultima.toISOString()).toBeLessThanOrEqual(23);
-      expect(horaEmSP(s2!.runAt), ultima.toISOString()).toBeGreaterThanOrEqual(6);
-      expect(s2!.runAt.getTime()).toBeGreaterThan(s1!.runAt.getTime());
+      const agora = new Date(ultima.getTime() + 60_000);
+      const regua = scheduleSilence(agora, "after_price", { entry: ultima, lastInbound: ultima });
+      expect(regua.map((f) => f.kind), ultima.toISOString()).toEqual(["silence_1", "silence_3"]);
+      expect(regua[0]!.runAt.getTime() - agora.getTime(), ultima.toISOString()).toBe(H);
+      expect(regua[1]!.runAt, ultima.toISOString()).toEqual(silence3At(ultima));
     }
   });
 
@@ -1357,14 +1359,15 @@ describe("§4a: a régua dentro das janelas gratuitas", () => {
     const entrada = sp("2026-10-05T23:20:00");
     const reabertura = sp("2026-10-06T06:00:00");
     const regua = rulerFor(reabertura, "before_size", "silence_1", false, { entry: entrada, lastInbound: entrada });
-    expect(regua.map((f) => f.kind)).toEqual(["silence_1", "silence_2", "silence_3"]);
-    expect(regua[2]!.runAt).toEqual(silence3At(entrada));
-    expect(horas(entrada, regua[1]!.runAt)).toBeLessThanOrEqual(23);
+    expect(regua.map((f) => f.kind)).toEqual(["silence_1", "silence_3"]);
+    expect(regua[1]!.runAt).toEqual(silence3At(entrada));
   });
 
   it("sem âncoras, a régua antiga continua (os simuladores de src/dev)", () => {
     const agora = sp("2026-10-05T12:00:00");
-    expect(scheduleSilence(agora)[2]!.runAt.getTime() - agora.getTime()).toBe(3 * 24 * H);
+    const regua = scheduleSilence(agora);
+    expect(regua.map((f) => f.kind)).toEqual(["silence_1", "silence_3"]);
+    expect(regua[1]!.runAt.getTime() - agora.getTime()).toBe(3 * 24 * H);
     expect(rulerFor(agora, "after_price", "silence_3").map((f) => f.kind)).toEqual(["silence_3"]);
   });
 });

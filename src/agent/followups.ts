@@ -67,7 +67,6 @@ const nextLocalHour = (from: Date, hour: number, sameDayIfEarlier: boolean): Dat
 };
 
 /** Next morning at 09:00 — a touch at 03:00 is how a number gets reported. */
-const nextMorning = (from: Date, hour = 9): Date => nextLocalHour(from, hour, false);
 
 /**
  * When the send window opens again: the next `openHour` in Brazilian time — later the
@@ -263,6 +262,9 @@ export const silence3At = (entry: Date): Date => beforeDawn(new Date(entry.getTi
 /** `silence_1`, after the agent's last reply (operator, 2026-10-07: one hour; it was 30 minutes). */
 export const SILENCE_1_MS = 60 * MINUTE;
 
+/** The least time between `silence_1` and `silence_3` since `silence_2` left (R30.7): the shortest gap it used to make. */
+export const SILENCE_GAP_MS = 8 * HOUR;
+
 /**
  * "Ainda está aí?" and `silence_1` at most once a day each (operator, 2026-10-07, grafo §66): every
  * reply of the agent ending in a question re-armed both, and two friends got four "Ainda está aí?"
@@ -294,19 +296,16 @@ export const scheduleSilence = (now: Date, stopPoint?: StopPoint, anchors?: Rule
   // One hour since 2026-10-07 (operator, grafo §66); it was 30 minutes.
   const first = new Date(now.getTime() + SILENCE_1_MS);
   touches.push({ kind: "silence_1", runAt: first });
+  // No `silence_2` since 2026-10-22 (operator, R30.7): it went out 40 times and brought nobody back in 24 h (`eval_ruler_returns`,
+  // 0032), against 16 of 42 for `silence_1`. The ruler is `silence_1` and then `silence_3`, which is now the second touch.
   if (!anchors) {
-    touches.push(
-      { kind: "silence_2", runAt: nextMorning(now) },
-      { kind: "silence_3", runAt: new Date(now.getTime() + 3 * DAY) },
-    );
+    touches.push({ kind: "silence_3", runAt: new Date(now.getTime() + 3 * DAY) });
     return touches;
   }
-  // Anchored (4a): no `silence_2` when no time fits her 24 hours after `silence_1`, and no
-  // `silence_3` when the entry's band is already behind the touch before it.
-  const second = beforeDawn(new Date(Math.min(nextMorning(now).getTime(), anchors.lastInbound.getTime() + 23 * HOUR)));
-  if (second > first) touches.push({ kind: "silence_2", runAt: second });
+  // Anchored (4a): no `silence_3` when the entry's band is already behind `silence_1`, nor within 8 h of it — two touches
+  // back to back read as a robot chasing her (with `silence_2` between them the shortest gap was 8 h; R30.7 test review).
   const third = silence3At(anchors.entry);
-  if (third > (second > first ? second : first)) touches.push({ kind: "silence_3", runAt: third });
+  if (third.getTime() >= first.getTime() + SILENCE_GAP_MS) touches.push({ kind: "silence_3", runAt: third });
   return touches;
 };
 
@@ -343,8 +342,12 @@ export const rulerFor = (
   // or its 15-minute touch, postponed by the clock — gets only that touch in the first half hour:
   // no "Ainda está aí?" and no `silence_1` asking again whether she managed to finish.
   const linkTouch = stopPoint === "link_sent" && (postponed === undefined ? linkInReply : postponed === "checkout_reminder");
-  const ruler = scheduleSilence(from, stopPoint, anchors).filter((f) =>
-    f.kind === "checkout_reminder" ? postponed !== undefined || linkInReply : !(linkTouch && f.kind === "silence_1"),
+  const full = scheduleSilence(from, stopPoint, anchors);
+  // Without `silence_2` (R30.7), dropping `silence_1` after the link could leave no silence touch at all (entry band past):
+  // nothing would close the ruler and the lead would never be `perdido`. Then `silence_1` stays, as `silence_2` used to.
+  const otherSilence = full.some((f) => f.kind.startsWith("silence_") && f.kind !== "silence_1");
+  const ruler = full.filter((f) =>
+    f.kind === "checkout_reminder" ? postponed !== undefined || linkInReply : !(linkTouch && f.kind === "silence_1" && otherSilence),
   );
   const at = ruler.findIndex((f) => f.kind === postponed);
   // A postponed touch the anchored ruler has no time for is not re-armed — nor the ones before it.

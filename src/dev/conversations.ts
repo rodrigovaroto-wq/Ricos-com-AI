@@ -102,7 +102,7 @@ export interface Arc {
     stage?: Stage;
     /** Outbound messages that actually reached her. */
     sent?: number;
-    /** Touches armed when she went quiet. Zero after handoff or opt-out. */
+    /** Touches armed when she went quiet: `silence_1` and `silence_3` since R30.7 (2026-10-22, no `silence_2`). Zero after handoff or opt-out. */
     touches?: number;
     minRewrites?: number;
   };
@@ -175,7 +175,7 @@ export const ARCS: Arc[] = [
       { from: "maria.souza@gmail.com", reply: R.askCpf },
       { from: "731.166.873-58", reply: R.sendLink },
     ],
-    expect: (p) => ({ size: p.size, identityComplete: true, checkoutReady: true, sent: 7, touches: 3 }),
+    expect: (p) => ({ size: p.size, identityComplete: true, checkoutReady: true, sent: 7, touches: 2 }),
   },
   {
     // Ela manda o endereço sem ninguém pedir. A agente agradece e segue — o extrator
@@ -197,7 +197,7 @@ export const ARCS: Arc[] = [
       { from: p.style("e o prazo?"), reply: R.delivery },
       { from: p.style(p.saysSize), reply: R.sized(p) },
     ],
-    expect: (p) => ({ size: p.size, stage: "tamanho_definido", sent: 3, touches: 3 }),
+    expect: (p) => ({ size: p.size, stage: "tamanho_definido", sent: 3, touches: 2 }),
   },
   {
     name: "pechincha e fecha mesmo assim",
@@ -225,7 +225,7 @@ export const ARCS: Arc[] = [
       { from: p.style("isso emagrece?"), reply: R.noSlim },
       { from: p.style("entendi, e o preço?"), reply: R.price },
     ],
-    expect: () => ({ sent: 2, touches: 3 }),
+    expect: () => ({ sent: 2, touches: 2 }),
   },
   {
     name: "quer saber se emagrece e a agente promete",
@@ -270,7 +270,7 @@ export const ARCS: Arc[] = [
   {
     name: "pergunta o prazo e some",
     turns: (p) => [{ from: p.style("em quantos dias chega?"), reply: R.delivery }],
-    expect: () => ({ sent: 1, touches: 3 }),
+    expect: () => ({ sent: 1, touches: 2 }),
   },
 
   // ── Cupom ──────────────────────────────────────────────────────────────────
@@ -520,14 +520,14 @@ export const ARCS: Arc[] = [
       { from: p.style("quanto custa?"), reply: R.price },
       { from: p.style("nossa, caro demais"), reply: "Entendo! E é por isso que você só paga quando o colete chegar na sua mão — se não gostar, não fica com ele." },
     ],
-    expect: () => ({ sent: 2, touches: 3 }),
+    expect: () => ({ sent: 2, touches: 2 }),
   },
   {
     name: "vai falar com o marido",
     turns: (p) => [
       { from: p.style("vou falar com meu marido"), reply: R.bye },
     ],
-    expect: () => ({ sent: 1, touches: 3 }),
+    expect: () => ({ sent: 1, touches: 2 }),
   },
   {
     name: "desconfia que é golpe",
@@ -715,7 +715,7 @@ export const ARCS: Arc[] = [
       addressConfirmed: true,
       stage: "tamanho_definido",
       sent: 7,
-      touches: 3,
+      touches: 2,
     }),
   },
   // ── Do endereço confirmado ao pedido que pode nascer ───────────────────────

@@ -38,7 +38,8 @@ export function renderConversation(c: Conversation, versions: readonly number[] 
       continue;
     }
     if (e.status === "welcomed") {
-      lines.push(`**recepção automática:** ${text}`, "");
+      // Fixed text, the same in every conversation (the opening and its audio transcripts): its start is enough to place it.
+      lines.push(`**recepção automática:** ${text.length > 120 ? `${text.slice(0, 120)}… (texto fixo, cortado)` : text}`, "");
       continue;
     }
     n += 1;
@@ -105,6 +106,39 @@ export function rowsToConversations(rows: SupabaseRows): { conversations: Conver
     return { persona: `conversa-${c.id.slice(0, 8)}`, transcript, costBrl: c.cost_brl == null ? null : Number(c.cost_brl) };
   });
   return { conversations, leads: new Set(real.map((c) => c.lead_id)).size };
+}
+
+/**
+ * The change registry as Hermes needs it (cost cut of 2026-10-22): each entry's title and its `Estado` line — enough not to
+ * propose what is already there, and to cite M-xx when one fails again. The full text (≈ 42 kB, the bundle's biggest file
+ * after the prompt) stays in git.
+ */
+export function registrySummary(md: string): string {
+  const out = ["# Registro de mudanças (resumo: título e estado de cada entrada; o texto inteiro está no repositório)", ""];
+  let title: string | null = null;
+  for (const line of md.split("\n")) {
+    if (/^### M-\d+/.test(line)) {
+      if (title) out.push(title, "");
+      title = line;
+    } else if (title && /^- \*\*Estado:\*\*/.test(line)) {
+      out.push(title, line, "");
+      title = null;
+    }
+  }
+  if (title) out.push(title, "");
+  return out.join("\n");
+}
+
+/**
+ * The bundle in two files (cost cut of 2026-10-22): the first production run read 43 conversation files and the context files
+ * one by one, and every read re-sent everything read before it — 25 model calls and 1.48 M tokens for 43 conversations (US$ 1.82
+ * on the standard model). One `pacote.md` with every context file as a section and one `conversas.md` with every conversation:
+ * two reads. The order is the skill's reading order.
+ */
+export const BUNDLE_ORDER = ["reverter.md", "decisoes.md", "historico.md", "placar.md", "numeros.md", "timing.md", "jev.md", "regras.md", "registro.md", "prompt.md"] as const;
+
+export function bundlePack(files: Readonly<Record<string, string>>): string {
+  return BUNDLE_ORDER.filter((f) => f in files).map((f) => `# arquivo: ${f}\n\n${files[f]!.trim()}\n`).join("\n---\n\n");
 }
 
 export interface Evidence {

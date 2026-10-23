@@ -103,15 +103,16 @@ describe("fiação (index.ts lido como fonte)", () => {
 describe("toques depois do link", () => {
   const kinds = (...a: Parameters<typeof rulerFor>) => rulerFor(...a).map((f) => f.kind);
   it("a resposta com o link arma só o lembrete de 15 min na primeira meia hora — sem 'Ainda está aí?' nem silence_1", () => {
-    expect(kinds(now, "link_sent", undefined, true, undefined, true)).toEqual(["checkout_reminder", "silence_2", "silence_3"]);
-    expect(kinds(now, "link_sent", undefined, true)).toEqual(["checkout_reminder", "silence_2", "silence_3"]);
+    // R30.7 (2026-10-22): sem o silence_2, depois do lembrete do link vem só o cupom.
+    expect(kinds(now, "link_sent", undefined, true, undefined, true)).toEqual(["checkout_reminder", "silence_3"]);
+    expect(kinds(now, "link_sent", undefined, true)).toEqual(["checkout_reminder", "silence_3"]);
   });
   it("o lembrete do link adiado pelo relógio volta sem silence_1", () => {
-    expect(kinds(now, "link_sent", "checkout_reminder", false)).toEqual(["checkout_reminder", "silence_2", "silence_3"]);
+    expect(kinds(now, "link_sent", "checkout_reminder", false)).toEqual(["checkout_reminder", "silence_3"]);
   });
   it("negações: sem link na resposta, 'Ainda está aí?' aos 10 e silence_1 aos 30 seguem", () => {
-    expect(kinds(now, "before_size", undefined, false, undefined, true)).toEqual(["still_there", "silence_1", "silence_2", "silence_3"]);
-    expect(kinds(now, "link_sent", undefined, false, undefined, true)).toEqual(["still_there", "silence_1", "silence_2", "silence_3"]);
+    expect(kinds(now, "before_size", undefined, false, undefined, true)).toEqual(["still_there", "silence_1", "silence_3"]);
+    expect(kinds(now, "link_sent", undefined, false, undefined, true)).toEqual(["still_there", "silence_1", "silence_3"]);
     expect(kinds(now, "link_sent", "silence_1", true)[0]).toBe("silence_1");
   });
   it("ancorada, a resposta com link também perde o silence_1", () => {

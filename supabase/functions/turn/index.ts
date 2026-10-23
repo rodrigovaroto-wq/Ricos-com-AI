@@ -1837,6 +1837,12 @@ const runFollowupSweep = async () => {
       }
       return ours;
     };
+    // R30.7 (operator, 2026-10-22): the ruler has no `silence_2` any more (0 of 40 answered); one armed before the deploy leaves.
+    if (kind === "silence_2") {
+      await leave("canceled");
+      skipped.push({ followupId: row.id, reason: "régua sem o 2º lembrete (R30.7)" });
+      return;
+    }
     // Plan 16 §4.2: a lead that went cold during the ruler (−10 per touch she left unanswered, `afterUnansweredTouch` below)
     // gets no `silence_2` nor `silence_3` — the cut `rulerForBand` makes when the ruler is armed (operator, 2026-10-22).
     if (rulerForBand([row], lead.score_band).length === 0) {
@@ -1952,7 +1958,7 @@ const runFollowupSweep = async () => {
         // 71 h from her entry. A reopening past them leaves the queue through `leave`, so the
         // ruler's end is written, instead of being pushed out of the free window.
         // Index: conversations_pkey. `*`: `entry_at` may not exist yet (0022).
-        if (action.restartRuler && (kind === "silence_2" || kind === "silence_3")) {
+        if (action.restartRuler && kind === "silence_3") {
           const anchors = rulerAnchors(
             (await db(`conversations?id=eq.${row.conversation_id}&select=*`).catch(() => null))?.[0],
           );

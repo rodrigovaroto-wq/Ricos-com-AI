@@ -19,13 +19,14 @@ describe("a régua pela faixa do score (§4.2)", () => {
   const today = rulerFor(from, "after_price");
 
   it("fria recebe só o primeiro lembrete de silêncio", () => {
-    expect(kinds(today)).toEqual(["silence_1", "silence_2", "silence_3"]);
+    // R30.7 (2026-10-22): a régua de hoje é silence_1 e silence_3 — o silence_2 saiu.
+    expect(kinds(today)).toEqual(["silence_1", "silence_3"]);
     expect(kinds(rulerForBand(today, "fria"))).toEqual(["silence_1"]);
   });
 
   it("morna, quente e o score ausente seguem a régua de hoje", () => {
     for (const band of ["morna", "quente", null, undefined, "", "FRIA", "outra"]) {
-      expect(kinds(rulerForBand(today, band)), String(band)).toEqual(["silence_1", "silence_2", "silence_3"]);
+      expect(kinds(rulerForBand(today, band)), String(band)).toEqual(["silence_1", "silence_3"]);
     }
   });
 
@@ -37,8 +38,16 @@ describe("a régua pela faixa do score (§4.2)", () => {
     expect(kinds(rulerForBand(asked, "fria"))).toEqual(["still_there", "silence_1"]);
   });
 
+  // Desde R30.7 o segundo toque é o silence_3 (o cupom).
   it("o segundo toque adiado de uma fria não volta", () => {
-    expect(rulerForBand(rulerFor(from, "after_price", "silence_2"), "fria")).toEqual([]);
+    expect(kinds(rulerFor(from, "after_price", "silence_3"))).toEqual(["silence_3"]);
+    expect(rulerForBand(rulerFor(from, "after_price", "silence_3"), "fria")).toEqual([]);
+  });
+
+  it("o corte da fria ainda tira um silence_2 que venha de antes do deploy (R30.7)", () => {
+    const old = [{ kind: "silence_1" }, { kind: "silence_2" }, { kind: "silence_3" }];
+    expect(kinds(rulerForBand(old as ScheduledFollowup[], "fria"))).toEqual(["silence_1"]);
+    expect(kinds(rulerForBand(old as ScheduledFollowup[], "morna"))).toEqual(["silence_1", "silence_2", "silence_3"]);
   });
 
   it("o turno lê a faixa guardada ao armar a régua: só o tamanho e a faixa do lead (0029 aplicada em 21/10)", () => {

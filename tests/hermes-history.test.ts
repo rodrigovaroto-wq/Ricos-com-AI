@@ -12,7 +12,8 @@ const skill = readFileSync("hermes/skills/encorpa-supervisor/SKILL.md", "utf8");
 describe("o histórico inicial do Hermes", () => {
   it("vai no pacote de toda execução e é lido logo depois das decisões", () => {
     expect(run).toContain('cpSync(join(REPO, "hermes/historico-inicial.md"), join(bundle, "historico.md"));');
-    expect(run).toContain("depois decisoes.md, historico.md,");
+    // Since the cost cut of 2026-10-23 the files are sections of pacote.md, in the skill's order.
+    expect(run).toContain("(reverter, decisões, histórico,");
     expect(skill).toContain("`historico.md` — **leia logo depois de `decisoes.md`.**");
   });
   it("não carrega telefone, CPF nem CEP", () => {
