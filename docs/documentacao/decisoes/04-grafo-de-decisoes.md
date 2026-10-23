@@ -4089,6 +4089,20 @@ está no quadro do topo do `HANDOFF.md`.
 **Resíduos aceitos.** A lead que esfria no meio da régua chega a `perdido` no `silence_3`, não no `silence_1`; a linha de estoque não usada volta
 uma vez só; P4.1 e a prontidão (P5.2) não passam pelo conjunto de ouro (não há ouro de proposta nem de conversa inteira): ficam informativas.
 
+## 125. Sem o 2º lembrete de silêncio e o Hermes a um quinto do custo (operador, 2026-10-23)
+
+**Sintoma.** (1) `eval_ruler_returns` (0032): o `silence_2` foi enviado 40 vezes e não trouxe nenhuma resposta em 24 h; o `silence_1`, 16 de 42.
+(2) A primeira rodada de produção do Hermes custou US$ 1,82, mais que os 42 leads que ele leu.
+**Causa.** (1) O 2º toque chega na manhã seguinte a quem já ignorou o 1º. (2) O Hermes lia ~60 arquivos (um por conversa), e cada leitura
+reenviava o contexto lido antes: 25 chamadas, 1,48 M tokens em 43 conversas — custo que cresce com o quadrado do número de arquivos.
+**Correção.** R30.7: `scheduleSilence` sem `silence_2`; a varredura cancela o de antes do deploy; `SILENCE_GAP_MS` (8 h) entre o 1º e o
+`silence_3`; depois do link, o `silence_1` fica quando não cabe outro toque de silêncio (senão a lead nunca vira `perdido`). R30.8:
+`bundlePack` (pacote.md), conversas.md, `registrySummary`, recepção cortada; medido 291 mil tokens e 8 chamadas.
+**Caminhos que falharam.** A primeira versão do R30.7 só tirava o `silence_2`: a revisão de testes (Opus) achou a régua vazia depois do
+link e o `silence_3` colado no 1º. A pré-triagem `promessas.md` (§124) não ajudou a mentira e foi revertida.
+**Guardas.** `tests/r30-7-ruler.test.ts`, `tests/hermes-bundle.test.ts`; mutações `r30.7-*`.
+**Resíduo.** O `silence_3` só sai com cupom ativo: hoje, um lembrete só. A mentira de detalhe operacional segue o ponto cego do Hermes.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

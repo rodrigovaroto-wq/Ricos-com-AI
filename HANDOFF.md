@@ -13,6 +13,23 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-23 — R30.7 (sem o 2º lembrete de silêncio) e R30.8 (Hermes mais barato). Ver o fim deste bloco para o deploy.**
+>
+> - **R30.7:** `scheduleSilence` arma o 1º lembrete e depois o `silence_3`, que vira o segundo; a varredura cancela um `silence_2` armado
+>   antes do deploy. Revisão dos testes achou dois buracos, corrigidos: (1) a resposta com o link, passada a faixa da entrada, ficava sem
+>   toque de silêncio e a lead nunca virava `perdido` — agora o `silence_1` fica quando não cabe outro; (2) o `silence_3` podia cair 1 min
+>   depois do 1º — agora só a 8 h ou mais (`SILENCE_GAP_MS`). **O `silence_3` é o cupom e só sai com `coupon.active` e código no
+>   `BUSINESS_CONFIG`: hoje, na prática, só o 1º lembrete sai.**
+> - **R30.8:** o pacote do Hermes vai em dois arquivos (`pacote.md`, `conversas.md`), o registro de mudanças resumido (`registrySummary`) e
+>   a recepção automática cortada. Nas mesmas 43 conversas sintéticas: 25 → 8 chamadas, 1,48 M → 291 mil tokens (−80%); no modelo
+>   padrão ≈ US$ 1,82 → ≈ US$ 0,37. Calibração curta com o pacote novo (3 rodadas válidas): resposta pronta 12/12, link 11/12, mentira
+>   4/12 — a qualidade se manteve.
+> - **Propostas H-1 a H-4 conferidas contra a conversa e o código:** H-1 (pedir e-mail) já corrigida na v28 ("NUNCA peça CPF nem e-mail");
+>   H-3 parte de premissa falsa (a cliente disse "cinquenta e cinco quilos" num áudio); H-4 coberta desde a v38 (`answerAfterOffer`); H-2
+>   (link do antecipado depois de confirmar a entrega, em BH) é a única que pede ação.
+> - **Container:** o disco encheu com as pastas temporárias do Hermes e das mutações (39 GB); limpas, menos a `HERMES_HOME` cujo Python o
+>   Hermes instalado usa.
+
 > **2026-10-22 (noite) — `turn` v41 NO AR; migrações 0030, 0031 e 0032 aplicadas. Corrige o bloco logo abaixo ("nada publicado").**
 >
 > - **No ar:** `turn` **v41** = `agent_versions` 41, função `turn` v153, commit `e64bb7c`, ~20h26 UTC, `pnpm deploy:turn`. Sem deriva antes do
