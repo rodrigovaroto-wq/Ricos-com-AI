@@ -2321,4 +2321,8 @@ Grafo [§124](04-grafo-de-decisoes.md). Propostas P0–P5 aprovadas, ajustadas o
   `correio_na_entrega` (versão 2 das perguntas); no teste em português, 100%, 97% e 100%. Aprovadas: 9 de 19.
 - **R30.12 — Logzz como o checkout pergunta:** os dias de entrega são perguntados com o produto do tamanho (`product_requirements`) e sem a
   operação 0. Antes, todo CEP de Recife (e o G em São Paulo) virava "falha de consulta" em vez da resposta certa (Playwright, 2026-10-23).
+- **R30.13 — As perguntas do JEV reescritas, objetivas e claras** (operador, 2026-10-23): três rodadas sobre o conjunto de ouro (versões
+  3 a 5), cada uma lida pelos erros item a item que a avaliação agora grava (`hermes/jev-erros.md`). 9 → 14 → 17 → **17 de 19 aprovadas**.
+  Ficam de fora `objecao` (80%: o ouro rotula a mesma pergunta neutra ora como objeção, ora como nenhuma) e `pergunta_ignorada` (60% nos
+  15 "sim"). Custo das três medidas ≈ US$ 0,08.
 

@@ -4121,6 +4121,12 @@ alarme de produção dizia o contrário e a investigação parou antes do deploy
 ficavam na página: a verdade é a resposta da rede, não o texto da tela.
 **Guardas.** `tests/logzz-product-requirements.test.ts`, mutações `R30-logzz-*`; `tests/jev.test.ts`.
 
+**Depois (mesmo dia): as dez perguntas reprovadas do JEV.** Sintoma: pergunta de duas condições dizia "sim" com a primeira ausente
+(desconfiança, 79% no "não"); "diz ser pessoa" lia primeira pessoa como humana (8% no "não"). Correção: cada pergunta diz o que conta, o
+que não conta, e "se a cliente não …, a resposta é não". Caminho que falhou: o teste de próximo passo escrito em negativo ("é não só
+se…") virou "sim" quase sempre (58% no "não"); escrito como teste positivo dos três sinais (pergunta, link, pedido), 94%/100%. Resultado:
+17 de 19 (`hermes/jev-avaliacao.md`). Guarda: `tests/jev.test.ts` (versão 5, a regra das duas condições).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
