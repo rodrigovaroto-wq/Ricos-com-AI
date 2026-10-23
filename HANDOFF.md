@@ -13,6 +13,17 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-23 (tarde) — v43 PRONTA, DEPLOY PENDENTE (o classificador desta sessão bloqueou `pnpm deploy:turn`).**
+>
+> - **R30.12 (código, não no ar):** a consulta de dias da Logzz pergunta como o checkout real — um tamanho, o produto dele
+>   (`product_requirements`), sem a operação 0. Hoje no ar (v42) todo CEP de Recife e o G de São Paulo viram "falha de consulta".
+>   Deploy: `NODE_USE_ENV_PROXY=1 pnpm deploy:turn`; depois confira o próximo "Alarme de cobertura" `healthy` (SP continua entregando).
+> - **R30.10:** `docs/operacao/business-config-2026-10-23.min.json` liga o aceite de ofertas — sem ele os 41 lembretes do cupom foram
+>   cancelados (o cupom já estava ativo). Exige o template `encorpa_cupom_super_dia` aprovado e o `SUPER20` nos dois checkouts.
+> - **R30.11:** JEV com `fala_boleto`, `escolhe_horario`, `correio_na_entrega` (100/97/100%); 9 de 19 perguntas aprovadas.
+> - **R30.9:** H-2 aprovada e registrada como já publicada (v32); H-1/H-3/H-4 recusadas.
+> - Mutações 759/759 (2 atualizadas ao código novo); `pnpm test` 8814; `typecheck:function` limpo.
+>
 > **2026-10-23 — `turn` v42 NO AR (R30.7, sem o 2º lembrete de silêncio) e R30.8 (Hermes mais barato).**
 >
 > - **No ar:** `turn` **v42** (função v155, commit `7a8e01c`, 13h09 UTC); alarme de cobertura das 13h15 `healthy`, varredura `success`;
