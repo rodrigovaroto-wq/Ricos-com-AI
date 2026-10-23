@@ -109,7 +109,6 @@ const TITLES: Record<string, string> = {
   correio_na_entrega: "Malu disse que na entrega quem leva é o carteiro (o prompt diz que não vem pelo correio)",
   compra_sem_passo: "Quis comprar e não recebeu o próximo passo",
   objecao_sem_resposta: "Objeção sem resposta",
-  pergunta_ignorada: "Pergunta dela sem resposta",
   gatilho_nao_usado: "Contou a ocasião e a Malu não usou",
   kit_nao_oferecido: "Falou de outra pessoa ou mais peças e o kit não veio",
   duas_perguntas: "Malu fez duas ou mais perguntas de uma vez",

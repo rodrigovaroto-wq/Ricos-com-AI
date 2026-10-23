@@ -54,11 +54,19 @@ export const scoreGold = (items: readonly GoldItem[], answers: Readonly<Record<s
     scoreQuestion(q, items.filter((i) => q in i.labels).map((i) => ({ label: i.labels[q]!, answer: answers[i.id]?.[q] }))),
   );
 
+/**
+ * Questions the operator approved below the bar, with the measure they saw: they stay approved while the gold set measures them
+ * (never when "sem amostra"), and the report says so. `objecao`: 86% after the labels followed one rule (operator, 2026-10-23).
+ */
+export const OPERATOR_APPROVED: Readonly<Record<string, string>> = { objecao: "operador, 2026-10-23, com 86%" };
+
+const passes = (s: QuestionScore) => s.verdict === "aprovada" || (s.verdict === "reprovada" && s.question in OPERATOR_APPROVED);
+
 export const approvedFile = (scores: readonly QuestionScore[], model: string, at: string): Approved => ({
   model,
   questionsVersion: QUESTIONS_VERSION,
   measuredAt: at,
-  approved: Object.fromEntries(scores.filter((s) => s.verdict === "aprovada").map((s) => [s.question, { threshold: 0.5, accuracy: s.n ? s.right / s.n : 0, n: s.n }])),
+  approved: Object.fromEntries(scores.filter(passes).map((s) => [s.question, { threshold: 0.5, accuracy: s.n ? s.right / s.n : 0, n: s.n }])),
 });
 
 export const renderGold = (scores: readonly QuestionScore[], meta: { model: string; items: number; costUsd: number }): string => {
@@ -70,6 +78,6 @@ export const renderGold = (scores: readonly QuestionScore[], meta: { model: stri
     "",
     "| Pergunta | Itens | Acerto | Acerto no \"sim\" | Acerto no \"não\" | Veredito |",
     "|---|---|---|---|---|---|",
-    ...scores.map((s) => `| \`${s.question}\` | ${s.n} | ${pct(s.right, s.n)} | ${s.yes ? `${pct(s.yes.right, s.yes.n)} (${s.yes.n})` : "—"} | ${s.no ? `${pct(s.no.right, s.no.n)} (${s.no.n})` : "—"} | ${s.verdict} |`),
+    ...scores.map((s) => `| \`${s.question}\` | ${s.n} | ${pct(s.right, s.n)} | ${s.yes ? `${pct(s.yes.right, s.yes.n)} (${s.yes.n})` : "—"} | ${s.no ? `${pct(s.no.right, s.no.n)} (${s.no.n})` : "—"} | ${s.verdict === "reprovada" && s.question in OPERATOR_APPROVED ? `aprovada pelo operador (${OPERATOR_APPROVED[s.question]})` : s.verdict} |`),
   ].join("\n");
 };

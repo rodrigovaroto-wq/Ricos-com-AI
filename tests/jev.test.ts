@@ -154,9 +154,9 @@ describe("a régua dos 90% (P2.4)", () => {
     expect(Object.keys(f.approved)).toEqual(["a"]);
     expect([f.model, f.questionsVersion]).toEqual([JEV_MODEL, QUESTIONS_VERSION]);
   });
-  it("as três famílias juntas têm 19 perguntas, todas com instrução em português", () => {
+  it("as três famílias juntas têm 18 perguntas, todas com instrução em português", () => {
     const all = { ...INBOUND, ...AUDIT, ...MISSED };
-    expect(Object.keys(all)).toHaveLength(19);
+    expect(Object.keys(all)).toHaveLength(18);
     for (const q of Object.values(all)) expect(q.instructions).toMatch(/\b(?:cliente|Malu)\b/);
     expect(flagged({ type: "score", score: 0.4, confidence: 1, probabilities: {} })).toBe(false);
   });
@@ -179,7 +179,7 @@ describe("renderTiming: números das views, nunca do modelo", () => {
 });
 
 describe("o conjunto de ouro (hermes/jev-ouro.json)", () => {
-  it("toda pergunta de sim/não tem pelo menos 10 casos de sim e de não; todo item rotula as 19", async () => {
+  it("toda pergunta de sim/não tem pelo menos 10 casos de sim e de não; todo item rotula as 18", async () => {
     const { readFileSync } = await import("node:fs");
     const gold = JSON.parse(readFileSync("hermes/jev-ouro.json", "utf8")) as Array<{ id: string; labels: Record<string, unknown> }>;
     const ids = Object.keys({ ...INBOUND, ...AUDIT, ...MISSED });
@@ -275,7 +275,7 @@ describe("as mentiras de detalhe operacional (operador, 2026-10-23)", () => {
 describe("as dez reescritas, objetivas e claras (operador, 2026-10-23, versões 3 a 6)", () => {
   const all = { ...INBOUND, ...AUDIT, ...MISSED };
   it("pergunta de duas condições diz que a condição ausente é não", () => {
-    for (const q of ["compra_sem_passo", "objecao_sem_resposta", "pergunta_ignorada", "kit_nao_oferecido", "desconfianca_sem_garantia"]) {
+    for (const q of ["compra_sem_passo", "objecao_sem_resposta", "kit_nao_oferecido", "desconfianca_sem_garantia"]) {
       expect(all[q]!.instructions, q).toContain("Só é sim se as duas forem verdade.");
       expect(all[q]!.instructions, q).toMatch(/Se a cliente [^.]*, a resposta é não/);
     }
@@ -290,3 +290,18 @@ describe("as dez reescritas, objetivas e claras (operador, 2026-10-23, versões 
     expect(irritacao.type === "score" && irritacao.criteria.length).toBe(3);
   });
 });
+
+describe("a decisão do operador sobre as duas que ficaram abaixo da barra (2026-10-23)", () => {
+  it("objeção aprovada pelo operador entra nas aprovadas mesmo reprovada; sem amostra, não", async () => {
+    const { approvedFile, renderGold } = await import("@/dev/jev-gold.js");
+    const s = { question: "objecao", n: 276, right: 236, verdict: "reprovada" as const };
+    expect(Object.keys(approvedFile([s], JEV_MODEL, "x").approved)).toEqual(["objecao"]);
+    expect(Object.keys(approvedFile([{ ...s, verdict: "sem amostra" }], JEV_MODEL, "x").approved)).toEqual([]);
+    expect(Object.keys(approvedFile([{ ...s, question: "irritacao" }], JEV_MODEL, "x").approved)).toEqual([]);
+    expect(renderGold([s], { model: JEV_MODEL, items: 276, costUsd: 0 })).toContain("aprovada pelo operador");
+  });
+  it("pergunta ignorada recusada: não é mais perguntada", () => {
+    expect("pergunta_ignorada" in MISSED).toBe(false);
+  });
+});
+

@@ -20,7 +20,8 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > - **R30.10:** `docs/operacao/business-config-2026-10-23.min.json` liga o aceite de ofertas — sem ele os 41 lembretes do cupom foram
 >   cancelados (o cupom já estava ativo). Exige o template `encorpa_cupom_super_dia` aprovado e o `SUPER20` nos dois checkouts.
 > - **R30.11/R30.13:** JEV com `fala_boleto`, `escolhe_horario`, `correio_na_entrega`; as dez reprovadas reescritas → 17 de 19
->   aprovadas. Fora: `objecao` (86% depois da regra única dos rótulos, R30.14) e `pergunta_ignorada` (60% nos "sim").
+>   aprovadas; depois `objecao` aprovada pelo operador com 86% (R30.14–R30.15) e `pergunta_ignorada` recusada e
+>   retirada: **18 perguntas, todas aprovadas**.
 > - **R30.9:** H-2 aprovada e registrada como já publicada (v32); H-1/H-3/H-4 recusadas.
 > - Mutações 759/759 (2 atualizadas ao código novo); `pnpm test` 8814; `typecheck:function` limpo.
 >

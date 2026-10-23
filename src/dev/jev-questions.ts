@@ -25,6 +25,8 @@ import type { Conversation } from "./persona-scorecard.js";
  * 5 (same day): the closing said as a positive test, and "responde só parte" out of the unanswered question (it flagged answers).
  * 6 (same day, operator): the objection's gold labels made to follow one rule (`hermes/jev-ouro-objecao.md`, 25 of 276 changed) and
  * the options say that rule: a neutral question is none, a wish to choose the hour is `prazo`, a fit worry is `tamanho`.
+ * Operator, after 6: `objecao` approved at 86% (`OPERATOR_APPROVED`); `pergunta_ignorada` rejected (60% on "sim" after three
+ * rewrites) and removed — a question never asked costs nothing.
  */
 export const QUESTIONS_VERSION = 6;
 
@@ -86,11 +88,6 @@ export const MISSED: Readonly<Record<string, JevQuestion>> = {
     type: "noul",
     instructions:
       "Duas condições. 1) A mensagem da cliente mostra um receio ou um adiamento: preço, confiança, prazo, tamanho, \"vou pensar\", \"te falo depois\" ou \"deixa pra lá\". 2) A resposta da Malu não diz nada sobre esse receio: só aceita (\"sem problemas\", \"fico à disposição\") ou muda de assunto. Só é sim se as duas forem verdade. Se a cliente não mostrou receio nem adiamento, a resposta é não.",
-  },
-  pergunta_ignorada: {
-    type: "noul",
-    instructions:
-      "Duas condições. 1) A mensagem da cliente tem pelo menos uma pergunta (com ou sem ponto de interrogação). 2) Uma dessas perguntas não recebe nenhuma resposta: a Malu fala de outra coisa, só cumprimenta ou só se apresenta. Responder curto, ou com uma informação sobre o mesmo assunto, conta como resposta. Recusar com o motivo conta como resposta. Só é sim se as duas forem verdade. Se a cliente não perguntou nada, a resposta é não.",
   },
   gatilho_nao_usado: {
     type: "noul",

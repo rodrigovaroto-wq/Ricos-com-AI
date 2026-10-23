@@ -2329,4 +2329,7 @@ Grafo [§124](04-grafo-de-decisoes.md). Propostas P0–P5 aprovadas, ajustadas o
   reclamação, impedimento ou adiamento (regra e os 25 itens mudados em `hermes/jev-ouro-objecao.md`, para conferência do operador).
   `objecao` foi de 80% a 86% e segue reprovada: os 40 erros que sobram são o JEV vendo objeção em mensagem neutra (saúde, "vc é robô?",
   "demora pra responder"), não rótulo inconsistente. Perguntas versão 6; 17 de 19 aprovadas.
+- **R30.15 — Decisão do operador sobre as duas abaixo da barra** (2026-10-23): `objecao` aprovada com 86% ("está ótimo";
+  `OPERATOR_APPROVED` em `jev-gold.ts`, o relatório diz "aprovada pelo operador"); `pergunta_ignorada` recusada e retirada das perguntas
+  e do ouro. Ficam 18 perguntas, todas aprovadas.
 
