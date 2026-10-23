@@ -11,7 +11,7 @@
 import { readFileSync, writeFileSync } from "node:fs";
 import { JevBudget, JEV_MODEL, askJev, type JevAnswer } from "./jev.js";
 import { approvedFile, renderGold, scoreGold, type GoldItem } from "./jev-gold.js";
-import { AUDIT, INBOUND, MISSED, inboundState, replyState } from "./jev-questions.js";
+import { AUDIT, INBOUND, MISSED, inboundState, labelOf, replyState } from "./jev-questions.js";
 
 const apiKey = process.env.TYPESAFE_API_KEY;
 if (!apiKey) throw new Error("jev:avaliar precisa de TYPESAFE_API_KEY");
@@ -31,6 +31,13 @@ for (const item of items) {
 const scores = scoreGold(items, answers);
 const report = renderGold(scores, { model, items: items.length, costUsd: budget.spentUsd });
 writeFileSync("hermes/jev-avaliacao.md", `${report}\n`);
+// What each failed question got wrong, by item: the next rewrite reads it instead of guessing (operator, 2026-10-23).
+const failed = scores.filter((s) => s.verdict === "reprovada").map((s) => s.question);
+const misses = failed.map((q) => {
+  const wrong = items.filter((i) => q in i.labels && answers[i.id]?.[q] !== undefined && labelOf(answers[i.id]![q]!) !== i.labels[q]);
+  return [`## \`${q}\` — ${wrong.length} erros`, "", ...wrong.map((i) => `- \`${i.id}\` ouro ${String(i.labels[q])}, JEV ${String(labelOf(answers[i.id]![q]!))} — cliente: ${i.cliente.slice(0, 140).replace(/\s+/g, " ")}`), ""].join("\n");
+});
+writeFileSync("hermes/jev-erros.md", `# JEV — erros das reprovadas (${model})\n\n${misses.join("\n")}`);
 // The pinned id, not the API's spelling of it: `approvedOf` compares with JEV_MODEL (code review).
 if (model !== JEV_MODEL) console.warn(`jev: a API respondeu como ${model}; as aprovadas ficam para ${JEV_MODEL}, o fixado`);
 writeFileSync("hermes/jev-aprovadas.json", `${JSON.stringify(approvedFile(scores, JEV_MODEL, new Date().toISOString()), null, 2)}\n`);
