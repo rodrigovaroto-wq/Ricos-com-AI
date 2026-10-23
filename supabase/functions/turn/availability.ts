@@ -391,7 +391,10 @@ const errorBody = (e: unknown): unknown => (e as { body?: unknown } | null)?.bod
 
 /** What the stock answer says: the operations holding each size, the sizes it spoke of clearly, and whether any product was unreadable. */
 /** `seen` maps each such size to its units summed over the operations holding it (0: it spoke of the size, none in stock). */
-export type LogzzStock = { cod: false } | { cod: true; bySize: Partial<Record<Size, number[]>>; seen: ReadonlyMap<Size, number>; unreadable: boolean } | null;
+export type LogzzStock =
+  | { cod: false }
+  | { cod: true; bySize: Partial<Record<Size, number[]>>; seen: ReadonlyMap<Size, number>; unreadable: boolean; productOf: Partial<Record<Size, number>> }
+  | null;
 
 export const readLogzzStock = (body: unknown): LogzzStock => {
   const b = body as {
@@ -399,7 +402,7 @@ export const readLogzzStock = (body: unknown): LogzzStock => {
     msg?: string;
     data?: {
       groups?: Array<{ variations?: Array<{ variation_id?: number; variation_name?: string }> }>;
-      products?: Array<{ product_name?: string; variations_combination?: number[]; stock_per_operations?: Array<{ operation_id?: number | string; quantity?: number | string }> }>;
+      products?: Array<{ product_id?: number | string; product_name?: string; variations_combination?: number[]; stock_per_operations?: Array<{ operation_id?: number | string; quantity?: number | string }> }>;
     };
   } | null;
   if (b?.status === "error") return NOT_SERVED.test(typeof b.msg === "string" ? b.msg : "") ? { cod: false } : null;
@@ -409,6 +412,7 @@ export const readLogzzStock = (body: unknown): LogzzStock => {
   for (const g of Array.isArray(b.data?.groups) ? b.data!.groups! : []) for (const v of Array.isArray(g?.variations) ? g.variations : []) if (typeof v?.variation_id === "number") variation.set(v.variation_id, String(v.variation_name ?? ""));
   const bySize: Partial<Record<Size, number[]>> = {};
   const seen = new Map<Size, number>();
+  const productOf: Partial<Record<Size, number>> = {};
   let unreadable = false;
   for (const p of b.data!.products!) {
     const label = variation.get(Array.isArray(p?.variations_combination) ? p.variations_combination[0]! : NaN) ?? String(p?.product_name ?? "").split("-").pop() ?? "";
@@ -421,13 +425,19 @@ export const readLogzzStock = (body: unknown): LogzzStock => {
       unreadable = true;
       continue;
     }
-    const ops = stock.filter((o) => o.qty > 0).map((o) => o.op);
-    seen.set(size, (seen.get(size) ?? 0) + stock.reduce((t, o) => t + (o.qty > 0 ? o.qty : 0), 0));
+    // Operation 0 is no operation (the Logzz lists stock under it that no city is served from): the real checkout leaves it out
+    // of `operation_ids[]`, and asking with it is answered 422 "Cada ID de operação deve existir" — every Recife CEP read as a
+    // failed lookup instead of "no delivery" (Playwright, 2026-10-23). Nor does it count as her region's stock (the scarcity line).
+    const local = stock.filter((o) => o.op > 0);
+    const ops = local.filter((o) => o.qty > 0).map((o) => o.op);
+    seen.set(size, (seen.get(size) ?? 0) + local.reduce((t, o) => t + (o.qty > 0 ? o.qty : 0), 0));
     if (ops.length > 0) bySize[size] = [...(bySize[size] ?? []), ...ops];
+    const product = num(p?.product_id);
+    if (Number.isInteger(product) && product > 0) productOf[size] = product;
   }
   // An answer nothing of which could be read is not "no stock" (review, 19/10): a renamed variation would otherwise
   // tell the whole country there is no delivery. Unknown is a failed lookup; the health probe says so within 15 minutes.
-  return seen.size === 0 ? null : { cod: true, bySize, seen, unreadable };
+  return seen.size === 0 ? null : { cod: true, bySize, seen, unreadable, productOf };
 };
 
 /**
@@ -475,10 +485,18 @@ const lookupLogzzUnsafe = async (
   if (!stock.cod) return { kind: "found", region: none };
   // Her size decides when known: no stock of hers where she lives is no delivery for her, whatever the other sizes hold. But
   // "no stock" is said only of a size the answer spoke of clearly: hers unreadable (renamed, malformed) is an unknown.
-  const ops = [...new Set(size !== null ? stock.bySize[size] ?? [] : Object.values(stock.bySize).flat())];
+  // The days are asked like the real checkout asks them (Playwright, 2026-10-23): the operations holding ONE size and that size's
+  // product in `product_requirements` — without it the Logzz answers "Nenhuma opção de entrega" even in São Paulo. With her size
+  // unknown, the size with the most local stock stands for the region.
+  const asked: Size | null = size ?? (Object.keys(stock.bySize) as Size[]).sort((a, b) => (stock.seen.get(b) ?? 0) - (stock.seen.get(a) ?? 0))[0] ?? null;
+  const ops = [...new Set(asked !== null ? stock.bySize[asked] ?? [] : [])];
   if (ops.length === 0) return size !== null ? (stock.seen.has(size) && !stock.unreadable ? { kind: "found", region: none } : { kind: "failed", place }) : stock.unreadable ? { kind: "failed", place } : { kind: "found", region: none };
+  const product = asked !== null ? stock.productOf[asked] : undefined;
+  if (product === undefined) return { kind: "failed", place };
   const q = new URLSearchParams(where);
   for (const id of ops) q.append("operation_ids[]", String(id));
+  q.append("product_requirements[0][product_id]", String(product));
+  q.append("product_requirements[0][quantity]", "1");
   // The days are the second question. Stock without a confirmed window is not a delivery to promise (a date, "amanhã") and not
   // a denial either: unless the Logzz itself says it does not serve the address, an unknown is a failed lookup.
   const days = await fetcher(`${LOGZZ_BASE}/ajax/get-delivery-days-options-by-operations-ids?${q}`, AVAILABILITY_HEADERS)

@@ -154,9 +154,9 @@ describe("a régua dos 90% (P2.4)", () => {
     expect(Object.keys(f.approved)).toEqual(["a"]);
     expect([f.model, f.questionsVersion]).toEqual([JEV_MODEL, QUESTIONS_VERSION]);
   });
-  it("as três famílias juntas têm 16 perguntas, todas com instrução em português", () => {
+  it("as três famílias juntas têm 19 perguntas, todas com instrução em português", () => {
     const all = { ...INBOUND, ...AUDIT, ...MISSED };
-    expect(Object.keys(all)).toHaveLength(16);
+    expect(Object.keys(all)).toHaveLength(19);
     for (const q of Object.values(all)) expect(q.instructions).toMatch(/\b(?:cliente|Malu)\b/);
     expect(flagged({ type: "score", score: 0.4, confidence: 1, probabilities: {} })).toBe(false);
   });
@@ -179,7 +179,7 @@ describe("renderTiming: números das views, nunca do modelo", () => {
 });
 
 describe("o conjunto de ouro (hermes/jev-ouro.json)", () => {
-  it("toda pergunta de sim/não tem pelo menos 10 casos de sim e de não; todo item rotula as 16", async () => {
+  it("toda pergunta de sim/não tem pelo menos 10 casos de sim e de não; todo item rotula as 19", async () => {
     const { readFileSync } = await import("node:fs");
     const gold = JSON.parse(readFileSync("hermes/jev-ouro.json", "utf8")) as Array<{ id: string; labels: Record<string, unknown> }>;
     const ids = Object.keys({ ...INBOUND, ...AUDIT, ...MISSED });
@@ -256,5 +256,18 @@ describe("revisão de código de 2026-10-22", () => {
   it("mensagem dela respondida só pela recepção não vira troca com o número de outra resposta", () => {
     const c: Conversation = { persona: "x", transcript: [{ from: "persona", text: "oi" }, { from: "valen", status: "welcomed", text: "Olá" }, { from: "persona", text: "tem G?" }, { from: "valen", text: "Tem sim!" }] };
     expect(exchanges(c).map((x) => [x.mensagem, x.cliente])).toEqual([[1, "tem G?"]]);
+  });
+});
+
+describe("as mentiras de detalhe operacional (operador, 2026-10-23)", () => {
+  it("três perguntas literais na auditoria, cada uma com 12 casos de sim no ouro", async () => {
+    for (const q of ["fala_boleto", "escolhe_horario", "correio_na_entrega"]) expect(AUDIT[q]?.type).toBe("noul");
+    const { readFileSync } = await import("node:fs");
+    const gold = JSON.parse(readFileSync("hermes/jev-ouro.json", "utf8")) as Array<{ labels: Record<string, unknown> }>;
+    for (const q of ["fala_boleto", "escolhe_horario", "correio_na_entrega"]) expect(gold.filter((g) => g.labels[q] === true).length, q).toBe(12);
+  });
+  it("a versão das perguntas subiu: as aprovadas da versão 1 não valem até a nova medida", () => {
+    expect(QUESTIONS_VERSION).toBe(2);
+    expect(approvedOf(AUDIT, { model: JEV_MODEL, questionsVersion: 1, measuredAt: "x", approved: { escassez: { threshold: 0.5, accuracy: 1, n: 230 } } }, JEV_MODEL)).toEqual({});
   });
 });

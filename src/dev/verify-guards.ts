@@ -5907,6 +5907,22 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/plan16-wiring.test.ts"],
   },
   {
+    id: "R30-logzz-operacao-zero",
+    bug: "a operação 0 ia na pergunta dos dias: 422 e todo CEP de Recife virava falha em vez de 'sem entrega' (Playwright, 2026-10-23)",
+    files: ["src/agent/availability.ts", "supabase/functions/turn/availability.ts"],
+    from: "const local = stock.filter((o) => o.op > 0);",
+    to: "const local = stock;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/logzz-product-requirements.test.ts"],
+  },
+  {
+    id: "R30-logzz-product-requirements",
+    bug: "os dias perguntados sem o produto do tamanho: a Logzz responde 'nenhuma opção de entrega' até em São Paulo (Playwright, 2026-10-23)",
+    files: ["src/agent/availability.ts", "supabase/functions/turn/availability.ts"],
+    from: "  q.append(\"product_requirements[0][product_id]\", String(product));\n",
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/logzz-product-requirements.test.ts"],
+  },
+  {
     id: "R30-frete-do-kit-quantidade",
     bug: "GG+GG iria à consulta como um GG só: o frete de uma peça no kit (Playwright de 2026-10-22, 20,36)",
     files: ["src/agent/availability.ts", "supabase/functions/turn/availability.ts"],

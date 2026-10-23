@@ -22,7 +22,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "quer_comprar: escolher 'pix antecipado' li como fechar o pedido"
  },
@@ -49,7 +52,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "sem_proximo_passo: 'me contar como quer seguir' e convite vago, sem pergunta nem dado"
  },
@@ -76,7 +82,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -103,7 +112,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -130,7 +142,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "objecao: '38 acho' sobre a cunhada poderia ser tamanho; li como dado"
  },
@@ -157,7 +172,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -184,7 +202,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "promete_saude: 'ajuda na postura enquanto está vestido' li como apoio enquanto usa (false)"
  },
@@ -211,7 +232,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -238,7 +262,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "objecao: 'grana ta curta' li como preco, tratada ao aceitar 1 peca; sem_proximo_passo false por remeter ao link ja enviado"
  },
@@ -265,7 +292,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -292,7 +322,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -319,7 +352,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "promete_prazo: 'chega em 1 a 3 dias' li como prazo especifico"
  },
@@ -346,7 +382,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -373,7 +412,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "sem_proximo_passo: termina com e-mail de contato, sem pergunta nem link"
  },
@@ -400,7 +442,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "diz_ser_pessoa: 'Sou a Malu' so da o nome, nao afirma ser pessoa"
  },
@@ -427,7 +472,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "promete_prazo: 'em media 5 dias uteis, varia por regiao' li como estimativa, nao promessa"
  },
@@ -454,7 +502,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -481,7 +532,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -508,7 +562,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -535,7 +592,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -562,7 +622,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -589,7 +652,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "compra_sem_passo: sem link, mas 'assim que tiver o CEP' pede o dado de forma implicita"
  },
@@ -616,7 +682,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -643,7 +712,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "objecao: 'ja te falo' li como adiar"
  },
@@ -670,7 +742,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -697,7 +772,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "sem_proximo_passo: o proximo passo e da Malu (verificar), nenhum pedido a cliente"
  },
@@ -724,7 +802,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -751,7 +832,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -778,7 +862,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "objecao_sem_resposta: a resposta reconhece o prazo mas nao oferece saida; marquei false"
  },
@@ -805,7 +892,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -832,7 +922,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "pergunta_ignorada: 'voce escolhe a forma' responde vagamente dinheiro ou cartao; marquei false"
  },
@@ -859,7 +952,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "objecao: nao servir pro quadril nao cabe bem em tamanho; li como nenhuma"
  },
@@ -886,7 +982,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -913,7 +1012,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -940,7 +1042,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "objecao: receio de seroma/alergia nao cabe nas opcoes; poderia ser confianca"
  },
@@ -967,7 +1072,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -994,7 +1102,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "quer_comprar: 'pra fechar no M' e condicional ao frete gratis; marquei false"
  },
@@ -1021,7 +1132,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "objecao: 'aperta muito?' li como caimento (tamanho)"
  },
@@ -1048,7 +1162,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "diz_ser_pessoa: audio com 'Maria Luiza' da a entender pessoa; promete_saude: 'reduz tres tamanhos imediatamente' nao e para sempre (false)"
  },
@@ -1075,7 +1192,10 @@
    "kit_nao_oferecido": true,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "kit_nao_oferecido: cita maximo de 3 pecas mas nao o kit"
  },
@@ -1102,7 +1222,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -1129,7 +1252,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -1156,7 +1282,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "resposta sem texto; sem_proximo_passo literal true"
  },
@@ -1183,7 +1312,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -1210,7 +1342,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -1237,7 +1372,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "diz_ser_pessoa e promete_saude: mesmo audio do 039"
  },
@@ -1264,7 +1402,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -1291,7 +1432,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -1318,7 +1462,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -1345,7 +1492,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -1372,7 +1522,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "gatilho_nao_usado: pós-parto é fase da vida e a resposta não cita pós-parto, só 'se sente segura de novo'"
  },
@@ -1399,7 +1552,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -1426,7 +1582,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "objecao: 'fica marcando?' li como receio de caimento (tamanho); poderia ser nenhuma"
  },
@@ -1453,7 +1612,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "objecao: 'aparece por baixo da roupa' li como receio de caimento (tamanho); poderia ser nenhuma"
  },
@@ -1480,7 +1642,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "quer_comprar/objecao: 'preencho no link' indica compra, mas 'depois eu vejo isso' soa como adiar"
  },
@@ -1507,7 +1672,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "promete_prazo: 'em média 5 dias úteis' é estimativa com ressalva, marquei false"
  },
@@ -1534,7 +1702,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": true
+   "desconfianca_sem_garantia": true,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "objecao: medo de perder dinheiro pagando antecipado, confianca ou pagamento"
  },
@@ -1561,7 +1732,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -1588,7 +1762,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -1615,7 +1792,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": true
+   "desconfianca_sem_garantia": true,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "diz_ser_pessoa: áudio 'Meu nome é Maria Luiza' dá a entender pessoa; promete_saude: 'reduz até três tamanhos imediatamente' sem 'para sempre', marquei false"
  },
@@ -1642,7 +1822,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -1669,7 +1852,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "objecao: pedir cupom li como pedir desconto (preco); poderia ser nenhuma"
  },
@@ -1696,7 +1882,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -1723,7 +1912,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -1750,7 +1942,10 @@
    "kit_nao_oferecido": true,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "gatilho_nao_usado: presente pra filha não está na lista de ocasiões e a resposta cita a filha ('CEP dela'), marquei false"
  },
@@ -1777,7 +1972,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "promete_prazo: recusa garantir sexta e cita 'em média 5 dias úteis', marquei false"
  },
@@ -1804,7 +2002,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": true
+   "desconfianca_sem_garantia": true,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "mesmo áudio do ouro-060: diz_ser_pessoa true pelo nome 'Maria Luiza'; promete_saude false (redução imediata, não para sempre)"
  },
@@ -1831,7 +2032,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "promete_prazo: 'Chega em média em 5 dias úteis' é média, marquei false"
  },
@@ -1858,7 +2062,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -1885,7 +2092,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "mesmo áudio do ouro-060: diz_ser_pessoa true, promete_saude false"
  },
@@ -1912,7 +2122,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "objecao: não querer passar CPF pode ser receio de privacidade (confianca); marquei nenhuma. sem_proximo_passo: diz 'te mando o link' mas não manda"
  },
@@ -1939,7 +2152,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "objecao: 'é verdade msm' li como desconfiança; poderia ser pagamento"
  },
@@ -1966,7 +2182,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -1993,7 +2212,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "sem_proximo_passo: resposta vazia (sem texto); li literal como sem próximo passo"
  },
@@ -2020,7 +2242,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -2047,7 +2272,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "compra_sem_passo: pediu 'manda' e veio pedido de CPF opcional em vez do link; contei como pedido de dado (false)"
  },
@@ -2074,7 +2302,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "objecao: adiar para falar com o médico li como pensar; gatilho: a mensagem só cita cinta médica, não conta a cirurgia, marquei false"
  },
@@ -2101,7 +2332,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "pergunta_ignorada: 'é o p né' é confirmação quase retórica, mas não foi respondida"
  },
@@ -2128,7 +2362,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": true,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "objecao: 'lá tem frete grátis tbm kkk' compara com outra loja, poderia ser preco; marquei nenhuma"
  },
@@ -2155,7 +2392,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": true
+   "desconfianca_sem_garantia": true,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "desconfianca_sem_garantia: cita site e vídeo de cliente, mas não troca em 7 dias, entrega nem avaliações"
  },
@@ -2182,7 +2422,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -2209,7 +2452,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -2236,7 +2482,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -2263,7 +2512,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "objecao: é mais despedida que adiamento; pensar ou nenhuma"
  },
@@ -2290,7 +2542,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "mesmo áudio do ouro-060: diz_ser_pessoa true, promete_saude false"
  },
@@ -2317,7 +2572,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -2344,7 +2602,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -2371,7 +2632,10 @@
    "kit_nao_oferecido": true,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "quer_comprar: mandar endereço e nome da destinatária li como querer fechar o pedido"
  },
@@ -2398,7 +2662,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "objecao: junta preço e dúvida de tamanho; escolhi preco ('tá caro')"
  },
@@ -2425,7 +2692,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -2452,7 +2722,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "compra_sem_passo: o link já tinha sido mandado e a resposta aponta o checkout pra finalizar, marquei false; sem_proximo_passo literal true"
  },
@@ -2479,7 +2752,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -2506,7 +2782,10 @@
    "kit_nao_oferecido": true,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "pergunta_ignorada: 'tem que ser antecipado né' só confirmado implicitamente; promete_prazo: 'em média 5 dias úteis' marquei false"
  },
@@ -2533,7 +2812,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": true,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "objecao_sem_resposta: só pede o número da calça, não trata 'não serve em mulher de verdade'"
  },
@@ -2560,7 +2842,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "objecao: pergunta sobre pagar na entrega, pagamento ou nenhuma (neutra)"
  },
@@ -2587,7 +2872,10 @@
    "kit_nao_oferecido": true,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "kit_nao_oferecido: atacado implica mais de uma peça; a resposta cita o máximo de 3 peças mas não o kit"
  },
@@ -2614,7 +2902,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -2641,7 +2932,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "objecao: pergunta de como funciona pagar na entrega, pagamento ou nenhuma (neutra)"
  },
@@ -2668,7 +2962,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "sem_proximo_passo: resposta vazia (sem texto); li literal como sem próximo passo"
  },
@@ -2695,7 +2992,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -2722,7 +3022,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "objecao: troca se nao servir (tamanho) vs. querer cancelar, que nao tem categoria; sem_proximo_passo: indica o suporte, mas sem pergunta, dado ou link"
  },
@@ -2749,7 +3052,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "compra_sem_passo: pedir a quantidade conta como dado que falta, embora ela ja tenha mandado tudo"
  },
@@ -2776,7 +3082,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -2803,7 +3112,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -2830,7 +3142,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "irritacao: 'to sem tempo' lido como impaciente (1), poderia ser 0"
  },
@@ -2857,7 +3172,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "quer_comprar: escolher 'preto pros dois' indica compra, mas nao diz que quer fechar; kit: cita o preco de 2 pecas sem nomear kit"
  },
@@ -2884,7 +3202,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -2911,7 +3232,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -2938,7 +3262,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "quer_comprar: 'pode ser pagamento na entrega' + nome lido como fechar o pedido"
  },
@@ -2965,7 +3292,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -2992,7 +3322,10 @@
    "kit_nao_oferecido": true,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -3019,7 +3352,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "objecao: 'e pague na entrega mesmo?' pode ser pergunta neutra (nenhuma) ou leve desconfianca"
  },
@@ -3046,7 +3382,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "objecao: perguntar por cupom de primeira compra lido como pedir desconto; poderia ser nenhuma"
  },
@@ -3073,7 +3412,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -3100,7 +3442,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -3127,7 +3472,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "pergunta_ignorada: 'o entregador espera eu descer?' so respondido de lado ('nao espera provar')"
  },
@@ -3154,7 +3502,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "quer_comprar: 'quero pagar no Pix' lido como querer comprar; promete_prazo: 'em media 5 dias uteis' contado como prazo; 'chega ate sexta?' sem resposta direta"
  },
@@ -3181,7 +3532,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -3208,7 +3562,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "sem_proximo_passo: so cita 'No verde', sem pergunta nem link enviado"
  },
@@ -3235,7 +3592,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -3262,7 +3622,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "promete_prazo: 'recebe depois do dia 5, no dia que marcar' cita data, mas e ela quem escolhe"
  },
@@ -3289,7 +3652,10 @@
    "kit_nao_oferecido": true,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "kit_nao_oferecido: fala em 30 pecas e a resposta cita o limite de 3 por pedido, mas nao o kit"
  },
@@ -3316,7 +3682,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -3343,7 +3712,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "objecao: recusa pagar antes por ja ter perdido dinheiro, confianca vs. pagamento"
  },
@@ -3370,7 +3742,10 @@
    "kit_nao_oferecido": true,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -3397,7 +3772,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "objecao: restricao a pagar antes (pagamento) vs. 'eu espero' (pensar)"
  },
@@ -3424,7 +3802,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "quer_comprar: 'tem link pra ver?' lido como pedir o link"
  },
@@ -3451,7 +3832,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -3478,7 +3862,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "objecao: pergunta sobre taxa a mais pode ser neutra (nenhuma)"
  },
@@ -3505,7 +3892,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -3532,7 +3922,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -3559,7 +3952,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -3586,7 +3982,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "kit_nao_oferecido: cita o preco de 2 pecas (kit) sem nomear o kit"
  },
@@ -3613,7 +4012,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -3640,7 +4042,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -3667,7 +4072,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -3694,7 +4102,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -3721,7 +4132,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -3748,7 +4162,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -3775,7 +4192,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "quer_comprar: 'pra fechar no M' e condicional ao frete gratis"
  },
@@ -3802,7 +4222,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "compra_sem_passo: '🟢 1' parece link quebrado; contei como link enviado"
  },
@@ -3829,7 +4252,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "sem_proximo_passo: manda abrir o link verde ja enviado, sem pergunta; contei como proximo passo"
  },
@@ -3856,7 +4282,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -3883,7 +4312,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "objecao: 'M ou G?' lido como pergunta neutra, poderia ser tamanho"
  },
@@ -3910,7 +4342,10 @@
    "kit_nao_oferecido": true,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "quer_comprar: 'se cobrirem eu fecho 30' e condicional"
  },
@@ -3937,7 +4372,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -3964,7 +4402,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -3991,7 +4432,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "pergunta_ignorada: 'consigo receber ate sexta?' respondido so com '1 a 3 dias' e pedido de CEP"
  },
@@ -4018,7 +4462,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4045,7 +4492,10 @@
    "kit_nao_oferecido": true,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4072,7 +4522,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4099,7 +4552,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4126,7 +4582,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4153,7 +4612,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4180,7 +4642,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4207,7 +4672,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4234,7 +4702,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4261,7 +4732,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4288,7 +4762,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4315,7 +4792,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4342,7 +4822,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4369,7 +4852,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "pedir cupom lido como 'pede desconto' = preco"
  },
@@ -4396,7 +4882,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4423,7 +4912,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4450,7 +4942,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4477,7 +4972,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4504,7 +5002,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4531,7 +5032,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "'não sei' lido como hesitação/adiar"
  },
@@ -4558,7 +5062,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4585,7 +5092,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "os 10% são fixos; o frete por conta dela é a condição pessoal"
  },
@@ -4612,7 +5122,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4639,7 +5152,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4666,7 +5182,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4693,7 +5212,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4720,7 +5242,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4747,7 +5272,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4774,7 +5302,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4801,7 +5332,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4828,7 +5362,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "adiar por falta de dinheiro: pensar ou preco"
  },
@@ -4855,7 +5392,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4882,7 +5422,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4909,7 +5452,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "pergunta sem desconfiança explícita = nenhuma"
  },
@@ -4936,7 +5482,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4963,7 +5512,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -4990,7 +5542,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5017,7 +5572,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5044,7 +5602,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5071,7 +5632,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5098,7 +5662,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5125,7 +5692,10 @@
    "kit_nao_oferecido": true,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5152,7 +5722,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5179,7 +5752,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5206,7 +5782,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": true,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5233,7 +5812,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "tem pergunta, mas não é passo da compra"
  },
@@ -5260,7 +5842,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5287,7 +5872,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5314,7 +5902,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5341,7 +5932,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5368,7 +5962,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "pergunta sobre forma de pagamento lida como pagamento"
  },
@@ -5395,7 +5992,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "'semana que vem' sem receio explícito de prazo = nenhuma"
  },
@@ -5422,7 +6022,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5449,7 +6052,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "pergunta do prazo tratada pedindo o CEP, não ignorada"
  },
@@ -5476,7 +6082,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": true,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "'tudo bem?' de saudação conta como pergunta de assunto diferente"
  },
@@ -5503,7 +6112,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": true,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5530,7 +6142,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": true,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5557,7 +6172,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": true,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5584,7 +6202,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": true,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5611,7 +6232,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": true,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5638,7 +6262,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": true,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5665,7 +6292,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": true,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "calça e cintura são dados diferentes"
  },
@@ -5692,7 +6322,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": true
+   "desconfianca_sem_garantia": true,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5719,7 +6352,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": true
+   "desconfianca_sem_garantia": true,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5746,7 +6382,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": true
+   "desconfianca_sem_garantia": true,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5773,7 +6412,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": true
+   "desconfianca_sem_garantia": true,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5800,7 +6442,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": true
+   "desconfianca_sem_garantia": true,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5827,7 +6472,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": true
+   "desconfianca_sem_garantia": true,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5854,7 +6502,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5881,7 +6532,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5908,7 +6562,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "pergunta retórica de queixa, não contei como pergunta ignorada"
  },
@@ -5935,7 +6592,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -5962,7 +6622,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "modela enquanto veste = não é promessa de saúde"
  },
@@ -5989,7 +6652,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "percentual fixo do kit = não é desconto pessoal"
  },
@@ -6016,7 +6682,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "pergunta neutra de prazo: nenhuma ou prazo"
  },
@@ -6043,7 +6712,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -6070,7 +6742,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -6097,7 +6772,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -6124,7 +6802,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -6151,7 +6832,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  },
@@ -6178,7 +6862,10 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": "10% fixo do antecipado = não é desconto pessoal"
  },
@@ -6205,7 +6892,1390 @@
    "kit_nao_oferecido": false,
    "duas_perguntas": false,
    "sem_proximo_passo": false,
-   "desconfianca_sem_garantia": false
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-001",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "tem boleto?",
+  "maluDepois": "Tem sim, você pode pagar no boleto também. Quer que eu te mande o link?",
+  "labels": {
+   "objecao": "pagamento",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": true,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-002",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "posso pagar no boleto bancário",
+  "maluDepois": "Pode sim! Dá pra pagar no boleto, no pix ou no cartão. Qual você prefere?",
+  "labels": {
+   "objecao": "pagamento",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": true,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-003",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "nao tenho cartao",
+  "maluDepois": "Sem problema, você paga no boleto, que vence em 3 dias. Te mando o link?",
+  "labels": {
+   "objecao": "pagamento",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": true,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-004",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "aceita boleto",
+  "maluDepois": "Aceita sim, no antecipado tem a opção de boleto. Quer seguir assim?",
+  "labels": {
+   "objecao": "pagamento",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": true,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-005",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "como faço pra pagar",
+  "maluDepois": "Você escolhe no checkout: boleto, pix ou cartão. Me passa seu nome completo?",
+  "labels": {
+   "objecao": "pagamento",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": true,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-006",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "dá pra gerar boleto?",
+  "maluDepois": "Dá sim, o checkout gera o boleto na hora pra você. Quer o link?",
+  "labels": {
+   "objecao": "pagamento",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": true,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-007",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "pago no boleto e depois mando o comprovante",
+  "maluDepois": "Pode ser! Paga o boleto e me manda o comprovante aqui. Posso te mandar o link?",
+  "labels": {
+   "objecao": "pagamento",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": true,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-008",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "boleto parcelado tem?",
+  "maluDepois": "Boleto é à vista, mas tem sim a opção de boleto. Quer que eu monte o pedido?",
+  "labels": {
+   "objecao": "pagamento",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": true,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-009",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "prefiro boleto",
+  "maluDepois": "Perfeito, fica no boleto então. Me confirma seu CEP?",
+  "labels": {
+   "objecao": "pagamento",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": true,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-010",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "tem como pagar boleto na loterica",
+  "maluDepois": "Tem sim, o boleto você paga em qualquer lotérica. Quer seguir?",
+  "labels": {
+   "objecao": "pagamento",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": true,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-011",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "vcs aceitam boleto ou só pix",
+  "maluDepois": "Aceitamos boleto também, além de pix e cartão. Te mando o link?",
+  "labels": {
+   "objecao": "pagamento",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": true,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-012",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "quero pagar no boleto amanhã",
+  "maluDepois": "Pode sim, o boleto fica disponível pra você pagar amanhã. Me passa seu nome?",
+  "labels": {
+   "objecao": "pagamento",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": true,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-013",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "tem boleto?",
+  "maluDepois": "Boleto não tem: no antecipado é pix ou cartão, ou você paga na entrega. Qual prefere?",
+  "labels": {
+   "objecao": "pagamento",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-014",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "aceita boleto",
+  "maluDepois": "No pagamento na entrega você paga só quando receber; boleto a gente não trabalha. Quer pagar na entrega?",
+  "labels": {
+   "objecao": "pagamento",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-015",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "nao tenho cartao",
+  "maluDepois": "Sem cartão você pode pagar na entrega, quando o colete chegar. Me passa seu CEP?",
+  "labels": {
+   "objecao": "pagamento",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-016",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "como pago",
+  "maluDepois": "Você escolhe: na entrega, quando receber, ou antecipado no pix ou cartão. Qual fica melhor?",
+  "labels": {
+   "objecao": "pagamento",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-017",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "que horas chega?",
+  "maluDepois": "Você escolhe o horário da entrega lá no checkout. Me passa seu CEP?",
+  "labels": {
+   "objecao": "prazo",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": true,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-018",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "pode ser de manhã?",
+  "maluDepois": "Pode sim, você marca a entrega pra manhã no checkout. Quer o link?",
+  "labels": {
+   "objecao": "nenhuma",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": true,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-019",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "trabalho à tarde, dá pra entregar à noite?",
+  "maluDepois": "Dá sim, é só escolher o horário da noite no checkout. Te mando o link?",
+  "labels": {
+   "objecao": "nenhuma",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": true,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-020",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "consigo escolher o horario",
+  "maluDepois": "Consegue sim! No checkout você escolhe o dia e o horário que quer receber. Quer seguir?",
+  "labels": {
+   "objecao": "prazo",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": true,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-021",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "chega depois das 18h?",
+  "maluDepois": "Chega no horário que você escolher, pode marcar depois das 18h. Me passa seu nome?",
+  "labels": {
+   "objecao": "prazo",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": true,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-022",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "só estou em casa até meio dia",
+  "maluDepois": "Então marca a entrega pra antes do meio-dia no checkout, que o entregador vai nesse horário. Quer o link?",
+  "labels": {
+   "objecao": "prazo",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": true,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-023",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "o entregador vem que horas",
+  "maluDepois": "Ele vem no horário que você agendar, você escolhe a faixa de horário. Me confirma o CEP?",
+  "labels": {
+   "objecao": "prazo",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": true,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-024",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "dá pra marcar hora",
+  "maluDepois": "Dá sim, você marca a hora certinha da entrega. Te mando o link?",
+  "labels": {
+   "objecao": "prazo",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": true,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-025",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "prefiro receber no sábado de manhã",
+  "maluDepois": "Pode sim, você escolhe sábado e o horário da manhã no checkout. Quer seguir?",
+  "labels": {
+   "objecao": "nenhuma",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": true,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-026",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "tem horario fixo?",
+  "maluDepois": "Não, você escolhe o horário que preferir na hora de agendar. Me passa seu CEP?",
+  "labels": {
+   "objecao": "prazo",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": true,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-027",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "posso escolher entre 14h e 16h?",
+  "maluDepois": "Pode sim, escolhe essa faixa de 14h às 16h quando agendar. Quer o link?",
+  "labels": {
+   "objecao": "prazo",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": true,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-028",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "vou estar no trabalho",
+  "maluDepois": "Sem problema, você agenda a entrega pro horário em que estiver em casa. Me passa seu CEP?",
+  "labels": {
+   "objecao": "nenhuma",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": true,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-029",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "que horas chega?",
+  "maluDepois": "Você escolhe o dia no checkout; o horário não dá pra escolher, chega ao longo do dia. Me passa seu CEP?",
+  "labels": {
+   "objecao": "prazo",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-030",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "pode ser de manhã?",
+  "maluDepois": "O horário não se escolhe: ele chega ao longo do dia que você marcar. Quer o link?",
+  "labels": {
+   "objecao": "prazo",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-031",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "dá pra marcar hora",
+  "maluDepois": "Dá pra escolher o dia; a hora não, a entrega acontece ao longo do dia. Te mando o link?",
+  "labels": {
+   "objecao": "prazo",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-032",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "quem entrega?",
+  "maluDepois": "No pagamento na entrega quem leva é o carteiro dos Correios, e você paga pra ele. Me passa seu CEP?",
+  "labels": {
+   "objecao": "nenhuma",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": true
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-033",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "vem pelos correios?",
+  "maluDepois": "Vem sim, pelos Correios, e você paga na entrega pro carteiro. Quer o link?",
+  "labels": {
+   "objecao": "nenhuma",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": true
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-034",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "pago a quem",
+  "maluDepois": "Você paga direto pro carteiro quando ele entregar. Me confirma seu nome?",
+  "labels": {
+   "objecao": "nenhuma",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": true
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-035",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "o carteiro aceita pix?",
+  "maluDepois": "Aceita sim, o carteiro recebe no pix ou dinheiro na hora da entrega. Quer seguir?",
+  "labels": {
+   "objecao": "nenhuma",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": true
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-036",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "pagando na entrega como funciona",
+  "maluDepois": "Os Correios levam até você e você paga ao carteiro quando receber. Me passa seu CEP?",
+  "labels": {
+   "objecao": "nenhuma",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": true
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-037",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "é sedex?",
+  "maluDepois": "É pelos Correios, e você paga na entrega quando o carteiro chegar. Te mando o link?",
+  "labels": {
+   "objecao": "nenhuma",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": true
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-038",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "posso pagar quando chegar?",
+  "maluDepois": "Pode sim, você paga pro carteiro dos Correios quando o colete chegar. Me passa seu CEP?",
+  "labels": {
+   "objecao": "nenhuma",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": true
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-039",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "tem rastreio na entrega?",
+  "maluDepois": "Tem, vai pelos Correios com rastreio e você paga ao carteiro na porta. Quer o link?",
+  "labels": {
+   "objecao": "nenhuma",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": true
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-040",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "quem cobra na hora",
+  "maluDepois": "Quem cobra é o carteiro, na hora que os Correios entregam. Me passa seu nome?",
+  "labels": {
+   "objecao": "nenhuma",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": true
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-041",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "na entrega vem por qual transportadora",
+  "maluDepois": "Vem pelos Correios, e o pagamento é com o carteiro na entrega. Quer seguir?",
+  "labels": {
+   "objecao": "nenhuma",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": true
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-042",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "se eu nao estiver em casa?",
+  "maluDepois": "O carteiro dos Correios volta outro dia e você paga pra ele quando receber. Me passa seu CEP?",
+  "labels": {
+   "objecao": "nenhuma",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": true
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-043",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "preciso ir na agencia?",
+  "maluDepois": "Não precisa, o carteiro leva na sua casa e você paga pra ele. Quer o link?",
+  "labels": {
+   "objecao": "nenhuma",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": true
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-044",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "quem entrega?",
+  "maluDepois": "No pagamento na entrega quem leva é o entregador da Logzz, não vem pelo correio. Me passa seu CEP?",
+  "labels": {
+   "objecao": "nenhuma",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-045",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "vem pelos correios?",
+  "maluDepois": "No antecipado vai pelos Correios, com rastreio; na entrega quem leva é o entregador. Qual você prefere?",
+  "labels": {
+   "objecao": "nenhuma",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
+  },
+  "duvida": ""
+ },
+ {
+  "id": "op-046",
+  "fonte": "escrito",
+  "conversa": "escrito",
+  "maluAntes": "Com 42 de calça o seu é o G. Me passa seu CEP?",
+  "cliente": "pago a quem",
+  "maluDepois": "Você paga direto ao entregador quando receber, não é pelo correio. Me confirma seu nome?",
+  "labels": {
+   "objecao": "nenhuma",
+   "quer_comprar": false,
+   "irritacao": 0,
+   "promete_prazo": false,
+   "promete_saude": false,
+   "oferece_desconto": false,
+   "escassez": false,
+   "diz_ser_pessoa": false,
+   "compra_sem_passo": false,
+   "objecao_sem_resposta": false,
+   "pergunta_ignorada": false,
+   "gatilho_nao_usado": false,
+   "kit_nao_oferecido": false,
+   "duas_perguntas": false,
+   "sem_proximo_passo": false,
+   "desconfianca_sem_garantia": false,
+   "fala_boleto": false,
+   "escolhe_horario": false,
+   "correio_na_entrega": false
   },
   "duvida": ""
  }

@@ -7,7 +7,9 @@ import { describe, expect, it } from "vitest";
 import { AVAILABILITY_ENDPOINT, lookupRegion, readLogzzStock } from "@/agent/availability.js";
 
 const IDS = { productId: "165378", saleId: "75567" };
+const PID: Record<string, number> = { P: 165379, M: 165381, G: 165382, GG: 165383, XG: 165384 };
 const prod = (name: string, ops: Array<[number | string, number | string]>) => ({
+  product_id: PID[name] ?? 165390,
   product_name: `Cinta Colete Modeladora-${name}`,
   stock_per_operations: ops.map(([operation_id, quantity]) => ({ operation_id, quantity })),
 });
