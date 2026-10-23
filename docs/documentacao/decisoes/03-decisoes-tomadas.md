@@ -2325,4 +2325,8 @@ Grafo [§124](04-grafo-de-decisoes.md). Propostas P0–P5 aprovadas, ajustadas o
   3 a 5), cada uma lida pelos erros item a item que a avaliação agora grava (`hermes/jev-erros.md`). 9 → 14 → 17 → **17 de 19 aprovadas**.
   Ficam de fora `objecao` (80%: o ouro rotula a mesma pergunta neutra ora como objeção, ora como nenhuma) e `pergunta_ignorada` (60% nos
   15 "sim"). Custo das três medidas ≈ US$ 0,08.
+- **R30.14 — Rótulos de `objecao` sob uma regra única** (operador, 2026-10-23): pergunta neutra é `nenhuma`; objeção é receio,
+  reclamação, impedimento ou adiamento (regra e os 25 itens mudados em `hermes/jev-ouro-objecao.md`, para conferência do operador).
+  `objecao` foi de 80% a 86% e segue reprovada: os 40 erros que sobram são o JEV vendo objeção em mensagem neutra (saúde, "vc é robô?",
+  "demora pra responder"), não rótulo inconsistente. Perguntas versão 6; 17 de 19 aprovadas.
 
