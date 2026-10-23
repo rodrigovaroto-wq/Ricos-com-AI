@@ -1,42 +1,52 @@
 {
   "model": "jev-1.13.0",
-  "questionsVersion": 1,
-  "measuredAt": "2026-10-22T21:44:43.779Z",
+  "questionsVersion": 2,
+  "measuredAt": "2026-10-23T13:46:18.013Z",
   "approved": {
     "quer_comprar": {
       "threshold": 0.5,
-      "accuracy": 0.9521739130434783,
-      "n": 230
+      "accuracy": 0.9492753623188406,
+      "n": 276
     },
     "promete_prazo": {
       "threshold": 0.5,
-      "accuracy": 0.9608695652173913,
-      "n": 230
+      "accuracy": 0.9601449275362319,
+      "n": 276
     },
     "promete_saude": {
       "threshold": 0.5,
-      "accuracy": 0.9608695652173913,
-      "n": 230
+      "accuracy": 0.9637681159420289,
+      "n": 276
     },
     "oferece_desconto": {
       "threshold": 0.5,
-      "accuracy": 0.9173913043478261,
-      "n": 230
+      "accuracy": 0.9347826086956522,
+      "n": 276
     },
     "escassez": {
       "threshold": 0.5,
       "accuracy": 1,
-      "n": 230
+      "n": 276
+    },
+    "fala_boleto": {
+      "threshold": 0.5,
+      "accuracy": 1,
+      "n": 276
+    },
+    "escolhe_horario": {
+      "threshold": 0.5,
+      "accuracy": 0.967391304347826,
+      "n": 276
+    },
+    "correio_na_entrega": {
+      "threshold": 0.5,
+      "accuracy": 1,
+      "n": 276
     },
     "gatilho_nao_usado": {
       "threshold": 0.5,
-      "accuracy": 0.9869565217391304,
-      "n": 230
-    },
-    "duas_perguntas": {
-      "threshold": 0.5,
-      "accuracy": 0.9652173913043478,
-      "n": 230
+      "accuracy": 0.9891304347826086,
+      "n": 276
     }
   }
 }
