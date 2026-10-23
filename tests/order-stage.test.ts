@@ -85,12 +85,30 @@ describe("7.4: a régua de silêncio termina em perdido", () => {
     }
   });
 
-  // §4a: a conversa que passou da faixa de 63–71 h não tem silence_3; o silence_2 marca perdido.
-  it("sem silence_3 na régua ancorada, o silence_2 é quem fecha", () => {
+  // §4a + R30.7 (2026-10-22): sem o silence_2, o silence_3 é o toque depois do silence_1. A conversa
+  // cujo silence_1 já cai depois da faixa de 63–71 h não tem silence_3, e o silence_1 marca perdido.
+  it("sem silence_3 na régua ancorada, o silence_1 é quem fecha", () => {
     const entry = new Date("2026-10-05T15:00:00Z");
-    const now = new Date(entry.getTime() + 65 * 3_600_000);
+    const now = new Date(entry.getTime() + 70.5 * 3_600_000);
     const ruler = scheduleSilence(now, "after_price", { entry, lastInbound: now });
-    expect(ruler.filter((f, i) => endsSilenceRuler(f.kind, after(ruler, i))).map((f) => f.kind)).toEqual(["silence_2"]);
+    expect(ruler.map((f) => f.kind)).toEqual(["silence_1"]);
+    expect(ruler.filter((f, i) => endsSilenceRuler(f.kind, after(ruler, i))).map((f) => f.kind)).toEqual(["silence_1"]);
+  });
+
+  it("com silence_3 na régua ancorada, o silence_1 não fecha — o silence_3 fecha", () => {
+    const entry = new Date("2026-10-05T15:00:00Z");
+    const now = new Date(entry.getTime() + 60 * 3_600_000);
+    const ruler = scheduleSilence(now, "after_price", { entry, lastInbound: now });
+    expect(ruler.map((f) => f.kind)).toEqual(["silence_1", "silence_3"]);
+    expect(ruler.filter((f, i) => endsSilenceRuler(f.kind, after(ruler, i))).map((f) => f.kind)).toEqual(["silence_3"]);
+  });
+
+  // Um silence_2 armado antes do deploy do R30.7 sai pela varredura como cancelado: com o silence_3
+  // ainda na fila, a conversa segue viva; sem nada depois, ele fecha como qualquer último toque.
+  it("o silence_2 de antes do deploy: fecha só sem outro silence_* agendado", () => {
+    expect(endsSilenceRuler("silence_2", ["silence_3"])).toBe(false);
+    expect(endsSilenceRuler("silence_2", [])).toBe(true);
+    expect(endsSilenceRuler("silence_2", null)).toBe(false);
   });
 
   it.each(["silence_1", "silence_2", "silence_3"])("%s com outro silence_* ainda agendado não fecha", (kind) => {
@@ -120,11 +138,27 @@ describe("7.4: a régua de silêncio termina em perdido", () => {
     // Five: the empty render, the gate, the blocked delivery, the order touch its status made
     // moot, and the eve whose delivery day is not tomorrow (D1).
     // And a sixth (4a): the anchored silence_2/silence_3 whose reopening is past its deadline.
-    expect(afterLeave.match(/await leave\("canceled"\);/g)?.length).toBe(6);
+    // And a seventh (plan 16 §4.2, 2026-10-22): the silence_2/silence_3 of a lead gone cold during the ruler.
+    // And an eighth (R30.7, 2026-10-22): the silence_2 armed before the ruler lost its second touch.
+    expect(afterLeave.match(/await leave\("canceled"\);/g)?.length).toBe(8);
     expect(afterLeave).toContain('if (!(await leave("sent"))) {');
     const nullBranch = afterLeave.slice(afterLeave.indexOf("if (text === null) {"));
     expect(nullBranch.indexOf("return;")).toBeGreaterThan(-1);
     expect(nullBranch.slice(0, nullBranch.indexOf("return;"))).toContain('await leave("canceled");');
+  });
+
+  // R30.7 (operador, 2026-10-22): a régua perdeu o silence_2 (0 de 40 respondidos em 24 h). O que foi
+  // armado antes do deploy sai pela `leave` — cancelado, com motivo — antes de qualquer outro ramo:
+  // antes do corte da faixa, do render, do gate e do adiamento pelo relógio (que o reancoraria).
+  it("a varredura cancela o silence_2 de antes do deploy, com motivo, antes de render, gate ou adiamento", () => {
+    const cut = afterLeave.indexOf('if (kind === "silence_2") {');
+    expect(cut).toBeGreaterThan(-1);
+    const branch = afterLeave.slice(cut, afterLeave.indexOf("return;", cut));
+    expect(branch).toContain('await leave("canceled");');
+    expect(branch).toContain('reason: "régua sem o 2º lembrete (R30.7)"');
+    for (const later of ["rulerForBand([row]", "renderFollowup(", 'action.do === "postpone"']) {
+      expect(afterLeave.indexOf(later), later).toBeGreaterThan(cut);
+    }
   });
 
   it("só marca perdido a linha que esta varredura fechou, pela regra de não regredir", () => {
@@ -275,11 +309,7 @@ describe("§R10.4, sexta revisão: nem lembrete duplicado, nem lembrete de link 
   const reabertura = new Date("2026-09-27T09:00:00Z");
 
   it("reancorada pelo silence_1 adiado, a régua não rearma o lembrete que já saiu", () => {
-    expect(rulerFor(reabertura, "link_sent", "silence_1").map((f) => f.kind)).toEqual([
-      "silence_1",
-      "silence_2",
-      "silence_3",
-    ]);
+    expect(rulerFor(reabertura, "link_sent", "silence_1").map((f) => f.kind)).toEqual(["silence_1", "silence_3"]);
   });
   it("reancorada pelo próprio lembrete adiado, ele volta", () => {
     expect(rulerFor(reabertura, "link_sent", "checkout_reminder").map((f) => f.kind)[0]).toBe("checkout_reminder");

@@ -26,20 +26,20 @@ Docs x Fontes, Perguntas). Se este texto e a planilha divergirem, vale a planilh
 ## 1. Resultado para o teste de L3
 
 Verba: **7 dias de anúncio a R$ 50/dia na Copy (R$ 350), 2 dias de pausa e 7 dias a R$ 50/dia na Região (R$ 350) = R$ 700**, a partir de
-**23/10/2026** (Copy 23 a 29/10, pausa 30 e 31/10, Região 1 a 7/11, leitura 8 e 9/11 — a leitura de 2 dias é assumida).
+quando o operador ligar o tráfego (sem data predefinida, R29.15; ordem: Copy, pausa de 2 dias, Região, leitura ao fim).
 Dos R$ 2.000 do operador, **R$ 1.325 são caixa** (R$ 250 ficam de margem de segurança, sobram R$ 1.075 utilizáveis). A verba vai no
-**cartão** e é paga na fatura de 29/11 com o repasse do COD, não com esse caixa: os R$ 700 (R$ 797 com o imposto da Meta) passam dos R$ 675 que
+**cartão** e é paga na fatura do cartão seguinte ao fim do teste, com o repasse do COD, não com esse caixa: os R$ 700 (R$ 797 com o imposto da Meta) passam dos R$ 675 que
 sobravam dos R$ 2.000, e a diferença sai do repasse.
 
 | Resultado (CPL R$ 1,50, conversão 10%, mix 70% COD / 30% antecipado, 1 peça) | Valor |
 |---|---:|
 | Leads e pedidos criados | 467 leads e 47 pedidos (33 COD e 14 antecipado) |
 | Piso de amostra (mais de 500 leads e 50 pedidos) | **Abaixo do piso** |
-| **Pico de caixa necessário** (07/11, antes do 1º repasse em 08/11) | **R$ 571** |
+| **Pico de caixa necessário** (ao fim da Região, antes do 1º repasse) | **R$ 571** |
 | **Sobra** sobre os R$ 1.075 utilizáveis | **R$ 504** |
 | Caixa acumulado volta a zero | 11/11 |
 | Caixa acumulado no dia 90 (21/01/2027) | R$ 1.375 |
-| Fatura da Meta (R$ 700 + 13,83% de imposto) | R$ 797 (R$ 740 vence 29/11 com saque em 27/11; R$ 57 vence 29/12) |
+| Fatura da Meta (R$ 700 + 13,83% de imposto) | R$ 797 (R$ 740 vence na primeira fatura, com saque dois dias antes; R$ 57 vence na fatura seguinte) |
 | Lucro esperado por venda no mix 70/30 | R$ 31,92 (COD R$ 26,18, antecipado R$ 45,31; R$ 33,99 sem o imposto da Meta) |
 | Escala que o caixa sustenta | 1,9× (dobrar a verba falta R$ 66) |
 
@@ -128,7 +128,7 @@ entrega do COD em 2 dias (D+1 a D+3), produto devolvido chega em 7 dias sem perd
 4. **Piso de amostra.** mais de 500 leads e mais de 50 pedidos. Com R$ 700 (R$ 50/dia por 7 dias em cada fase) e CPL R$ 1,50 saem 467 leads e 47 pedidos: **abaixo do piso**. Passa só com CPL abaixo de ~R$ 1,40 (CPL R$ 1,35: 519 leads e 52 pedidos, pico R$ 836, sobra R$ 239; CPL R$ 1,25: 560 leads e 56 pedidos, pico R$ 903, sobra R$ 172); com CPL R$ 1,75 são 400 leads e 40 pedidos. O operador confirmou em 2026-10-09 que o plano de 7 dias a R$ 50/dia
    (R$ 700) e o caixa de R$ 1.325 substituem a verba e o caixa de L3 (R$ 500 e R$ 1.500); ver
    [`09-pipeline-ate-producao.md`](../agente-ia/05-plano/09-pipeline-ate-producao.md) L3.1 e L3.2.
-5. A verba (R$ 700, R$ 797 com imposto) é maior que os R$ 675 que sobravam dos R$ 2.000; o modelo a paga com o repasse do COD na fatura de 29/11.
+5. A verba (R$ 700, R$ 797 com imposto) é maior que os R$ 675 que sobravam dos R$ 2.000; o modelo a paga com o repasse do COD na primeira fatura do cartão depois do teste.
 
 Fontes: [Central Logzz — taxas, prazos e condições](https://ajuda.logzz.com.br/artigos/taxas-prazos-e-condicoes-da-logzz),
 [blog Coinzz — pagamento na entrega](https://blog.coinzz.com.br/visao-geral/plataforma/como-fazer-vendas-com-pagamento-na-entrega-cash-on-delivery-cod-pela-coinzz/),

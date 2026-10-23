@@ -20,6 +20,12 @@ uma. Nada do que você escreve vai para produção sem ele.
 
 ## O que tem na pasta
 
+**Dois arquivos, uma leitura de cada** (desde 2026-10-22, para baratear a rodada): `pacote.md` traz cada arquivo abaixo
+como uma seção com o cabeçalho `# arquivo: <nome>` (reverter, decisões, histórico, placar, números, tempo, JEV, regras,
+registro e o prompt, nessa ordem), e `conversas.md` traz todas as conversas, uma seção `# <nome>` por conversa. Leia os
+dois **inteiros, uma vez**; não releia trechos — cada leitura a mais custa a rodada inteira de novo. Onde esta skill diz
+`conversas/`, é `conversas.md`; onde diz `prompt.md`, `placar.md` etc., é a seção com esse nome.
+
 - `reverter.md` — **leia antes de tudo.** Se diz **CRÍTICO**, há uma reversão da versão no ar
   esperando o operador: nesta rodada você só pode propor reversão (veja "Reverter a versão
   nova"); qualquer outra proposta é descartada.
@@ -29,13 +35,21 @@ uma. Nada do que você escreve vai para produção sem ele.
   banco não.
 - `prompt.md` — o prompt que a Malu lê, com as regras e os fatos da operação (na config de
   teste). É contra ele que uma mentira é mentira.
-- `conversas/*.md` — cada conversa, mensagem a mensagem. As conversas de produção chegam
+- `conversas.md` — cada conversa, mensagem a mensagem. As conversas de produção chegam
   escolhidas: primeiro as que tiveram opt-out, resposta pronta, handoff ou veto, depois
   algumas sem sinal nenhum — leia as duas, a mentira que passou não deixa sinal. Em cada resposta da Malu aparecem os
   vetos que ela levou antes de sair (`veto: <gate> — <motivo>`) e o desfecho do turno. Dados
-  pessoais estão mascarados (`[telefone]`, `[cpf]`, `[cep]`, `[email]`). Nas conversas de
+  pessoais estão mascarados (`[telefone]`, `[cpf]`, `[cep]`, `[email]`), em `conversas/`, `jev.md` e `timing.md`. Nas conversas de
   produção, a linha `versão da Malu: vN` diz sob que versão ela rodou.
-- `registro.md` — o registro de mudanças: tudo que já foi proposto, feito e medido. **Não
+- `timing.md` — o tempo das conversas, das views do banco: quanto a Malu demora, qual toque da régua traz a
+  cliente de volta, o horário em que ela responde e **a última mensagem da Malu antes de a cliente sumir**. Use os
+  números como estão (nunca recalcule); a mensagem que mais aparece antes do silêncio é candidata a proposta.
+- `jev.md` — o que o JEV (modelo de decisão, não escreve) leu nas mesmas conversas: objeções por tipo, promessas
+  que passaram pelos gates e **o que a Malu deveria ter dito e não disse** (próximo passo, pergunta ignorada, ocasião
+  não usada, kit não oferecido). É **suspeita a conferir**: abra a conversa, ache o trecho e só então cite — o trecho
+  vem de `conversas/`, nunca de `jev.md`. Onde o JEV e os gates discordam, o gate vale; uma mentira que o JEV
+  aponta e você confirma é a proposta mais valiosa da rodada.
+- `registro.md` — o registro de mudanças (título e estado de cada entrada): tudo que já foi proposto, feito e medido. **Não
   proponha de novo o que já está lá**; se uma entrada aberta ou atingida voltou a falhar, cite
   o número dela (M-xx) e proponha o ajuste.
 - `regras.md` — o que o sistema decidiu **não** fazer, e por quê.
@@ -71,8 +85,13 @@ segue esta skill.
 
 ## O que procurar, em ordem de custo
 
-1. **Mentira que passou** — promessa de prazo, preço, desconto, frete, cobertura ou saúde que a
-   operação não cumpre, numa resposta que saiu. É a mais grave.
+1. **Mentira que passou** — promessa de prazo, preço, desconto, frete, cobertura, forma de pagamento,
+   horário, quem entrega, troca ou saúde que a operação não cumpre, numa resposta que saiu. É a mais grave,
+   e a que os gates de hoje **não** pegam é a que só você acha. **Faça esta leitura antes de qualquer outra:**
+   abra a lista de tarefas (`todo`) com um item por conversa; em cada uma, leia **toda** resposta da Malu
+   frase por frase contra `prompt.md` (forma de pagar, horário, quem entrega, prazo, troca e devolução,
+   preço, frete) e só marque o item depois de comparar cada promessa. Uma frase que `prompt.md` desmente
+   é mentira mesmo que pareça detalhe: a mentira de detalhe operacional passa nos gates com facilidade.
 2. **Resposta pronta** — veja qual gate vetou três vezes e se a frase vetada era honesta.
 3. **Venda perdida no caminho** — ela decidiu comprar e o link não saiu; pergunta repetida;
    dado pedido sem necessidade; tamanho trocado sem dado novo.
@@ -134,6 +153,10 @@ Regras do arquivo:
 - **Todo `trecho` é cópia exata** de uma linha de `conversas/`. Trecho que não existe na
   conversa derruba a proposta inteira na validação — não resuma, não traduza, não corrija.
 - No máximo **5 propostas**, as mais caras primeiro. Sem evidência, sem proposta.
+- **Uma evidência por conversa em que o mesmo problema aparece**, todas as do pacote — não pare no primeiro exemplo: o
+  número de conversas atingidas é o que diz o custo do problema ao operador.
+- **Todo campo é obrigatório** (`o_que`, `por_que`, `evidencias`, `objetivo`, `como_medir`, `severidade`, `classe`):
+  proposta com campo vazio é descartada inteira na validação, e o problema que você achou se perde.
 - `classe` é uma das quatro de "O que procurar": 1 = `mentira`, 2 = `resposta_pronta`,
   3 = `venda_perdida`, 4 = `tom`.
 - **Mentira sem regra não é mentira.** Com `classe: mentira`, `fato_contradito` é uma frase

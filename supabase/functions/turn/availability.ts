@@ -107,26 +107,36 @@ export interface Availability {
   readonly labelBrl: number | null;
 }
 
-/** The query the checkout itself sends, minus the fields it ignores. */
-export const availabilityQuery = (zip: string, place: Place, code: string): URLSearchParams =>
-  new URLSearchParams({
-    customer_phone_ddi: "55",
-    customer_phone: PLACEHOLDER.phone,
-    customer_document: PLACEHOLDER.document,
-    "products[0][product_id]": PARENT_PRODUCT_ID,
-    "products[0][code]": code,
-    "products[0][quantity]": "1",
-    zip_code: zip,
-    city: place.city,
-    state: place.state,
-    neighbourhood: place.district,
-    number: PLACEHOLDER.number,
-    app_integration_detail_id: APP_INTEGRATION_DETAIL_ID,
-    freight_value: "0",
-    sale_type: "anticipated",
-    "billing_moments[]": "on_delivery",
-    check_to_finish: "false",
-  });
+/**
+ * The query the checkout itself sends, minus the fields it ignores. A kit asks every piece in the same query, one product per size
+ * with its quantity (the Coinzz kit checkout, Playwright 2026-10-22: G+GG is `products[0]` G ×1 and `products[1]` GG ×1; GG+GG is
+ * `products[0]` GG ×2), and its `local_operation` price is the kit's freight.
+ */
+export const availabilityQuery = (
+  zip: string,
+  place: Place,
+  code: string | ReadonlyArray<readonly [code: string, quantity: number]>,
+): URLSearchParams =>
+  new URLSearchParams(<Array<[string, string]>>[
+    ["customer_phone_ddi", "55"],
+    ["customer_phone", PLACEHOLDER.phone],
+    ["customer_document", PLACEHOLDER.document],
+    ...(typeof code === "string" ? [[code, 1] as const] : code).flatMap(([c, q], i): Array<[string, string]> => [
+      [`products[${i}][product_id]`, PARENT_PRODUCT_ID],
+      [`products[${i}][code]`, c],
+      [`products[${i}][quantity]`, String(q)],
+    ]),
+    ["zip_code", zip],
+    ["city", place.city],
+    ["state", place.state],
+    ["neighbourhood", place.district],
+    ["number", PLACEHOLDER.number],
+    ["app_integration_detail_id", APP_INTEGRATION_DETAIL_ID],
+    ["freight_value", "0"],
+    ["sale_type", "anticipated"],
+    ["billing_moments[]", "on_delivery"],
+    ["check_to_finish", "false"],
+  ]);
 
 interface RawWindow {
   deliveryTypeCode?: string;
@@ -210,23 +220,29 @@ const answered = (body: unknown): boolean => {
 };
 
 /**
- * The prepaid freight for one piece of her size at her CEP (4.7). The 1-piece prepaid checkout charges this query's
- * `local_operation[0].price` — `labelBrl` — rounded to the cent (Playwright, 2026-10-20: São Paulo GG 19.345 → "Frete: R$ 19,35",
- * XGG 17,78; grafo §116), so since the freight became hers (2026-09-10) the "operator's cost" is her price on that path.
- * Only the placeholders of `availabilityQuery` go, never her name, phone or CPF. `null` on any failure, timeout, 404 (the M)
- * or a price not read: the reply keeps "aparece no checkout". shortcut: one piece only, the kits' freight is not this query's.
+ * The prepaid freight of what she is buying at her CEP (4.7): one piece of her size, or a kit with the size of each piece. The
+ * prepaid checkout charges this query's `local_operation[0].price` — `labelBrl` — rounded to the cent (Playwright, 2026-10-20: São
+ * Paulo GG 19.345 → "Frete: R$ 19,35", XGG 17,78; grafo §116; the kit checkouts 2026-10-22: G+GG 33,17, G+GG+XGG 35,97, GG+GG 20,36),
+ * so since the freight became hers (2026-09-10) the "operator's cost" is her price on that path. Only the placeholders of
+ * `availabilityQuery` go, never her name, phone or CPF. `null` on any failure, timeout, 404 (the M), no piece or a price not read:
+ * the reply keeps "aparece no checkout".
  */
-export const prepayFreight = (fetcher: Fetcher, zip: string, place: Place, size: Size): Promise<number | null> =>
-  Promise.resolve()
-    .then(() => askSize(fetcher, zip, place, size))
+export const prepayFreight = (fetcher: Fetcher, zip: string, place: Place, sizes: Size | readonly Size[]): Promise<number | null> => {
+  const pieces = typeof sizes === "string" ? [sizes] : sizes;
+  const first = pieces[0];
+  const items = [...new Set(pieces)].map((s) => [SIZE_CODES[s], pieces.filter((x) => x === s).length] as const);
+  if (first === undefined) return Promise.resolve(null);
+  return Promise.resolve()
+    .then(() => fetcher(`${AVAILABILITY_ENDPOINT}?${availabilityQuery(zip.replace(/\D/g, ""), place, items)}`, AVAILABILITY_HEADERS))
     .then((body) => {
-      const p = readAvailability(size, body).labelBrl;
+      const p = readAvailability(first, body).labelBrl;
       // Decimal half-up, as the page shows it: 19.345 * 100 is 1934.4999… in binary.
       // `${p}e2` is NaN for a price JSON writes in exponent form (5e-7): null, never NaN (/code-review).
       const cents = typeof p === "number" ? Math.round(Number(`${p}e2`)) : NaN;
       return Number.isFinite(cents) && cents > 0 ? cents / 100 : null;
     })
     .catch(() => null);
+};
 
 export const checkSize = async (
   fetcher: Fetcher,
@@ -375,7 +391,10 @@ const errorBody = (e: unknown): unknown => (e as { body?: unknown } | null)?.bod
 
 /** What the stock answer says: the operations holding each size, the sizes it spoke of clearly, and whether any product was unreadable. */
 /** `seen` maps each such size to its units summed over the operations holding it (0: it spoke of the size, none in stock). */
-export type LogzzStock = { cod: false } | { cod: true; bySize: Partial<Record<Size, number[]>>; seen: ReadonlyMap<Size, number>; unreadable: boolean } | null;
+export type LogzzStock =
+  | { cod: false }
+  | { cod: true; bySize: Partial<Record<Size, number[]>>; seen: ReadonlyMap<Size, number>; unreadable: boolean; productOf: Partial<Record<Size, number>> }
+  | null;
 
 export const readLogzzStock = (body: unknown): LogzzStock => {
   const b = body as {
@@ -383,7 +402,7 @@ export const readLogzzStock = (body: unknown): LogzzStock => {
     msg?: string;
     data?: {
       groups?: Array<{ variations?: Array<{ variation_id?: number; variation_name?: string }> }>;
-      products?: Array<{ product_name?: string; variations_combination?: number[]; stock_per_operations?: Array<{ operation_id?: number | string; quantity?: number | string }> }>;
+      products?: Array<{ product_id?: number | string; product_name?: string; variations_combination?: number[]; stock_per_operations?: Array<{ operation_id?: number | string; quantity?: number | string }> }>;
     };
   } | null;
   if (b?.status === "error") return NOT_SERVED.test(typeof b.msg === "string" ? b.msg : "") ? { cod: false } : null;
@@ -393,6 +412,7 @@ export const readLogzzStock = (body: unknown): LogzzStock => {
   for (const g of Array.isArray(b.data?.groups) ? b.data!.groups! : []) for (const v of Array.isArray(g?.variations) ? g.variations : []) if (typeof v?.variation_id === "number") variation.set(v.variation_id, String(v.variation_name ?? ""));
   const bySize: Partial<Record<Size, number[]>> = {};
   const seen = new Map<Size, number>();
+  const productOf: Partial<Record<Size, number>> = {};
   let unreadable = false;
   for (const p of b.data!.products!) {
     const label = variation.get(Array.isArray(p?.variations_combination) ? p.variations_combination[0]! : NaN) ?? String(p?.product_name ?? "").split("-").pop() ?? "";
@@ -405,13 +425,19 @@ export const readLogzzStock = (body: unknown): LogzzStock => {
       unreadable = true;
       continue;
     }
-    const ops = stock.filter((o) => o.qty > 0).map((o) => o.op);
-    seen.set(size, (seen.get(size) ?? 0) + stock.reduce((t, o) => t + (o.qty > 0 ? o.qty : 0), 0));
+    // Operation 0 is no operation (the Logzz lists stock under it that no city is served from): the real checkout leaves it out
+    // of `operation_ids[]`, and asking with it is answered 422 "Cada ID de operação deve existir" — every Recife CEP read as a
+    // failed lookup instead of "no delivery" (Playwright, 2026-10-23). Nor does it count as her region's stock (the scarcity line).
+    const local = stock.filter((o) => o.op > 0);
+    const ops = local.filter((o) => o.qty > 0).map((o) => o.op);
+    seen.set(size, (seen.get(size) ?? 0) + local.reduce((t, o) => t + (o.qty > 0 ? o.qty : 0), 0));
     if (ops.length > 0) bySize[size] = [...(bySize[size] ?? []), ...ops];
+    const product = num(p?.product_id);
+    if (Number.isInteger(product) && product > 0) productOf[size] = product;
   }
   // An answer nothing of which could be read is not "no stock" (review, 19/10): a renamed variation would otherwise
   // tell the whole country there is no delivery. Unknown is a failed lookup; the health probe says so within 15 minutes.
-  return seen.size === 0 ? null : { cod: true, bySize, seen, unreadable };
+  return seen.size === 0 ? null : { cod: true, bySize, seen, unreadable, productOf };
 };
 
 /**
@@ -459,10 +485,18 @@ const lookupLogzzUnsafe = async (
   if (!stock.cod) return { kind: "found", region: none };
   // Her size decides when known: no stock of hers where she lives is no delivery for her, whatever the other sizes hold. But
   // "no stock" is said only of a size the answer spoke of clearly: hers unreadable (renamed, malformed) is an unknown.
-  const ops = [...new Set(size !== null ? stock.bySize[size] ?? [] : Object.values(stock.bySize).flat())];
+  // The days are asked like the real checkout asks them (Playwright, 2026-10-23): the operations holding ONE size and that size's
+  // product in `product_requirements` — without it the Logzz answers "Nenhuma opção de entrega" even in São Paulo. With her size
+  // unknown, the size with the most local stock stands for the region.
+  const asked: Size | null = size ?? (Object.keys(stock.bySize) as Size[]).sort((a, b) => (stock.seen.get(b) ?? 0) - (stock.seen.get(a) ?? 0))[0] ?? null;
+  const ops = [...new Set(asked !== null ? stock.bySize[asked] ?? [] : [])];
   if (ops.length === 0) return size !== null ? (stock.seen.has(size) && !stock.unreadable ? { kind: "found", region: none } : { kind: "failed", place }) : stock.unreadable ? { kind: "failed", place } : { kind: "found", region: none };
+  const product = asked !== null ? stock.productOf[asked] : undefined;
+  if (product === undefined) return { kind: "failed", place };
   const q = new URLSearchParams(where);
   for (const id of ops) q.append("operation_ids[]", String(id));
+  q.append("product_requirements[0][product_id]", String(product));
+  q.append("product_requirements[0][quantity]", "1");
   // The days are the second question. Stock without a confirmed window is not a delivery to promise (a date, "amanhã") and not
   // a denial either: unless the Logzz itself says it does not serve the address, an unknown is a failed lookup.
   const days = await fetcher(`${LOGZZ_BASE}/ajax/get-delivery-days-options-by-operations-ids?${q}`, AVAILABILITY_HEADERS)

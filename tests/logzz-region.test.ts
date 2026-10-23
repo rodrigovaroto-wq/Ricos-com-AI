@@ -7,7 +7,9 @@ import { describe, expect, it } from "vitest";
 import { AVAILABILITY_ENDPOINT, checkCoverage, logzzIdsOf, lookupRegion, readLogzzStock } from "@/agent/availability.js";
 
 const IDS = { productId: "165378", saleId: "75567" };
-const prod = (name: string, qty: number, op = 9) => ({ product_name: `Cinta Colete Modeladora-${name}`, stock_per_operations: [{ operation_id: op, quantity: qty }] });
+/** The Logzz product of each size (real ids, 2026-10-23): the days are asked with it, like the checkout does. */
+const PID: Record<string, number> = { P: 165379, M: 165381, G: 165382, GG: 165383, XG: 165384 };
+const prod = (name: string, qty: number, op = 9) => ({ product_id: PID[name] ?? 165390, product_name: `Cinta Colete Modeladora-${name}`, stock_per_operations: [{ operation_id: op, quantity: qty }] });
 const SP_STOCK = { status: "success", data: { products: [prod("P", 0), prod("M", 0), prod("G", 180), prod("GG", 12), prod("XG", 73)] } };
 const DAYS = {
   status: "success",
@@ -126,8 +128,8 @@ describe("Logzz: a região pelo estoque e pelos dias do próprio checkout", () =
       data: {
         groups: [{ variations: [{ variation_id: 1, variation_name: "G" }, { variation_id: 2, variation_name: "GG" }] }],
         products: [
-          { product_name: "Colete Tamanho G", variations_combination: [1], stock_per_operations: [{ operation_id: 9, quantity: 5 }] },
-          { product_name: "Colete Tamanho GG", variations_combination: [2], stock_per_operations: [{ operation_id: 9, quantity: 0 }] },
+          { product_id: 165382, product_name: "Colete Tamanho G", variations_combination: [1], stock_per_operations: [{ operation_id: 9, quantity: 5 }] },
+          { product_id: 165383, product_name: "Colete Tamanho GG", variations_combination: [2], stock_per_operations: [{ operation_id: 9, quantity: 0 }] },
         ],
       },
     };
@@ -152,7 +154,7 @@ describe("Logzz: a região pelo estoque e pelos dias do próprio checkout", () =
   });
 
   it("estoque em mais de uma operação: as duas vão na pergunta dos dias", async () => {
-    const stock = { status: "success", data: { products: [{ product_name: "Cinta-G", stock_per_operations: [{ operation_id: 2, quantity: 10 }, { operation_id: 9, quantity: 3 }, { operation_id: 4, quantity: 0 }] }] } };
+    const stock = { status: "success", data: { products: [{ product_id: 165382, product_name: "Cinta-G", stock_per_operations: [{ operation_id: 2, quantity: 10 }, { operation_id: 9, quantity: 3 }, { operation_id: 4, quantity: 0 }] }] } };
     const { fetcher, asked } = world({ stock });
     await lookupRegion(fetcher, "30140071", "G", IDS);
     expect(new URL(asked.find((u) => u.includes("get-delivery-days"))!).searchParams.getAll("operation_ids[]")).toEqual(["2", "9"]);
@@ -265,7 +267,7 @@ describe("só se nega o que se entendeu (2ª revisão Opus)", () => {
   const failedSP = { kind: "failed", place: { city: "São Paulo" } };
 
   it.each([
-    ["operation_id como texto vira número", stockOf([{ product_name: "Cinta-G", stock_per_operations: [{ operation_id: "9", quantity: "180" }] }]), { kind: "found", region: { cod: true } }],
+    ["operation_id como texto vira número", stockOf([{ product_id: "165382", product_name: "Cinta-G", stock_per_operations: [{ operation_id: "9", quantity: "180" }] }]), { kind: "found", region: { cod: true } }],
     ["campo de estoque renomeado", stockOf([{ product_name: "Cinta-G", stocks: [{ operation_id: 9, quantity: 180 }] }]), failedSP],
     ["operation_id que não é número", stockOf([{ product_name: "Cinta-G", stock_per_operations: [{ operation_id: "x", quantity: 180 }] }]), failedSP],
     ["quantidade ilegível", stockOf([{ product_name: "Cinta-G", stock_per_operations: [{ operation_id: 9, quantity: "muito" }] }]), failedSP],

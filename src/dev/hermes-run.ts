@@ -10,7 +10,8 @@
  * --limit=N (supabase: N conversations, default 50, picked by `hermes_sample` — flagged first,
  * then a control of plain ones) · --write-db (insert into hermes_runs and hermes_proposals,
  * and measure every published proposal's check before and after it went live) ·
- * --only-if-due (supabase: exit quietly unless `hermes_backlog.due`).
+ * --only-if-due (supabase: exit quietly unless `hermes_backlog.due`) · --check-due (supabase: only print whether a run is
+ * due, as `due=true|false` in $GITHUB_OUTPUT when set, and exit: hermes.yml asks it before installing Hermes).
  *
  * Environment: HERMES_BIN (default `hermes`), MODEL_API_KEY or META_API_KEY, and for the
  * supabase source SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY. HERMES_MAX_USD (optional): a run
@@ -26,7 +27,7 @@
  */
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { appendFileSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { gateBriefing, runGates } from "../agent/guardrails.js";
@@ -54,6 +55,9 @@ import {
   storedEvidence,
   withMeasure,
   type SampleRow,
+  BUNDLE_ORDER,
+  bundlePack,
+  registrySummary,
   renderConversation,
   renderLedger,
   renderProposals,
@@ -67,6 +71,10 @@ import {
 import { SYNTHETIC_PHONE_PREFIX } from "./persona-run-core.js";
 import { costBrl, PRICES } from "../llm/pricing.js";
 import { renderScorecard, scoreRun, type Conversation } from "./persona-scorecard.js";
+import { JevBudget, JEV_MODEL, askJev, type JevAnswer } from "./jev.js";
+import { analyse, disagreements, renderJev, type JevRun } from "./jev-analysis.js";
+import { AUDIT, INBOUND, MISSED, QUESTIONS_VERSION, READINESS, SECOND_OPINION, approvedOf, flagged, type Approved } from "./jev-questions.js";
+import { renderTiming } from "./timing.js";
 
 const args = process.argv.slice(2);
 const flag = (name: string) => args.find((a) => a.startsWith(`--${name}=`))?.split("=").slice(1).join("=");
@@ -75,6 +83,10 @@ const model = flag("model") ?? process.env.HERMES_MODEL ?? "muse-spark-1.3";
 const limit = Number(flag("limit") ?? 50);
 const writeDb = args.includes("--write-db");
 const onlyIfDue = args.includes("--only-if-due");
+const checkDue = args.includes("--check-due");
+// Where the proposals document goes (default: the registry folder, which hermes.yml's PR carries). The calibration points it at
+// its own temp folder: a calibration on real conversations must leave nothing with customer text in the repository.
+const outDir = flag("out-dir");
 const HERMES = process.env.HERMES_BIN ?? "hermes";
 const REPO = resolve(".");
 
@@ -158,8 +170,15 @@ const backlog =
   source === "supabase"
     ? (await rest<Array<{ due: boolean; leads_since_last_run: number; last_run_at: string | null }>>("hermes_backlog?select=due,leads_since_last_run,last_run_at"))[0]
     : undefined;
+const waiting = `hermes: ${backlog?.leads_since_last_run ?? 0} leads desde a última execução — espera 50, ou 25 depois de 10 dias (R6.2, P1.2)`;
+if (checkDue && source === "supabase") {
+  // The workflow's gate (P1.1): the daily job no longer spends ~8 minutes installing Hermes to learn it has nothing to read.
+  console.log(backlog?.due ? "hermes: rodada devida" : waiting);
+  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `due=${backlog?.due === true}\n`);
+  process.exit(0);
+}
 if (onlyIfDue && source === "supabase" && !backlog?.due) {
-  console.log(`hermes: ${backlog?.leads_since_last_run ?? 0} leads desde a última execução — espera 50 (R6.2)`);
+  console.log(waiting);
   process.exit(0);
 }
 
@@ -214,7 +233,43 @@ if (SB) {
     onAir = latestVersion?.version ?? null;
   }
 } else writeFileSync(join(bundle, "numeros.md"), "# Números do período\n\n(rodada de personas sem banco: use só placar.md)\n");
-cpSync(join(REPO, "docs/agente-ia/08-mudancas/registro.md"), join(bundle, "registro.md"));
+// The timing of the conversations (0032 views, P3.3): when to speak and which touch brings her back. Production numbers only.
+if (SB && source === "supabase") {
+  const missing = (e: Error) => (console.warn(`hermes: views de tempo indisponíveis (${e.message.slice(0, 120)})`), [] as Record<string, unknown>[]);
+  const [latency, ruler, byHour, lastWord] = await Promise.all([
+    rest<Record<string, unknown>[]>("eval_reply_latency?select=*&order=day").catch(missing),
+    rest<Record<string, unknown>[]>("eval_ruler_returns?select=*").catch(missing),
+    rest<Record<string, unknown>[]>("eval_returns_by_hour?select=*&order=hour").catch(missing),
+    rest<Record<string, unknown>[]>("eval_last_word?select=body,after_ruler&order=created_at.desc&limit=200").catch(missing),
+  ]);
+  writeFileSync(join(bundle, "timing.md"), renderTiming({ latency, ruler, byHour, lastWord }));
+} else writeFileSync(join(bundle, "timing.md"), "# O tempo das conversas\n\n(rodada de personas: sem dado de tempo real)\n");
+
+// Jev beside Hermes (P2.1–P3.3, operator 2026-10-22), in shadow: only the questions the Portuguese gold set approved at ≥ 90%
+// (`hermes/jev-aprovadas.json`, P2.4), plus the readiness score (P5.2, a comparison, never a decision). No key, no approved
+// question, an outage or the US$ 0.15 ceiling (P2.5): the run goes on without it. The original text goes (P2.3).
+const jevKey = process.env.TYPESAFE_API_KEY;
+const jevBudget = new JevBudget();
+const jevApproved: Approved | null = existsSync(join(REPO, "hermes/jev-aprovadas.json"))
+  ? (JSON.parse(readFileSync(join(REPO, "hermes/jev-aprovadas.json"), "utf8")) as Approved)
+  : null;
+const jevIds = new Set([
+  ...Object.keys(approvedOf(INBOUND, jevApproved, JEV_MODEL)),
+  ...Object.keys(approvedOf(AUDIT, jevApproved, JEV_MODEL)),
+  ...Object.keys(approvedOf(MISSED, jevApproved, JEV_MODEL)),
+  ...Object.keys(READINESS),
+]);
+// A wall-clock budget too (code review): the job has 30 minutes for install, Jev and Hermes; Jev gets 6 of them, 4 calls at a time.
+const jevRun: JevRun | null = jevKey
+  ? await analyse(conversations, jevIds, (state, questions) => askJev(state, questions, { apiKey: jevKey, budget: jevBudget }), { deadline: Date.now() + 6 * 60_000, concurrency: 4 })
+  : null;
+writeFileSync(
+  join(bundle, "jev.md"),
+  jevRun ? renderJev(jevRun, jevApproved, { conversations: conversations.length }) : "# O que o JEV leu\n\n(JEV desligado nesta rodada: sem chave)\n",
+);
+if (jevRun) console.log(`jev: ${jevRun.calls} chamadas, ${jevRun.failed} sem resposta, US$ ${jevRun.costUsd.toFixed(4)}, ${disagreements(jevRun, jevApproved).length} divergências gate × JEV`);
+
+writeFileSync(join(bundle, "registro.md"), registrySummary(readFileSync(join(REPO, "docs/agente-ia/08-mudancas/registro.md"), "utf8")));
 // The real cases already audited and what fixed them (operator, 2026-10-08): Hermes's initial history.
 cpSync(join(REPO, "hermes/historico-inicial.md"), join(bundle, "historico.md"));
 // The ledger (operator, 2026-09-25): every earlier decision and its reason, so a refused
@@ -237,6 +292,15 @@ writeFileSync(
     "\n\nR13.6 (operador): escassez e prova social inventadas estão recusadas.\n",
 );
 
+// Two files instead of ~60 (cost cut of 2026-10-22, `bundlePack`): each read re-sends the context read before it.
+{
+  const context = Object.fromEntries(BUNDLE_ORDER.filter((f) => existsSync(join(bundle, f))).map((f) => [f, readFileSync(join(bundle, f), "utf8")]));
+  writeFileSync(join(bundle, "pacote.md"), bundlePack(context));
+  for (const f of Object.keys(context)) rmSync(join(bundle, f));
+  writeFileSync(join(bundle, "conversas.md"), [...rendered.values()].join("\n---\n\n"));
+  rmSync(join(bundle, "conversas"), { recursive: true, force: true });
+}
+
 const home = mkdtempSync(join(tmpdir(), "hermes-home-"));
 // Hermes refuses a data-training tier unattended. Only synthetic persona runs may opt in
 // (the supabase source already refused it above): no real customer is in the bundle.
@@ -249,7 +313,7 @@ writeFileSync(
 cpSync(join(REPO, "hermes/skills"), join(home, "skills"), { recursive: true });
 
 const prompt =
-  "Use a skill encorpa-supervisor. Leia reverter.md primeiro, depois decisoes.md, historico.md, placar.md, numeros.md, prompt.md, regras.md, registro.md e todos os arquivos em conversas/, " +
+  "Use a skill encorpa-supervisor. Leia pacote.md inteiro (reverter, decisões, histórico, placar, números, tempo, JEV, regras, registro e o prompt, nessa ordem) e depois conversas.md inteiro, uma leitura de cada, " +
   "e escreva propostas.json nesta pasta, exatamente no formato da skill. Trecho de evidência só copiado, nunca resumido.";
 const usageFile = join(bundle, "usage.json");
 const started = Date.now();
@@ -294,6 +358,19 @@ const checked = holdForRevert(
 );
 const ok = checked.filter((c) => c.ok);
 
+// P4.1: Jev's second opinion on each valid proposal, beside it in the operator's routine — never a decision (the operator decides),
+// and not yet measured (no gold set of proposals). The refused ideas go in the text the third question reads.
+const refused = ledger.filter((l) => l.status === "rejected").slice(0, 20).map((l) => `- ${l.rationale ?? ""} (motivo: ${l.decision_reason ?? ""})`).join("\n");
+const secondOpinion = new Map<number, Record<string, number>>();
+if (jevKey) {
+  for (const [i, c] of ok.entries()) {
+    const p = c.proposal;
+    const state = `Proposta: ${p.o_que}\nPor quê: ${p.por_que}\nAlvo: ${p.alvo}\nTrechos citados:\n${p.evidencias.map((e) => `- "${e.trecho}"`).join("\n")}\n\nIdeias já recusadas pelo operador:\n${refused || "(nenhuma)"}`;
+    const r = await askJev(state, SECOND_OPINION, { apiKey: jevKey, budget: jevBudget });
+    if (r) secondOpinion.set(i, Object.fromEntries(Object.entries(r.answers).map(([q, a]) => [q, a.type === "noul" ? Math.round(a.noul * 100) / 100 : 0])));
+  }
+}
+
 const day = new Date().toISOString().slice(0, 10);
 const label = source === "supabase" ? "producao" : source.split("/").pop()!;
 const title = `Propostas do Hermes — ${day} — ${label}`;
@@ -316,7 +393,7 @@ const md = scrubSecrets(
     `\n---\nModelo ${model} · skill ${skillSha} · commit ${commitSha.slice(0, 12)} · ${conversations.length} conversas · ${Math.round((Date.now() - started) / 1000)} s · ` +
     `custo US$ ${costUsd != null ? costUsd.toFixed(4) : "?"} (${tok("total_tokens")} tokens, ${tok("api_calls")} chamadas)\n`,
 );
-const dest = join(REPO, "docs/agente-ia/08-mudancas/propostas");
+const dest = outDir ? resolve(outDir) : join(REPO, "docs/agente-ia/08-mudancas/propostas");
 mkdirSync(dest, { recursive: true });
 const file = join(dest, `${day}-${label}.md`);
 writeFileSync(file, md);
@@ -325,9 +402,9 @@ console.log(md);
 console.log(`\nescrito em ${file}`);
 
 if (writeDb) {
-  const [run] = await rest<Array<{ id: string }>>("hermes_runs", {
-    method: "POST",
-    body: JSON.stringify({
+  // Before 0032 the jev columns do not exist: the row goes again without them, never lost after Hermes was paid (code review).
+  const insertRun = (row: Record<string, unknown>) => rest<Array<{ id: string }>>("hermes_runs", { method: "POST", body: JSON.stringify(row) });
+  const runRow: Record<string, unknown> = {
       source,
       model,
       conversations_seen: conversations.length,
@@ -340,8 +417,34 @@ if (writeDb) {
       skill_sha: skillSha,
       commit_sha: commitSha,
       ...(conversationIds.length ? { conversation_ids: conversationIds } : {}),
-    }),
+      // 0032: only when Jev ran, so a run without the key never names the columns.
+      ...(jevRun ? { jev_cost_usd: Math.round(jevBudget.spentUsd * 1e6) / 1e6, jev_calls: jevBudget.calls } : {}),
+  };
+  const [run] = await insertRun(runRow).catch((e: Error) => {
+    if (!jevRun) throw e;
+    console.warn(`hermes_runs sem as colunas do JEV (0032 não aplicada?): ${e.message.slice(0, 120)}`);
+    const { jev_cost_usd: _c, jev_calls: _n, ...withoutJev } = runRow;
+    return insertRun(withoutJev);
   });
+  // Every Jev answer of a production run, by conversation and reply, never the text (0032): the operator's verdicts on the flags
+  // (`label`) measure each question's precision; until then the gate keeps the last word (P3.2).
+  if (jevRun && production) {
+    const uuidOf = new Map(conversationIds.map((id) => [`conversa-${id.slice(0, 8)}`, id]));
+    const thr = (q: string) => jevApproved?.approved[q]?.threshold ?? 0.5;
+    const rows = jevRun.judgments
+      .filter((j) => uuidOf.has(j.conversa))
+      .map((j) => ({
+        run_id: run!.id,
+        conversation_id: uuidOf.get(j.conversa),
+        message_index: j.mensagem,
+        question: j.question,
+        questions_version: QUESTIONS_VERSION,
+        model: j.model,
+        answer: j.answer as JevAnswer,
+        flagged: flagged(j.answer, thr(j.question)),
+      }));
+    if (rows.length) await rest("jev_judgments", { method: "POST", headers: { Prefer: "return=minimal" }, body: JSON.stringify(rows) }).catch((e: Error) => console.warn(`jev_judgments: ${e.message.slice(0, 160)}`));
+  }
   // The deterministic revert (L3 item 8): written by this run from the SQL numbers, not by
   // the model. Critical by its code prefix — there is no severity column (no migration).
   if (revertNow) {
@@ -381,7 +484,7 @@ if (writeDb) {
           code: proposalCode(c.proposal.alvo, day, i + 1),
           target: c.proposal.alvo,
           rationale: `${c.proposal.o_que} — ${c.proposal.por_que}`,
-          evidence: { ...storedEvidence(c), source },
+          evidence: { ...storedEvidence(c), source, ...(secondOpinion.has(i) ? { jev: secondOpinion.get(i) } : {}) },
           status: "proposed",
           leads_seen: leads,
         })),

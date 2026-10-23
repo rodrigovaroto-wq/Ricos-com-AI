@@ -63,3 +63,38 @@ describe("preço em notação exponencial (/code-review do PR 77)", () => {
     }
   });
 });
+
+describe("o frete do kit: cada tamanho na mesma consulta, como o checkout do kit (Playwright de 2026-10-22)", () => {
+  const ask = async (sizes: Parameters<typeof prepayFreight>[3]) => {
+    const asked: string[] = [];
+    const got = await prepayFreight(async (url) => (asked.push(url), answer(33.172)), "01310100", SP, sizes);
+    return { got, q: new URL(asked[0] ?? "http://x/").searchParams, calls: asked.length };
+  };
+
+  it("G+GG: dois produtos de 1 peça, uma consulta, o frete da consulta", async () => {
+    const { got, q, calls } = await ask(["G", "GG"]);
+    expect(calls).toBe(1);
+    expect(got).toBe(33.17);
+    expect([q.get("products[0][code]"), q.get("products[0][quantity]")]).toEqual([SIZE_CODES.G, "1"]);
+    expect([q.get("products[1][code]"), q.get("products[1][quantity]")]).toEqual([SIZE_CODES.GG, "1"]);
+    expect(q.get("products[1][product_id]")).toBe(q.get("products[0][product_id]"));
+    expect(q.has("products[2][code]")).toBe(false);
+  });
+
+  it("GG+GG: um produto com quantidade 2", async () => {
+    const { q } = await ask(["GG", "GG"]);
+    expect([q.get("products[0][code]"), q.get("products[0][quantity]")]).toEqual([SIZE_CODES.GG, "2"]);
+    expect(q.has("products[1][code]")).toBe(false);
+  });
+
+  it("G+GG+XGG: três produtos; e uma peça segue igual a antes", async () => {
+    expect((await ask(["G", "GG", "XGG"])).q.get("products[2][code]")).toBe(SIZE_CODES.XGG);
+    const one = await ask("GG");
+    expect([one.q.get("products[0][code]"), one.q.get("products[0][quantity]"), one.q.has("products[1][code]")]).toEqual([SIZE_CODES.GG, "1", false]);
+  });
+
+  it("nenhuma peça: null, sem consulta", async () => {
+    const { got, calls } = await ask([]);
+    expect([got, calls]).toEqual([null, 0]);
+  });
+});

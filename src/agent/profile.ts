@@ -43,6 +43,8 @@ export interface LeadProfile {
    */
   stock_offered: boolean;
   vague_asked: boolean;
+  /** Replies of the model that went out with the stock line offered to it (grafo §123 residue: a line it left out comes back once). */
+  stock_offers: number;
 }
 
 export const EMPTY_PROFILE: LeadProfile = Object.freeze({
@@ -60,6 +62,7 @@ export const EMPTY_PROFILE: LeadProfile = Object.freeze({
   trigger_counted_at: null,
   stock_offered: false,
   vague_asked: false,
+  stock_offers: 0,
 }) as LeadProfile;
 
 const LEVEL: Record<PriceSensitivity, number> = { baixa: 0, media: 1, alta: 2 };
@@ -99,7 +102,31 @@ export const mergeProfile = (
     // Set by the turn, sticky: once true, true for the rest of the conversation.
     stock_offered: p.stock_offered === true,
     vague_asked: p.vague_asked === true,
+    stock_offers: Number.isInteger(p.stock_offers) ? p.stock_offers : 0,
   };
+};
+
+/** How many model replies may carry the stock line offer in one conversation: one the model left out is offered once more. */
+export const MAX_STOCK_OFFERS = 2;
+
+/**
+ * The marks this turn's reply leaves on the profile (plan 16 §4.5–§4.6), merged into the stored jsonb by `lead_profile_mark`
+ * (0030) — never the whole profile over it (grafo §123 residue). Null when it leaves none.
+ * - The stock line counts as said when the model's reply that went out says stock (`stockSaid`, the gate's own reader), or after
+ *   `MAX_STOCK_OFFERS` offers it did not use (grafo §123 residue: offered once and left out, it never came back).
+ * - The vague-objection question, when the reply that goes out (now, or held for the morning) was written with it.
+ */
+export const profileMarks = (
+  p: LeadProfile,
+  t: { stockOffered: boolean; stockSaid: boolean; vagueAsked: boolean },
+): Partial<LeadProfile> | null => {
+  const marks: Partial<LeadProfile> = {};
+  if (t.stockOffered && !p.stock_offered) {
+    marks.stock_offers = p.stock_offers + 1;
+    if (t.stockSaid || marks.stock_offers >= MAX_STOCK_OFFERS) marks.stock_offered = true;
+  }
+  if (t.vagueAsked && !p.vague_asked) marks.vague_asked = true;
+  return Object.keys(marks).length > 0 ? marks : null;
 };
 
 /** `leads.profile` as stored: the jsonb object, or null (absent before 0029, or any other shape). */
@@ -205,6 +232,17 @@ export type ScoreBand = "quente" | "morna" | "fria";
 
 /** §4.2: ≥ 60 quente · 30–59 morna · < 30 fria. */
 export const bandOf = (score: number): ScoreBand => (score >= 60 ? "quente" : score >= 30 ? "morna" : "fria");
+
+/**
+ * The stored score after one more ruler touch went out (§4.2, −10 each unanswered touch; operator, 2026-10-22). Every touch
+ * counts as unanswered when it leaves: her next message runs a turn that rescores from scratch with no unanswered touch, so
+ * an answered one never keeps its −10. Null when the lead was never scored (no number to lower). Floored at 0.
+ */
+export const afterUnansweredTouch = (score: unknown): { score: number; score_band: ScoreBand } | null => {
+  if (typeof score !== "number" || !Number.isFinite(score)) return null;
+  const s = Math.max(Math.round(score) + SCORE_WEIGHTS.unansweredTouch, 0);
+  return { score: s, score_band: bandOf(s) };
+};
 
 /** The band in the operator's e-mail subject (§4.2): "🔥 QUENTE · 72", "MORNA · 45", "FRIA · 18"; no score, no tag. */
 export const scoreTag = (score: unknown): string | null => {

@@ -24,7 +24,7 @@ describe("stockScarcityLine: só com o limite no config e o estoque real abaixo 
   });
   it("falha: sem lowStock (o secret hoje), zero, negativo, NaN, fracionário, nulo, tamanho estranho", () => {
     expect(stockScarcityLine(base, "GG", 12)).toBeNull();
-    expect(stockScarcityLine({ scarcity: { unitsLeft: 12, allowUnverified: true } }, "GG", 12)).toBeNull();
+    expect(stockScarcityLine({ scarcity: { unitsLeft: 12 } }, "GG", 12)).toBeNull();
     for (const q of [0, -3, Number.NaN, Number.POSITIVE_INFINITY, 2.5, null, undefined]) expect(stockScarcityLine(config, "GG", q)).toBeNull();
     expect(stockScarcityLine(config, "{{SIZE}}", 12)).toBeNull();
   });
@@ -98,5 +98,20 @@ describe("prompt e gate: a mesma promessa", () => {
       const passes = !blocked(said, real({ stockLeft: { size: "GG", qty } })).includes("scarcity_claim");
       expect({ qty, passes }).toEqual({ qty, passes: line !== null });
     }
+  });
+});
+
+describe("allowUnverified saiu do código (operador, 2026-10-22: só escassez real)", () => {
+  it("um segredo que ainda traga a chave antiga não libera urgência sem contagem, nem quando ela adia", () => {
+    const old = { ...base, scarcity: { allowUnverified: true } } as never;
+    for (const text of ["Corre que estão acabando as últimas peças do lote!", "Só restam 4 unidades!", "A promoção acaba hoje, viu?"])
+      for (const postponing of [false, true]) expect(blocked(text, ctx({ config: old, postponing })), `${text} / ${postponing}`).toContain("scarcity_claim");
+  });
+
+  it("o fallback do código não declara escassez nenhuma", async () => {
+    const { readFileSync } = await import("node:fs");
+    const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
+    expect(turn).not.toMatch(/scarcity:\s*\{\s*unitsLeft/);
+    expect(turn).not.toMatch(/allowUnverified:\s*true/);
   });
 });

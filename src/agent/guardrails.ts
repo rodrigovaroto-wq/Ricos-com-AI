@@ -120,18 +120,6 @@ export interface GateConfig {
     /** ISO instant the current offer really ends. */
     offerEndsAt?: string | null;
     /**
-     * The operator's switch. With it on, the chain stops refusing urgency it cannot
-     * verify — the agent may say a batch is running out without a counted number
-     * behind it. Off by default, and it is a decision the operator owns, not the
-     * agent: the exposure is CDC art. 37 §1º (quantity is information capable of
-     * inducing error) and it lands on the WhatsApp number, which has no backup.
-     *
-     * Even with it on, prefer `unitsLeft`: a number that is the same for everyone all
-     * day reads as real, and one improvised per conversation is what gets noticed —
-     * the customer who kept the screenshot is the one who complains.
-     */
-    allowUnverified?: boolean;
-    /**
      * Real scarcity (operator, 2026-10-21, plan 16 §4.6): below this many units of HER size in the Logzz stock
      * (`Region.stockQty`), the agent may say that size is running out, with the real number. OPTIONAL, and absent
      * means no scarcity at all — today's truth, since the secret does not carry the key. Never a deadline: the
@@ -2518,7 +2506,6 @@ const gates: readonly Gate[] = [
         // A claim only the whole text shows (across a line break) is judged by no sentence: refused, as before.
         return stockIn(t) && !judged ? "cites stock outside a sentence that names her size" : null;
       }
-      if (declared?.allowUnverified) return null;
       const unitsLeft = declared?.unitsLeft ?? undefined;
       const endsAt = declared?.offerEndsAt ? new Date(declared.offerEndsAt) : null;
       const offerStillOpen = endsAt !== null && endsAt.getTime() > ctx.now.getTime();

@@ -1,7 +1,10 @@
 # Regras dos experimentos do L3 (E6.1)
 
-> Escrito em 2026-10-12, **antes** de o teste começar (23/10). A leitura de 08–09/11 segue estas
-> regras e nenhuma outra. Mudar uma regra depois de 23/10 invalida o experimento que ela toca.
+> **Sem datas e sem congelamento (R29.2, operador, 2026-10-22): o teste começa quando o operador ligar o tráfego e a leitura acontece ao fim dele.**
+> (Os dias 23/10, 08–09/11 e a regra de congelamento que este arquivo trazia saíram em 2026-10-22, R29.15.)
+>
+> Escrito em 2026-10-12, **antes** de o teste começar. A leitura ao fim do teste segue estas
+> regras e nenhuma outra. Mudar uma regra depois que o teste começa invalida o experimento que ela toca.
 > Plano: [`13-plano-pratico-conversao.md`](13-plano-pratico-conversao.md) §E6. Decisões: R20.4–R20.6.
 >
 > **Status: ASSINADO pelo operador em 2026-10-12** (na sessão `claude/pipeline-e4-fix-exp-b`).
@@ -18,20 +21,20 @@ Os dois usam **todas** as leads. O teste de criativo e de região do L3 (por an�
 | **B** | Nome, CPF (e e-mail no antecipado) pedidos no chat antes do link | Link logo após tamanho + CEP + a escolha dela do pagamento, depois de uma oferta do kit com os descontos progressivos; o resto o checkout pede | `experiments.linkAfterChoice: true` |
 
 Sem a flag, ninguém está no teste, seja qual for o braço gravado. **As duas flags são gravadas pelo
-operador no segredo antes de 23/10, e não mudam até 09/11.**
+operador no segredo antes de ligar o tráfego, e não mudam até o fim do teste.**
 
-## 2. Agente congelada
+## 2. ~~Agente congelada~~ — removido em 2026-10-22 (R29.15)
 
-Nenhum deploy de prompt, gate ou config de venda entre 23/10 e 09/11. Exceção única: bug que perde
-venda ou que mente para a cliente, com o "pode subir" do operador — e, se subir, a data entra na
-leitura (as leads de antes e de depois são comparadas separadamente).
+~~Nenhum deploy de prompt, gate ou config de venda durante o teste.~~ ✅ Não há congelamento: a agente é testada e publicada
+quando estiver boa. Se uma mudança de prompt, gate ou config de venda subir durante o teste, o momento dela entra na leitura
+(as leads de antes e de depois são comparadas separadamente).
 
 O Hermes roda e propõe; nada se publica sozinho (R20.8).
 
 ## 3. Métricas (decididas agora)
 
-Unidade: **a lead** (não o turno). Só leads de anúncio (`leads.source ? 'ctwa_clid'`), criadas entre
-23/10 00:00 e 07/11 23:59 (São Paulo), com `arm` gravado.
+Unidade: **a lead** (não o turno). Só leads de anúncio (`leads.source ? 'ctwa_clid'`), criadas durante a
+janela do teste (da hora em que o operador liga o tráfego até o fim da fase de Região), com `arm` gravado.
 
 | Exp. | Métrica principal | Definição exata |
 |---|---|---|
@@ -97,7 +100,7 @@ from m group by arm order by arm;
 O z das duas proporções: `p = (x0 + x1) / (n0 + n1)`, `z = (x1/n1 − x0/n0) / √(p(1−p)(1/n0 + 1/n1))`;
 |z| ≥ 1,96 → diferença.
 
-## 7. Antes de 23/10 (checklist)
+## 7. Antes de ligar o tráfego (checklist)
 
 - [ ] `turn` com E1+E2+E3 e o experimento B publicada, migração 0026 aplicada (✅ 2026-10-12).
 - [ ] As duas flags no `BUSINESS_CONFIG`; uma lead de teste de cada braço provada pela porta de produção.

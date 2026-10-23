@@ -13,6 +13,117 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-23 (tarde) — `turn` v43 NO AR (função v158, 17h11 UTC; alarme de cobertura das 17h15 `healthy`). Config de 23/10 colado pelo operador. JEV: 17 de 19 perguntas aprovadas (versão 5, R30.13).**
+>
+> - **R30.12 (no ar na v43):** a consulta de dias da Logzz pergunta como o checkout real — um tamanho, o produto dele
+>   (`product_requirements`), sem a operação 0. Hoje no ar (v42) todo CEP de Recife e o G de São Paulo viram "falha de consulta".
+> - **R30.10:** `docs/operacao/business-config-2026-10-23.min.json` liga o aceite de ofertas — sem ele os 41 lembretes do cupom foram
+>   cancelados (o cupom já estava ativo). Exige o template `encorpa_cupom_super_dia` aprovado e o `SUPER20` nos dois checkouts.
+> - **R30.11/R30.13:** JEV com `fala_boleto`, `escolhe_horario`, `correio_na_entrega`; as dez reprovadas reescritas → 17 de 19
+>   aprovadas; depois `objecao` aprovada pelo operador com 86% (R30.14–R30.15) e `pergunta_ignorada` recusada e
+>   retirada: **18 perguntas, todas aprovadas**.
+> - **R30.9:** H-2 aprovada e registrada como já publicada (v32); H-1/H-3/H-4 recusadas.
+> - Mutações 759/759 (2 atualizadas ao código novo); `pnpm test` 8814; `typecheck:function` limpo.
+>
+> **2026-10-23 — `turn` v42 NO AR (R30.7, sem o 2º lembrete de silêncio) e R30.8 (Hermes mais barato).**
+>
+> - **No ar:** `turn` **v42** (função v155, commit `7a8e01c`, 13h09 UTC); alarme de cobertura das 13h15 `healthy`, varredura `success`;
+>   mutações 757/757; `pnpm test` 8807 verdes; `typecheck:function`, `dev:conversas` 1655/1655, `dev:regua` 20000 casos sem `silence_2`.
+>   O único `silence_2` ainda agendado (24/10 11h59 UTC) será cancelado pela varredura nova. Gasto de API desta etapa ≈ US$ 0,05.
+>
+> - **R30.7:** `scheduleSilence` arma o 1º lembrete e depois o `silence_3`, que vira o segundo; a varredura cancela um `silence_2` armado
+>   antes do deploy. Revisão dos testes achou dois buracos, corrigidos: (1) a resposta com o link, passada a faixa da entrada, ficava sem
+>   toque de silêncio e a lead nunca virava `perdido` — agora o `silence_1` fica quando não cabe outro; (2) o `silence_3` podia cair 1 min
+>   depois do 1º — agora só a 8 h ou mais (`SILENCE_GAP_MS`). **O `silence_3` é o cupom e só sai com `coupon.active` e código no
+>   `BUSINESS_CONFIG`: hoje, na prática, só o 1º lembrete sai.**
+> - **R30.8:** o pacote do Hermes vai em dois arquivos (`pacote.md`, `conversas.md`), o registro de mudanças resumido (`registrySummary`) e
+>   a recepção automática cortada. Nas mesmas 43 conversas sintéticas: 25 → 8 chamadas, 1,48 M → 291 mil tokens (−80%); no modelo
+>   padrão ≈ US$ 1,82 → ≈ US$ 0,37. Calibração curta com o pacote novo (3 rodadas válidas): resposta pronta 12/12, link 11/12, mentira
+>   4/12 — a qualidade se manteve.
+> - **Propostas H-1 a H-4 conferidas contra a conversa e o código:** H-1 (pedir e-mail) já corrigida na v28 ("NUNCA peça CPF nem e-mail");
+>   H-3 parte de premissa falsa (a cliente disse "cinquenta e cinco quilos" num áudio); H-4 coberta desde a v38 (`answerAfterOffer`); H-2
+>   (link do antecipado depois de confirmar a entrega, em BH) é a única que pede ação.
+> - **Container:** o disco encheu com as pastas temporárias do Hermes e das mutações (39 GB); limpas, menos a `HERMES_HOME` cujo Python o
+>   Hermes instalado usa.
+
+> **2026-10-22 (noite) — `turn` v41 NO AR; migrações 0030, 0031 e 0032 aplicadas. Corrige o bloco logo abaixo ("nada publicado").**
+>
+> - **No ar:** `turn` **v41** = `agent_versions` 41, função `turn` v153, commit `e64bb7c`, ~20h26 UTC, `pnpm deploy:turn`. Sem deriva antes do
+>   deploy (a v40 era `fbb6f19`, igual à `main` em `supabase/functions/turn`). Prova: o "Alarme de cobertura" do n8n das 20h30 UTC devolveu
+>   `healthy` (3 CEPs de SP com pagamento na entrega) e a varredura da régua seguiu `success`. O `job:"health"` direto não roda do container
+>   (o proxy não monta o `Authorization` da função).
+> - **Migrações aplicadas e conferidas (API de gerência):** 0030 (`lead_profile_mark`, só a `service_role` executa), 0031 (`hermes_backlog`:
+>   42 leads, janela desde 17/10 — roda sozinho quando a janela fizer 10 dias), 0032 (`jev_judgments` e as views de tempo).
+> - **Primeiros números das views de tempo (dado real):** o 2º lembrete de silêncio teve **0 respostas em 40 envios**; o 1º, 16 de 42; o
+>   "Ainda está aí?", 14 de 31; o do checkout, 2 de 4. A Malu responde em ~20 s (mediana). 41 conversas sem pedido terminaram com a Malu
+>   falando por último, 39 delas num lembrete da régua.
+> - **Validação:** mutações 753/753; `pnpm test` 8797 verdes; `typecheck`, `lint`, `typecheck:function`.
+> - **Calibração do Hermes** (`-contributor`, sintético, 8 rodadas × 4 defeitos por classe): skill v2 (uma evidência por conversa, campos
+>   obrigatórios) → resposta pronta 32/32 (100%), link repetido 29/32 (91%), **mentira 5/32 (16%)**. A v3 com `promessas.md` (pré-triagem
+>   das frases de promessa) não subiu a mentira (16%) e baixou as outras (88%, 72%): **revertida** (`af2a4e4`). Gasto total das calibrações
+>   ≈ US$ 0,85. **A mentira de detalhe operacional que passa nos gates continua sendo o ponto cego do Hermes** — é o lugar do JEV e de gate.
+> - **Primeira rodada de produção do Hermes (P1.5), 22/10 21h36 UTC** (`hermes.yml` forçado na branch): 43 conversas, 4 propostas válidas
+>   (H-1 tirar o pedido de e-mail do fechamento; H-2 link da entrega quando ela confirma a entrega; H-3 vetar medida de corpo que ela não deu;
+>   H-4 responder nota fiscal/loja/foto antes do link), 1 descartada, **US$ 1,82**. Esperam a decisão do operador na Rotina "Hermes – decisão".
+>   O passo final (abrir o PR das propostas) **falhou**: o repositório não deixa o GitHub Actions criar PR — o documento ficou na branch
+>   `hermes/propostas`. **Operador:** Settings → Actions → General → "Allow GitHub Actions to create and approve pull requests".
+> - **JEV no ar com a Hermes (chave `TYPESAFE_API_KEY` já está nos segredos do GitHub):** na rodada de produção, 47 chamadas por US$ 0,0016
+>   (prontidão em 43 conversas + segunda opinião nas 4 propostas, em `evidence.jev`). **Teste em português (P2.4)**, `hermes.yml` com
+>   `jev_avaliar`, 230 itens, US$ 0,014: **7 de 16 aprovadas** (90% no sim e no não) — `quer_comprar`, `promete_prazo`, `promete_saude`,
+>   `oferece_desconto`, `escassez`, `gatilho_nao_usado`, `duas_perguntas` (`hermes/jev-avaliacao.md`, `hermes/jev-aprovadas.json`). Reprovadas:
+>   objeção (77%), irritação (86%), `diz_ser_pessoa` (9% no "não": a instrução está mal lida), `compra_sem_passo`, `objecao_sem_resposta`,
+>   `pergunta_ignorada`, `kit_nao_oferecido`, `sem_proximo_passo`, `desconfianca_sem_garantia`. A partir da próxima rodada do Hermes as 7
+>   aprovadas rodam em sombra. **A amostra de 30 do conjunto de ouro (`hermes/jev-ouro-amostra.md`) ainda espera a conferência do operador.**
+> - **Primeira comparação de prontidão (P5.2):** das 43 conversas, o JEV leu 13 frias, 25 mornas, 5 quentes; a única lead com faixa gravada
+>   (quente, 70) o JEV leu fria. Nenhum pedido ainda: a comparação com o pedido espera tráfego.
+> - **Falta:** (1) operador: liberar o Actions a criar PR; conferir a amostra de 30; decidir H-1 a H-4; (2) reescrever as perguntas reprovadas
+>   (nova versão, medida de novo) se o operador quiser mais que as 7; (3) a mentira de detalhe operacional (boleto, horário, correio): gate
+>   quando aparecer numa conversa real (R21.6) ou pergunta do JEV nova; (4) PR desta branch para a `main` (não aberto: pedir).
+> - **Cuidado no container:** o Hermes instalado guarda o Python dentro da PRIMEIRA pasta `HERMES_HOME` temporária que usou; apagar
+>   `/tmp/hermes-home-*` quebra o Hermes (aconteceu em 22/10; foi reinstalado). Cada rodada deixa ~2 GB em `/tmp`.
+
+> **2026-10-22 — sessão `claude/determined-brown-7x0gx6`: R30 (resíduos do plano 16, Hermes, JEV). PARADA A PEDIDO DO OPERADOR no meio da execução.**
+>
+> - **Conferido em produção (banco, 22/10):** `turn` v40 no ar (4 turnos com `agent_version = 40`); score gravando (`leads.score` 70, faixa
+>   quente, com perfil e gancho); balão do gancho ainda não provado (nenhuma conversa na v40 chegou à oferta). O segredo `BUSINESS_CONFIG` não
+>   foi lido (a sessão barrou a leitura de credencial); o operador diz que colou o de 21/10.
+> - **Causa do Hermes não ter rodado:** confirmada — `hermes_runs` vazia; a Action roda todo dia e sai em 2 s com "42 leads, espera 50".
+> - **Feito e commitado (nada publicado, nenhuma migração aplicada):**
+>   - Datas e congelamento fora de todos os planos e docs (R29.15).
+>   - Onda 0: −10 por toque sem resposta na varredura (`afterUnansweredTouch`; lead que esfria não recebe `silence_2/3`); frete do kit lido
+>     (`prepayFreight` com todas as peças; Playwright 13/13 iguais ao checkout); linha de estoque volta uma vez (`profileMarks`); pergunta vaga
+>     adiada marca; marcas por `lead_profile_mark` (0030); `allowUnverified` fora do código; referência de mercado
+>     (`docs/agente-ia/10-auditoria/referencia-de-mercado.md`). Revisão Opus: 1 bloqueante (frete do kit em região de entrega) corrigido.
+>   - Onda 1: `hermes_backlog` 50 leads ou 25 em 10 dias (0031); `--check-due` antes de instalar o Hermes; calibração nova (rodadas, 4
+>     defeitos por classe, transcrições sintéticas da auditoria); skill com auditoria de promessas resposta por resposta.
+>   - Ondas 2–5 (JEV, em sombra, só no CI): `jev.ts`, `jev-questions.ts` (16 perguntas), `jev-analysis.ts`, `jev-gold.ts` + `pnpm jev:avaliar`,
+>     `timing.ts` + 0032 (views de tempo, `jev_judgments`), segunda opinião na Rotina (`DECIDIR.md`), conjunto de ouro de 230 itens
+>     (`hermes/jev-ouro.json`) e amostra de 30 para o operador (`hermes/jev-ouro-amostra.md`). Revisões de código e de segurança (Opus):
+>     achados corrigidos (dado pessoal mascarado em `jev.md`/`timing.md`, query dos links fora do que vai à TypeSafe, prazo de 6 min e 4
+>     chamadas em paralelo, `hermes_runs` sem as colunas do JEV antes da 0032, latência sem a recepção, régua só com os toques dela).
+>   - Validação no último commit: `pnpm test` 8794 verdes, `typecheck`, `lint`, `typecheck:function` (Deno), `dev:conversas` 1655/1655,
+>     `dev:gates` 0 afrouxamentos; mutações 750/752 (as 2 que escaparam foram atualizadas, **não reconferidas**).
+> - **Parou no meio:**
+>   - **Calibração do Hermes:** 2 de 8 rodadas novas (US$ 0,018, `-contributor`, sintético): mentira 2/8 (25%), resposta pronta 4/8, link
+>     repetido 4/8 — **abaixo da barra de 80%**. A 1ª rodada (modelo padrão, US$ 0,62) plantou mentiras que os gates já vetam (0/4: erro do
+>     desenho, corrigido). Gasto total da calibração ≈ US$ 0,64.
+>   - **Mutações:** não rodadas de novo depois das últimas mudanças (`pnpm verificar:guardas`).
+> - **Falta, nesta ordem:**
+>   1. Rodar `pnpm verificar:guardas` e uma revisão Opus final do diff `53476ec..HEAD`.
+>   2. Aplicar em produção 0030 (antes do deploy), 0031 e 0032; `NODE_USE_ENV_PROXY=1 pnpm deploy:turn` (v41); `job:"health"`.
+>   3. Calibração: terminar as rodadas (`pnpm hermes:calibrar --trials=8 --model=muse-spark-1.3-contributor`) e melhorar a skill até 80% por
+>      classe; depois a primeira rodada de produção forçada (P1.5: workflow `hermes.yml` com `force`, depois do merge).
+>   4. **JEV — precisa do operador:** criar a conta na TypeSafe e gravar `TYPESAFE_API_KEY` no GitHub Actions **depois** da 0032; conferir a
+>      amostra `hermes/jev-ouro-amostra.md`; rodar `TYPESAFE_API_KEY=… pnpm jev:avaliar` (grava `hermes/jev-aprovadas.json`; sem esse arquivo
+>      nenhuma pergunta de mensagem é feita).
+>   5. P3.3: avaliar custo e eficiência da análise "o que a Malu deveria ter dito" nas primeiras rodadas reais (`hermes_runs.jev_cost_usd`,
+>      vereditos em `jev_judgments.label`). P5.2: comparar prontidão do JEV × `score_band` × pedido com tráfego real.
+>   6. PR desta branch para a `main` (não aberto).
+> - **Achados para o operador:** "pode pagar no boleto", "o horário você escolhe no checkout" e "quem leva é o carteiro dos Correios" passam em
+>   todos os gates e o prompt desmente as três (gate só por frase real, R21.6); o CEP geral de Recife (50010000) não acha região na consulta
+>   do agente; pós-parto no prompt (P0.1) não feito porque somaria tokens em todo turno.
+> - Grafo [§124](docs/documentacao/decisoes/04-grafo-de-decisoes.md), decisões R30 em `docs/documentacao/decisoes/03-decisoes-tomadas.md`.
+
 > **2026-10-21 (noite) — `turn` v40 NO AR (plano 16). Corrige o bloco da tarde logo abaixo, que dizia "NÃO publicado" e "v39 no ar".**
 >
 > - **No ar:** `turn` **v40** = `agent_versions` 40, função `turn` v150, commit `fbb6f19`, 21/10 ~21h11 UTC, via `pnpm deploy:turn`. A v39 que
@@ -74,7 +185,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 >   pode reduzir até 3 números de calça" (texto do operador, já no parecer de conformidade de 19/10).
 > - **Para publicar:** `pnpm deploy:turn`; `scarcity.lowStock: 20` no `BUSINESS_CONFIG`; **assunto do e-mail no n8n ainda sem o `scoreTag`**
 >   (hoje `Aviso — a Malu não conseguiu resolver sozinha a conversa de {{ $json.phone }}`); mesclar a branch do portal.
-> - **Plano 14 (datas do L3, congelamento 23/10 a 09/11) está SUPERADO** pela decisão do operador de 21/10: sem datas (R29.2).
+> - **Plano 14 (datas do L3, congelamento 23/10 a 09/11) está SUPERADO** pela decisão do operador de 21/10: sem datas (R29.2). **Atualizado em 2026-10-22 (R29.15):** as datas e o congelamento foram removidos dos planos 13, 14 e 16 e dos docs de negócio (não só superados); o congelamento não existe mais. O L3 começa quando o operador ligar o tráfego.
 > - **Resíduos deixados de propósito (R21.6):** "O GG está acabando 😮" passa o `scarcity_claim` sem consulta; "esgota amanhã" passa com estoque
 >   real; contadores do perfil podem dobrar no caso parcial de turno substituído; a varredura não aplica o −10 do toque sem resposta; frete do kit não lido.
 > - **Perguntas abertas ao operador (conformidade):** âncora de R$ 216,50 já praticada?; ANVISA em "pós-parto"/"postura"; Logzz e desconto por

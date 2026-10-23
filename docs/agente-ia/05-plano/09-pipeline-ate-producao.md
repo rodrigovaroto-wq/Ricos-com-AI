@@ -141,7 +141,7 @@ Três conversas reais, feitas pelo operador ou por alguém de confiança, pelo W
    | Leitura | 17–18 (assumido, 2 dias como antes) | R$ 0 | os pedidos na entrega dos últimos dias chegam à porta |
 
    **Verba atual (operador, 2026-10-09): Copy R$ 350 e Região R$ 350 (7 dias a R$ 50/dia cada), total R$ 700, com 2 dias de
-   pausa entre elas, a partir de 23/10.** Os valores anteriores do mesmo dia (R$ 375 + R$ 300 em 5 dias = R$ 675), de 2026-10-08
+   pausa entre elas, a partir de quando o operador ligar o tráfego (sem data; R29.15).** Os valores anteriores do mesmo dia (R$ 375 + R$ 300 em 5 dias = R$ 675), de 2026-10-08
    (R$ 300 + R$ 200 = R$ 500) e de 2026-10-02 (R$ 400 + R$ 400 = R$ 800) estão riscados na tabela. (Histórico anterior: em 2026-10-02 Copy R$ 300 → R$ 400; Região R$ 500 →
    R$ 400 e dias 6–12 → 6–10.) **Metas mínima e ideal de cada fase: a definir com o operador**, junto de 8 a 15
    métricas por criativo/copy e por região que mostrem pontos fortes e fracos de cada um (proposta

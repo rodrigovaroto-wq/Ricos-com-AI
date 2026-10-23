@@ -4028,6 +4028,105 @@ consulta, `turn` local sobe `healthy`). **O operador ainda não o colou no segre
 Migração `0029` aplicada em produção. **Não provado ao vivo:** o balão do gancho antes da oferta e a gravação do score; a primeira conversa
 real na v40 prova (`leads.score`, `turn_outcomes.agent_version = 40`). Decisões do operador na noite: R29.12–R29.14.
 
+**Atualização (2026-10-22, R29.15):** o operador mandou tirar todas as datas predefinidas de ação de todos os documentos e esquecer o congelamento
+por inteiro (R29.2 só superava as datas). Removidos dos planos 13, 14 e 16, de `06-modelo-economico.md`, `taxas-antecipadas-cod.md` e da memória
+`modelo-de-caixa-do-teste`; as datas de fatos já ocorridos ficam. Guarda: nenhum documento novo marca dia de ação futura (sequência e condição, não calendário).
+
+## 124. Resíduos do plano 16, Hermes destravado e o JEV ao lado do Hermes (operador, 2026-10-22)
+
+Decisões R30 em [`03-decisoes-tomadas.md`](03-decisoes-tomadas.md). Branch `claude/determined-brown-7x0gx6`.
+
+**Sintoma.** (1) Cinco resíduos do §123 seguiam no ar: a varredura não tirava os 10 pontos do toque sem resposta; o frete do kit não era lido
+(o kit dizia "aparece no checkout"); a linha de estoque oferecida e não usada pelo modelo nunca voltava; o caminho adiado não marcava a
+pergunta vaga; a marca regravava o perfil inteiro. (2) O Hermes nunca rodou: `hermes_runs` vazia, a Action diária saía em 2 s. (3) O fallback
+do código ainda declarava `scarcity: { unitsLeft: 12, allowUnverified: true }`.
+
+**Causa.** (1) Atalhos aceitos no §123 por falta de frase real; o operador mandou resolver (R30.4). (2) `hermes_backlog.due` exige 50 leads e
+havia 42 (em 5 dias); e a Action instalava o Hermes (~8 min) antes de perguntar. (3) A chave de 2026-09-08 nunca saiu do fallback.
+
+**Correção.**
+- `afterUnansweredTouch` (profile.ts): cada toque que sai tira 10, sobre o `score_at` que a varredura leu (o turno que recalculou vence); uma
+  lead que esfriou na régua não recebe `silence_2`/`silence_3` (`rulerForBand([row], …)` no `sweepRow`); dois toques do mesmo lead na mesma
+  varredura tiram 20 (`loweredScores`, revisão).
+- `prepayFreight` e `availabilityQuery` pedem todas as peças numa consulta, como o checkout do kit da Coinzz (Playwright 2026-10-22: G+GG em SP
+  33,17; G+GG+XGG 35,97; GG+GG 20,36 = um produto com quantidade 2; 13 casos iguais em 4 cidades onde os dois lados leram valor). O turno guarda
+  as peças lidas (`prepayFreightFor`), relê quando mudam e **descarta qualquer frete que não seja dessas peças numa região antecipada** — a
+  revisão Opus achou o frete G+M guardado numa região de entrega indo à cliente de 1 peça no turno seguinte (bloqueante, corrigido).
+- `profileMarks` + `MAX_STOCK_OFFERS = 2`: a linha de estoque conta como dita quando a resposta do modelo a diz (`claimsStock`, o leitor do
+  gate) ou depois da 2ª oferta não usada; a pergunta vaga adiada para a manhã marca; as marcas vão por `lead_profile_mark` (0030, `jsonb ||`).
+- `allowUnverified` saiu do tipo, do gate e do fallback (R30.3).
+- Hermes: `hermes_backlog` com 50 leads **ou** 25 depois de 10 dias (0031); `--check-due` antes da instalação; texto do PR corrigido.
+- Calibração nova (`hermes-calibrate-core.ts`): N rodadas com sementes, 4 defeitos por classe em conversas distintas mais 4 limpas, revocação por
+  classe, sobre as ~200 transcrições sintéticas da auditoria (`parsePersonaMd`).
+- JEV (TypeSafe) ao lado do Hermes, em sombra (R30.6): `jev.ts`, `jev-questions.ts` (16 perguntas), `jev-analysis.ts` (`jev.md`), `jev-gold.ts` /
+  `pnpm jev:avaliar` (230 itens; aprovada = 90% no "sim" **e** no "não", 10 de cada), `timing.ts` + views de tempo (0032), segunda opinião em
+  `evidence.jev` mostrada na Rotina, `jev_judgments` para o veredito do operador. O gate vale onde os dois discordam.
+
+**Caminhos que falharam.**
+- **Calibração com mentiras que os gates vetam** ("chega amanhã", "curar a dor"): 0/4 na primeira rodada. Não era o Hermes: a skill manda
+  deixar de fora a mentira "já vetada hoje". A mentira plantada tem de passar nos gates de hoje e ser desmentida por uma frase do prompt
+  (`LIES`: boleto, horário, correio; um teste exige as duas coisas).
+- **Calibração sobre as conversas reais:** 43 mensagens de cliente em 42 conversas, quase todas com uma resposta da Malu; não cabem 12 defeitos.
+- **Conjunto de ouro só das transcrições:** zero casos "sim" de saúde, desconto e escassez (os gates cortam). 80 itens escritos completaram.
+
+**Guardas.** Mutações `R30-*` em `verify-guards.ts` (toque sem resposta, toque sobre score novo, frete do kit em região de entrega, quantidade do
+kit, `allowUnverified`); `tests/jev.test.ts`, `tests/hermes-calibrate.test.ts`, `tests/persona-md.test.ts`, `tests/prepay-freight.test.ts`,
+`tests/profile.test.ts`, `tests/scarcity-real-stock.test.ts`.
+
+**Achados fora do pedido.** (a) "Você pode pagar no boleto também", "o horário da entrega você escolhe no checkout" e "quem leva é o carteiro dos
+Correios, e você paga pra ele" passam em todos os gates e o prompt desmente as três — candidatas a gate quando aparecerem numa conversa real
+(R21.6). (b) O CEP geral de Recife (50010000) não acha região na consulta do agente.
+
+**Estado final (2026-10-22, noite):** `turn` **v41 no ar** (commit `e64bb7c`, função v153; alarme de cobertura `healthy` depois do deploy);
+0030–0032 aplicadas. Hermes: primeira rodada de produção feita (43 conversas, 4 propostas, US$ 1,82; o PR automático falhou por permissão do
+repositório). Calibração final (skill v2): resposta pronta 100%, link 91%, mentira 16% (a pré-triagem `promessas.md` foi medida, não ajudou e foi
+revertida). JEV: 7 de 16 perguntas aprovadas no teste em português (`hermes/jev-avaliacao.md`). Detalhe no quadro do `HANDOFF.md`.
+
+**Estado (2026-10-22, parada a pedido do operador; superado pela linha acima):** tudo commitado na branch, **nada publicado e nenhuma migração aplicada**. Calibração:
+2 de 8 rodadas, abaixo da barra (mentira 25%, resposta pronta 50%, link 50%). O JEV espera a chave da TypeSafe e o `jev:avaliar`. O que falta
+está no quadro do topo do `HANDOFF.md`.
+
+**Resíduos aceitos.** A lead que esfria no meio da régua chega a `perdido` no `silence_3`, não no `silence_1`; a linha de estoque não usada volta
+uma vez só; P4.1 e a prontidão (P5.2) não passam pelo conjunto de ouro (não há ouro de proposta nem de conversa inteira): ficam informativas.
+
+## 125. Sem o 2º lembrete de silêncio e o Hermes a um quinto do custo (operador, 2026-10-23)
+
+**Sintoma.** (1) `eval_ruler_returns` (0032): o `silence_2` foi enviado 40 vezes e não trouxe nenhuma resposta em 24 h; o `silence_1`, 16 de 42.
+(2) A primeira rodada de produção do Hermes custou US$ 1,82, mais que os 42 leads que ele leu.
+**Causa.** (1) O 2º toque chega na manhã seguinte a quem já ignorou o 1º. (2) O Hermes lia ~60 arquivos (um por conversa), e cada leitura
+reenviava o contexto lido antes: 25 chamadas, 1,48 M tokens em 43 conversas — custo que cresce com o quadrado do número de arquivos.
+**Correção.** R30.7: `scheduleSilence` sem `silence_2`; a varredura cancela o de antes do deploy; `SILENCE_GAP_MS` (8 h) entre o 1º e o
+`silence_3`; depois do link, o `silence_1` fica quando não cabe outro toque de silêncio (senão a lead nunca vira `perdido`). R30.8:
+`bundlePack` (pacote.md), conversas.md, `registrySummary`, recepção cortada; medido 291 mil tokens e 8 chamadas.
+**Caminhos que falharam.** A primeira versão do R30.7 só tirava o `silence_2`: a revisão de testes (Opus) achou a régua vazia depois do
+link e o `silence_3` colado no 1º. A pré-triagem `promessas.md` (§124) não ajudou a mentira e foi revertida.
+**Guardas.** `tests/r30-7-ruler.test.ts`, `tests/hermes-bundle.test.ts`; mutações `r30.7-*`.
+**Resíduo.** O `silence_3` só sai com cupom ativo: hoje, um lembrete só. A mentira de detalhe operacional segue o ponto cego do Hermes.
+
+## 126. A consulta da Logzz como o checkout pergunta, o lembrete do cupom que nunca saía, e o JEV para boleto, horário e correio (2026-10-23)
+
+**Sintoma.** (1) O CEP geral de Recife não achava região (achado do §124); conferindo, **todo** CEP de Recife falhava, e o G de São Paulo
+também. (2) O cupom estava ativo e nenhuma mensagem com o código saiu: os 41 lembretes de cupom foram cancelados. (3) As mentiras de detalhe
+operacional (boleto, horário, correio) passavam nos gates e o Hermes as achava 16–33% das vezes.
+**Causa.** (1) A consulta dos dias da Logzz mandava a operação 0 (que a Logzz lista com estoque, mas não existe: 422) e não mandava o produto
+do tamanho (`product_requirements`), sem o qual a Logzz responde "nenhuma opção de entrega" — o checkout real (Playwright) manda o produto e
+deixa a 0 de fora. A operação 0 também inflava a contagem da escassez. (2) O lembrete do cupom cai a ~71 h da entrada, fora da janela de 24 h:
+só sai como template de marketing, e só a quem aceitou ofertas; o aceite estava desligado (`askMarketingOptIn: false`). (3) Mentira de
+detalhe é frase literal: o modelo do Hermes passa por cima; o JEV lê frase literal bem.
+**Correção.** (1) `readLogzzStock` ignora a operação 0 e guarda o produto de cada tamanho; `lookupLogzzUnsafe` pergunta os dias com um
+tamanho (o dela, ou o de mais estoque local) e o produto dele. Bateria contra o checkout real: SP, BH, Recife, Contagem conferidos pela rede.
+(2) `business-config-2026-10-23.min.json` com `askMarketingOptIn: true`. (3) Três perguntas `noul` literais na auditoria do JEV.
+**Caminhos que falharam.** Tirar só a operação 0 fez São Paulo virar "sem entrega" (sem o produto, a Logzz diz que não há opção): o
+alarme de produção dizia o contrário e a investigação parou antes do deploy. A bateria por Playwright lia datas de um tamanho anterior que
+ficavam na página: a verdade é a resposta da rede, não o texto da tela.
+**Guardas.** `tests/logzz-product-requirements.test.ts`, mutações `R30-logzz-*`; `tests/jev.test.ts`.
+
+**Depois (mesmo dia): as dez perguntas reprovadas do JEV.** Sintoma: pergunta de duas condições dizia "sim" com a primeira ausente
+(desconfiança, 79% no "não"); "diz ser pessoa" lia primeira pessoa como humana (8% no "não"). Correção: cada pergunta diz o que conta, o
+que não conta, e "se a cliente não …, a resposta é não". Caminho que falhou: o teste de próximo passo escrito em negativo ("é não só
+se…") virou "sim" quase sempre (58% no "não"); escrito como teste positivo dos três sinais (pergunta, link, pedido), 94%/100%. Resultado:
+17 de 19 (`hermes/jev-avaliacao.md`). Guarda: `tests/jev.test.ts` (versão 5, a regra das duas condições).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

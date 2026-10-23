@@ -2275,5 +2275,61 @@ Os itens R20.1 a R20.9 seguem a numeração D1–D8 do plano, mais a regra de fi
 - **R29.14 — Dado de saúde (dor) fica guardado no Supabase e usado como gatilho de conversão** (operador, 21/10, noite). O risco da LGPD art. 11
   (dado sensível; consentimento e aviso de privacidade) foi apresentado e o operador decidiu manter. Continua valendo R29.6 (nunca vai a anúncio
   da Meta nem à Conversions API) e a view `lead_profiles_v` sem `pain` nem `hook`.
+- **R29.15 — Sem datas predefinidas de ação em nenhum documento** (operador, 2026-10-22); o congelamento sai por inteiro, não só as datas.
+  Planos 13, 14 e 16 e os docs de negócio perderam o calendário do L3 (23/10, 08–09/11, E7 a partir de 10/11); o L3 começa quando o operador
+  ligar o tráfego e a leitura é ao fim dele. Completa R29.2 (que só superava as datas).
 - ~~**Perguntas abertas ao operador (conformidade):** âncora de R$ 216,50 já praticada?~~ ✅ respondida em R29.12; ~~LGPD art. 11~~ ✅ decidida em
-  R29.14. **Ainda abertas:** ANVISA em "pós-parto"/"postura"; Logzz e desconto por quantidade com pedido pendente; retirar `allowUnverified` do segredo.
+  R29.14. ~~**Ainda abertas:** ANVISA em "pós-parto"/"postura"; Logzz e desconto por quantidade com pedido pendente; retirar `allowUnverified` do segredo.~~
+  ✅ fechadas em R30.2–R30.3 (2026-10-22).
+
+## Rodada 30 — operador, 2026-10-22: resíduos do plano 16, Hermes destravado, JEV ao lado do Hermes
+
+Grafo [§124](04-grafo-de-decisoes.md). Propostas P0–P5 aprovadas, ajustadas ou recusadas pelo operador numa resposta só.
+
+- **R30.1 — Referência de mercado:** sem histórico do fluxo manual, a régua é a mediana de mercado
+  ([`referencia-de-mercado.md`](../../agente-ia/10-auditoria/referencia-de-mercado.md)): conversa → pedido 10%, recusa na porta 25% (12,5% com
+  confirmação). Completa R29.3.
+- **R30.2 — Postura liberada, pós-parto fora:** "ajuda na postura / dá apoio enquanto está vestido" segue (já no ar desde R16.6); pós-parto fica
+  fora. A linha de prompt sobre pós-parto (P0.1) **não foi feita**: o operador condicionou a não aumentar custo, e toda linha de prompt soma
+  tokens em todo turno; o gate `health_claim` e a proibição do gancho seguem valendo.
+- **R30.3 — `allowUnverified` sai:** só escassez real (estoque da Logzz, `scarcity.lowStock`). A chave sai do tipo, do gate e do fallback do
+  código (`scarcity: { unitsLeft: 12, allowUnverified: true }`); um segredo que ainda a traga não libera nada. "Desconto por quantidade com
+  pedido pendente na Logzz": o operador disse que não há o que fazer.
+- **R30.4 — Resíduos do plano 16 resolvidos:** o −10 do toque sem resposta, o frete do kit, a linha de estoque que volta uma vez, a marca nos
+  caminhos que encerram antes e a marca que grava só as próprias chaves. **Marcados "isso não é um problema"** pelo operador: "O GG está acabando"
+  sem consulta, "esgota amanhã" com estoque real, e os contadores do perfil em dobro no turno substituído.
+- **R30.5 — Hermes:** roda com 50 leads **ou** 25 leads depois de 10 dias (0031); a Action pergunta antes de instalar; calibração com 30–50
+  defeitos por classe. Os números de teste do operador continuam contando (P1.3: "não precisa").
+- **R30.6 — JEV:** integração direta (sem o pacote hermes-jev-skills inteiro), só no CI, em modo sombra; o texto **original** vai à TypeSafe
+  (P2.3); uma pergunta só entra com **90%** no conjunto de ouro em português; teto de **US$ 0,15** por rodada; onde o JEV e o gate discordam, **o
+  gate vale** até a confiabilidade do JEV ser medida; a análise do que a Malu deveria ter dito é avaliada em custo e eficiência antes de ficar.
+- **R30.7 — Sem o 2º lembrete de silêncio** (operador, 2026-10-23): `silence_2` saiu da régua (`scheduleSilence`), porque foi enviado 40
+  vezes e não trouxe ninguém de volta em 24 h (`eval_ruler_returns`), contra 16 de 42 do 1º. A régua é o 1º lembrete e depois o
+  `silence_3`, que passa a ser o segundo. A varredura cancela um `silence_2` armado antes do deploy. **Atenção:** o `silence_3` é o toque
+  do cupom e só sai com `coupon.active` e um código no `BUSINESS_CONFIG`; hoje o cupom está desligado, então na prática só o 1º sai.
+- **R30.8 — Hermes mais barato** (operador, 2026-10-23: a rodada custou mais que os 42 leads): o pacote vai em dois arquivos (`pacote.md`
+  e `conversas.md`), o registro de mudanças vai resumido (título e estado) e a recepção automática vai cortada. Medido nas mesmas 43
+  conversas sintéticas: 25 → 8 chamadas, 1,48 M → 291 mil tokens (−80%); no modelo padrão, ~US$ 1,82 → ~US$ 0,37 por rodada.
+- **R30.9 — Propostas do Hermes de 22/10** (operador, 2026-10-23): H-1, H-3 e H-4 recusadas (já corrigida na v28; premissa falsa — o peso
+  veio num áudio; coberta desde a v38); H-2 aprovada e registrada como publicada na v32: a causa era o CEP "306 72000" não lido, corrigido
+  em `a1bafd6` (19/10) com teste e mutação.
+- **R30.10 — Cupom e aceite de ofertas:** o cupom (`SUPER20`, 20%) já estava ativo no segredo de 21/10, mas o lembrete do cupom cai fora da
+  janela de 24 h e só sai como template de marketing a quem aceitou ofertas, e o aceite estava desligado — os 41 foram cancelados.
+  `business-config-2026-10-23.min.json` liga `channel.askMarketingOptIn`: depois do 1º lembrete a Malu pergunta "Posso te mandar ofertas
+  da Encorpa por aqui?" com dois botões.
+- **R30.11 — JEV para a mentira de detalhe operacional** (operador: "pergunta nova no JEV"): `fala_boleto`, `escolhe_horario`,
+  `correio_na_entrega` (versão 2 das perguntas); no teste em português, 100%, 97% e 100%. Aprovadas: 9 de 19.
+- **R30.12 — Logzz como o checkout pergunta:** os dias de entrega são perguntados com o produto do tamanho (`product_requirements`) e sem a
+  operação 0. Antes, todo CEP de Recife (e o G em São Paulo) virava "falha de consulta" em vez da resposta certa (Playwright, 2026-10-23).
+- **R30.13 — As perguntas do JEV reescritas, objetivas e claras** (operador, 2026-10-23): três rodadas sobre o conjunto de ouro (versões
+  3 a 5), cada uma lida pelos erros item a item que a avaliação agora grava (`hermes/jev-erros.md`). 9 → 14 → 17 → **17 de 19 aprovadas**.
+  Ficam de fora `objecao` (80%: o ouro rotula a mesma pergunta neutra ora como objeção, ora como nenhuma) e `pergunta_ignorada` (60% nos
+  15 "sim"). Custo das três medidas ≈ US$ 0,08.
+- **R30.14 — Rótulos de `objecao` sob uma regra única** (operador, 2026-10-23): pergunta neutra é `nenhuma`; objeção é receio,
+  reclamação, impedimento ou adiamento (regra e os 25 itens mudados em `hermes/jev-ouro-objecao.md`, para conferência do operador).
+  `objecao` foi de 80% a 86% e segue reprovada: os 40 erros que sobram são o JEV vendo objeção em mensagem neutra (saúde, "vc é robô?",
+  "demora pra responder"), não rótulo inconsistente. Perguntas versão 6; 17 de 19 aprovadas.
+- **R30.15 — Decisão do operador sobre as duas abaixo da barra** (2026-10-23): `objecao` aprovada com 86% ("está ótimo";
+  `OPERATOR_APPROVED` em `jev-gold.ts`, o relatório diz "aprovada pelo operador"); `pergunta_ignorada` recusada e retirada das perguntas
+  e do ouro. Ficam 18 perguntas, todas aprovadas.
+

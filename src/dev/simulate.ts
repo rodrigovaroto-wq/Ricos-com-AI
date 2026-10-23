@@ -418,11 +418,13 @@ for (const [kind, ctx, over] of [
 }
 
 // A régua de silêncio nunca pode marcar dois toques colados: repetir é o que derruba o número.
+// Desde R30.7 (2026-10-22) são dois toques — silence_1 e silence_3; o silence_2 saiu (0 de 40 respondidos).
 {
-  const [um, dois, tres] = scheduleSilence(new Date("2026-09-08T12:00:00Z"));
+  const ruler = scheduleSilence(new Date("2026-09-08T12:00:00Z"));
+  const [um, dois] = ruler;
   const h = (a: Date, b: Date) => (b.getTime() - a.getTime()) / 3_600_000;
+  check("espaçamento da régua", "toques", "-", "silence_1,silence_3", ruler.map((t) => t.kind).join(","));
   check("espaçamento da régua", "toque 1 → 2", "-", "≥ 6h", h(um!.runAt, dois!.runAt) >= 6 ? "≥ 6h" : `${h(um!.runAt, dois!.runAt).toFixed(1)}h`);
-  check("espaçamento da régua", "toque 2 → 3", "-", "≥ 6h", h(dois!.runAt, tres!.runAt) >= 6 ? "≥ 6h" : `${h(dois!.runAt, tres!.runAt).toFixed(1)}h`);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -654,30 +656,22 @@ for (const [angle, reply] of [
   for (const [angle, reply, cfg] of [
     ["estoque declarado, fora do adiamento", "Só restam 3 unidades!", comEstoque],
     ["prazo declarado, fora do adiamento", "A promoção acaba em breve, viu?", comPrazo],
-    ["liberado pelo operador, fora do adiamento", "Corre que estão acabando as últimas peças do lote!", { ...config, scarcity: { allowUnverified: true } }],
+    ["a chave antiga do segredo (allowUnverified) não libera mais nada", "Corre que estão acabando as últimas peças do lote!", { ...config, scarcity: { allowUnverified: true } as never }],
   ] as Array<[string, string, typeof config]>) {
     check("escassez fora do adiamento", angle, reply, "barra(scarcity_claim)", outcome(reply, { config: cfg }));
   }
 
-  // A chave do operador: com ela ligada, a cadeia para de recusar urgência que não
-  // consegue verificar. Decisão dele, registrada em código e em teste.
-  const liberado = { ...config, scarcity: { allowUnverified: true } };
+  // A chave antiga `allowUnverified` saiu do código (operador, 2026-10-22: só escassez real): um segredo que ainda a traga não
+  // libera urgência sem contagem, nem no adiamento.
+  const antigo = { ...config, scarcity: { allowUnverified: true } as never };
   for (const [angle, reply] of [
     ["estoque sem contagem por trás", "Corre que estão acabando as últimas peças do lote!"],
     ["número improvisado", "Só restam 4 unidades!"],
     ["prazo sem data declarada", "A promoção acaba hoje, viu?"],
   ] as Array<[string, string]>) {
-    check("escassez liberada pelo operador", angle, reply, "envia", outcome(reply, { config: liberado, postponing: true }));
+    check("escassez com a chave antiga", angle, reply, "barra(scarcity_claim)", outcome(reply, { config: antigo, postponing: true }));
   }
 
-  // E o que a chave NÃO libera: ela abre a urgência, não o resto da cadeia.
-  for (const [angle, reply, esperado] of [
-    ["preço inventado continua barrado", "Últimas peças por R$ 59,90!", "barra(price_promise)"],
-    ["emagrecimento continua barrado", "Últimas peças! Ele emagrece 5 kg.", "barra(weight_loss_claim)"],
-    ["cupom inventado continua barrado", "Últimas unidades, use o cupom de 20%!", "barra(price_promise+coupon_exists)"],
-  ] as Array<[string, string, string]>) {
-    check("escassez liberada pelo operador", angle, reply, esperado, outcome(reply, { config: liberado, postponing: true }));
-  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
