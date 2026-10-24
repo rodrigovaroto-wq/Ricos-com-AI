@@ -50,7 +50,7 @@ describe("R28: as avaliações do config", () => {
 
 describe("R28: a fiação do roteiro v3 na turn (index.ts lido como fonte)", () => {
   it("toda lead nova recebe a abertura no lugar do recibo, e o modelo só responde se ela perguntou algo", () => {
-    expect(turn).toContain("if (isNewLead && !isResume && !skipsOpening(spoken(inbound.body ?? \"\"))) {\n    const opening = openingBubbles(CONFIG);");
+    expect(turn).toContain("if (isNewLead && !isResume && !skipsOpening(spoken(inbound.body ?? \"\")) && !afterSale) {\n    const opening = openingBubbles(CONFIG);");
     expect(turn).toContain("const answer = firstMessageNeedsAnswer(spoken(inbound.body ?? \"\"));");
     expect(turn.indexOf("const opening = openingBubbles(CONFIG);")).toBeLessThan(turn.indexOf("const receiptText = openNow ? WELCOME_AUTO_REPLY"));
   });

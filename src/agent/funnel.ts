@@ -234,7 +234,11 @@ export const noCodReasonLine = (size: string | null, otherSizeHasIt: boolean): s
 export const SIZE_BEFORE_OFFER = "Anotei seu CEP 😊 A entrega aí depende do tamanho, então antes eu preciso saber:";
 export const sizeFirstBubbles = (): FunnelBubble[] => [{ text: SIZE_BEFORE_OFFER }, { text: SIZE_ASK }];
 
-/** The whole offer: the price image, the box, the recorded audio 4 on the delivery path only, and the ask. */
+/**
+ * The whole offer: the price image, the box, the recorded audio 4 on the delivery path only, and the ask. The audio says "Eu
+ * consigo agendar a entrega pra amanhã mesmo": it goes only when the checkout's first day IS tomorrow (personas of 2026-10-24,
+ * A10: the box said "segunda (26/10)" on a Saturday and the audio said tomorrow).
+ */
 export const offerBubbles = (
   config: FunnelConfig,
   region: { cod: boolean; dates: readonly string[]; prepayFreightBrl?: number | null },
@@ -248,7 +252,7 @@ export const offerBubbles = (
     ...(!region.cod && noCodReason ? [{ text: noCodReason }] : []),
     ...media(m.price, "image", priceLabel(config)),
     { text: region.cod ? codOfferText(config, region.dates[0], now) : prepayOfferText(config, region.prepayFreightBrl ?? null) },
-    ...(region.cod ? media(m.audio4, "audio", FUNNEL_LABELS.audio4) : []),
+    ...(region.cod && firstDayLine(region.dates[0], now)?.startsWith("amanhã") ? media(m.audio4, "audio", FUNNEL_LABELS.audio4) : []),
     ...(ask ? [{ text: ask }] : []),
   ];
 };

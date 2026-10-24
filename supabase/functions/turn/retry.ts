@@ -346,6 +346,7 @@ export const VAGUE_OBJECTION_REASON = "objeção vaga: a pergunta da dúvida";
 export interface VagueObjectionConfig {
   prices: { codBrl: number; prepayBrl: number; anchorBrl: number };
   delivery: { warrantyDays: number };
+  kits?: ReadonlyArray<{ path: "cod" | "prepay"; units: number; priceBrl: number; discountPercent: number }>;
 }
 
 /**
@@ -354,14 +355,32 @@ export interface VagueObjectionConfig {
  * `delivery_promise` vetoes, so the next-day reason is the checkout's first date, said as a fact; never a deadline
  * of the offer, which has no end date.
  */
+/**
+ * Personas of 2026-10-24: the warranty was the reason in ~12 replies a round, "Claro! Você tem 7 dias…" to every "vou pensar".
+ * It answers a fear of the size or of the shop, so it goes only when she showed one (`warranty`, absent = as before). A price
+ * complaint gets the smallest kit of HER path (`kitPath`, null while the region is unknown), in the kits briefing's own sentence.
+ */
 export const vagueObjectionSituation = (
   c: VagueObjectionConfig,
-  facts: { codAvailable: boolean; firstDateIsTomorrow: boolean; scarcityLine: string | null; price?: boolean },
+  facts: {
+    codAvailable: boolean;
+    firstDateIsTomorrow: boolean;
+    scarcityLine: string | null;
+    price?: boolean;
+    warranty?: boolean;
+    kitPath?: "cod" | "prepay" | null;
+  },
 ): string => {
+  const kit = facts.price && facts.kitPath
+    ? [...(c.kits ?? [])].filter((k) => k.path === facts.kitPath && k.units > 1).sort((a, b) => a.units - b.units)[0]
+    : undefined;
   const reasons = [
     ...(facts.codAvailable && facts.firstDateIsTomorrow ? ["A primeira data que aparece no checkout pra sua região é amanhã."] : []),
     ...(facts.codAvailable ? ["Você não paga nada agora: paga só quando o colete chegar."] : []),
-    `Você tem ${c.delivery.warrantyDays} dias após o recebimento pra trocar ou devolver.`,
+    ...(facts.warranty !== false ? [`Você tem ${c.delivery.warrantyDays} dias após o recebimento pra trocar ou devolver.`] : []),
+    ...(kit
+      ? [`Levando ${kit.units} peças o desconto sobe para ${kit.discountPercent}%: ${reais(kit.priceBrl)} ${kit.path === "cod" ? "na entrega" : "no antecipado"}.`]
+      : []),
     // The anchor only with the delivery price: on the prepaid the freight is charged on top, by region, and the prompt says the
     // prepaid as a percent and a price beside the freight, never as the anchor's "de… por" (plan 16 review).
     ...(facts.codAvailable ? [`Ele sai de ${reais(c.prices.anchorBrl)} por ${reais(c.prices.codBrl)} na entrega.`] : []),
@@ -372,8 +391,11 @@ export const vagueObjectionSituation = (
   return (
     `Ela ${facts.price ? "reclamou do valor" : "adiou a compra"} (objeção vaga). Responda numa mensagem só, nesta ordem: ` +
     `${facts.price ? "acolha sem concordar que está caro, começando com Entendo! (nunca com Claro)" : "comece com Claro!"}; ` +
-    `depois no máximo UM destes motivos verdadeiros pra comprar agora, o que mais combina com o que ela disse, com estas ` +
-    `palavras, sem pressão: ${reasons.map((r) => `"${r}"`).join(" ou ")}; e por último a pergunta do modelo, uma só. ` +
+    (reasons.length > 0
+      ? `depois no máximo UM destes motivos verdadeiros pra comprar agora, o que mais combina com o que ela disse, com estas ` +
+        `palavras, sem pressão: ${reasons.map((r) => `"${r}"`).join(" ou ")}; `
+      : `sem motivo nenhum no meio; `) +
+    `e por último a pergunta do modelo, uma só. ` +
     `Nenhum outro motivo, nenhum prazo de oferta e nenhum link.`
   );
 };
@@ -395,6 +417,12 @@ export const saidNoFit = (outbound: string): boolean => /colete não vai (?:te )
 
 /** Her refusal's reply (grafo §69): a goodbye — no stock, no argument, no question, no link. */
 export const DECLINE_REPLY = "Tudo bem, obrigada por me avisar 💛 Se um dia quiser, é só me chamar aqui.";
+
+/**
+ * Her yes to the offers in her own words (personas of 2026-10-24, cob-aceita-ofertas): the model's example. It promises nothing —
+ * her text grants no consent (`opt-in.ts`), so no "vou te mandar" — and asks nothing.
+ */
+export const OFFERS_YES_EXAMPLE = "Que bom que você quer receber as ofertas! 💛 Quando quiser seguir, é só me chamar aqui.";
 
 /**
  * Her "no" to the offers question (operator, 2026-10-15, A2): it promises only what she refused — the model wrote "não mando

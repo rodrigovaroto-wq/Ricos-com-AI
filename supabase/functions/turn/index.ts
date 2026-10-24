@@ -76,7 +76,7 @@ import {
   type StopPoint,
 } from "./followups.ts";
 import { asksForSize, type Size, SIZES, sizeBeyondTable, sizeFromDressSize, statedSizeOf, TABLE_TOP_DRESS, TABLE_TOP_WAIST } from "./sizing.ts";
-import { mayAskOptIn, optInAnswer, optInMessage, suspendsMarketingOptIn } from "./opt-in.ts";
+import { acceptsOffers, mayAskOptIn, optInAnswer, optInMessage, suspendsMarketingOptIn } from "./opt-in.ts";
 import { furthest, overwritableBy, reachedStage, type Stage } from "./state-machine.ts";
 import { cachedRegion, type CachedRegion, cepsByStreet, checkCoverage, type Fetcher, healthOf, logzzIdsOf, lookupRegion, lookupsDegraded, prepayFreight, type Region, type RegionLookup } from "./availability.ts";
 import {
@@ -166,6 +166,7 @@ import {
   VAGUE_OBJECTION_QUESTION,
   VAGUE_PRICE_QUESTION,
   VAGUE_OBJECTION_REASON,
+  OFFERS_YES_EXAMPLE,
   vagueObjectionSituation,
   DECLINE_REPLY,
   OPT_IN_DECLINED_REPLY,
@@ -218,6 +219,8 @@ import {
   asksSomething,
   asksPaymentStatus,
   isBareAck,
+  isBareThanks,
+  hesitates,
   isPaymentReceipt,
   nudgesCheck,
   saysPaid,
@@ -2536,7 +2539,11 @@ const handleTurn = async (
   // Script v3 (R28, operator, 2026-10-19): every new lead gets the opening — the product shown before any
   // question, three recorded audios, the video, the reviews, the size table — instead of the receipt. The model
   // answers after it only when her first message asked something the opening does not answer.
-  if (isNewLead && !isResume && !skipsOpening(spoken(inbound.body ?? ""))) {
+  // Personas of 2026-10-24 (cob-troca-tamanho-depois, cob-muda-endereco-antes, cob-pos-venda-problema): "comprei … ficou grande",
+  // "mudei de casa, com quem eu falo pra mudar o endereço?", "comprei faz 10 dias e não chegou" got the audios, the video and "Qual o
+  // número da calça?". She is past the sale: the receipt goes, and the model answers her (`statesPastPurchase`, `changesAddress`).
+  const afterSale = statesPastPurchase(spoken(inbound.body ?? "")) || (changesAddress(spoken(inbound.body ?? "")) && /\bmudei\b/i.test(spoken(inbound.body ?? "")));
+  if (isNewLead && !isResume && !skipsOpening(spoken(inbound.body ?? "")) && !afterSale) {
     const opening = openingBubbles(CONFIG);
     const sent = await sendFunnel(conversation.id, opening);
     if (sent) {
@@ -3460,7 +3467,9 @@ const handleTurn = async (
     ? "name"
     : null;
   // E3 review (B1): with nothing of ours in the chat yet (arm A, no receipt), her "ok"/"👍" is a first message and gets an answer.
-  if (!isRetry && !isResume && lastOutbound !== "" && ackGoesUnanswered(isBareAck(parts), lastOutbound, datum)) {
+  // A thanks alone counts too, after a reply that asked nothing and no datum (personas of 2026-10-24: "ta bom amiga obrigada viu"
+  // after the goodbye got a paid reply each time, three in a row).
+  if (!isRetry && !isResume && lastOutbound !== "" && ackGoesUnanswered(isBareAck(parts) || (datum === null && isBareThanks(parts)), lastOutbound, datum)) {
     // Her message cancelled the ruler; it comes back as it was armed by the agent's last reply.
     const earlier = (recentRows ?? [])
       .filter((m: { direction: string }) => m.direction === "outbound")
@@ -4377,8 +4386,18 @@ const handleTurn = async (
   // marked only when the model's reply with it went out (the `turn_outcomes` reason also lands on a safe fixed reply: round 7 of the
   // PR 77 review): after it, her "vou pensar" again is today's reply. A refusal is never one, nor a datum refused, a question beside
   // it or a decision.
-  const vagueObjection = !declined && !interpretation.wants_to_buy &&
+  // Her yes to the offers in words (cob-aceita-ofertas, 2026-10-24) grants nothing — a tap does (`opt-in.ts`), and her text already
+  // suspended the consent above, so the sweep asks with the buttons again — but it is answered as a yes, never as "vou pensar".
+  const offersYes = parts.some((p: string) => acceptsOffers(spoken(p)));
+  if (offersYes && ASK_OPT_IN) {
+    guide("Ela disse que quer receber as ofertas. Agradeça numa frase curta, sem prometer cupom, data nem mensagem.", OFFERS_YES_EXAMPLE, "ela aceitou ofertas por escrito");
+  }
+  // Personas of 2026-10-24: the question went to "obrigada, vou descansar a vista", "no almoço eu vejo o cep e te chamo", "vou falar
+  // com ela pra ver se ela fica em casa" and "pode me mandar as promoções sim". Her "vou pensar" counts only in her own hesitation
+  // words (`hesitates`), never beside the CEP she will fetch or her yes to the offers.
+  const vagueObjection = !declined && !interpretation.wants_to_buy && !offersYes &&
     (putsOff || interpretation.price_signal === "complaint") &&
+    (interpretation.price_signal === "complaint" || (parts.some((p: string) => hesitates(spoken(p))) && !parts.some((p: string) => /\bcep\b/i.test(spoken(p))))) &&
     interpretation.pending_answer !== "other_question" && !refusesAskedDatum(lastOutbound, spoken(inbound.body ?? "")) &&
     !clauses.some((q: string) => asksSomething(q) && !buyerAsk(q)) && storedProfileOf(lead)?.vague_asked !== true;
   if (vagueObjection) {
@@ -4388,6 +4407,9 @@ const handleTurn = async (
         firstDateIsTomorrow: region?.cod === true && eveIsTomorrow(region.dates[0], new Date()),
         scarcityLine: stockLine,
         price: interpretation.price_signal === "complaint",
+        // The warranty answers a fear of the size or of the shop, said now or before; the kit, her price, on her known path.
+        warranty: [...interpretation.objections, ...(storedProfileOf(lead)?.objections ?? [])].some((o) => o === "tamanho" || o === "confianca"),
+        kitPath: knownRegion === null ? null : knownRegion.cod === true ? "cod" : "prepay",
       }),
       interpretation.price_signal === "complaint" ? VAGUE_PRICE_QUESTION : VAGUE_OBJECTION_QUESTION,
       VAGUE_OBJECTION_REASON,

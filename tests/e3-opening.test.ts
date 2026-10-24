@@ -150,7 +150,7 @@ describe("E3.4 — a pausa de digitação pelo braço do experimento A", () => {
 describe("revisão da E3 — primeira mensagem 'ok', ordens em conflito, aviso de madrugada, anúncio antigo", () => {
   const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
   it("B1: no braço rápido, um 'ok' ou '👍' como primeira mensagem é respondido (nada nosso na conversa ainda)", () => {
-    expect(source).toContain('if (!isRetry && !isResume && lastOutbound !== "" && ackGoesUnanswered(isBareAck(parts), lastOutbound, datum)) {');
+    expect(source).toContain('if (!isRetry && !isResume && lastOutbound !== "" && ackGoesUnanswered(isBareAck(parts) || (datum === null && isBareThanks(parts)), lastOutbound, datum)) {');
   });
   it("R1: a diretiva de tamanho do texto não vale na primeira resposta", () => {
     expect(source).toContain("greeting ? null : registerDirective(");

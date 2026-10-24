@@ -802,6 +802,34 @@ export const isBareAck = (parts: readonly string[]): boolean =>
     return words.length <= 5 && words.every((w) => ACK_WORDS.has(w));
   });
 
+/**
+ * A thanks or a goodbye and nothing else (personas of 2026-10-24, venda-sem-dinheiro T10–T12: "ta bom amiga obrigada viu" three
+ * times, each a paid reply). Every word is an acknowledgment, a thanks or its filler; a question, a datum or any other word is not.
+ */
+const THANKS_WORDS = new Set([
+  ...ACK_WORDS, "obrigada", "obrigado", "obrigadaa", "obg", "obgda", "obgd", "brigada", "brigado", "valeu", "vlw", "grata", "grato",
+  "amiga", "amg", "viu", "muito", "mto", "mt", "tchau", "tchauzinho", "bjs", "bj", "beijo", "beijos", "flor", "querida", "entao",
+  "de", "nada", "ate", "mais", "logo", "boa", "noite", "tarde", "dia", "e", "pra", "voce", "vc",
+]);
+export const isBareThanks = (parts: readonly string[]): boolean =>
+  parts.length > 0 &&
+  parts.some((p) => /\b(?:obrigad\w*|obg\w*|brigad\w*|valeu|vlw|grat[ao])\b/.test(norm(p))) &&
+  parts.every((p) => {
+    const t = norm(p).replace(/[\p{Extended_Pictographic}\p{Emoji_Modifier}\uFE0F\u200D]/gu, " ");
+    if (t.includes("?")) return false;
+    const words = t.split(/[\s,.!;]+/).filter(Boolean);
+    return words.length > 0 && words.length <= 8 && words.every((w) => THANKS_WORDS.has(w));
+  });
+
+/**
+ * Her own hesitation over the purchase, in her words (personas of 2026-10-24): the vague objection's question went to "obrigada,
+ * vou descansar a vista", "no almoço eu vejo o cep e te chamo", "vou falar com ela pra ver se ela fica em casa" — a goodbye or an
+ * errand, read by the interpreter as "vou pensar". Only thinking, looking, deciding or putting the purchase off counts.
+ */
+const HESITATES =
+  /\b(?:pens\w*|vou\s+(?:ver|olhar|analisar|decidir|deixar|esperar|fechar)|(?:de|pra)\s+olhar|olhar\s+(?:aqui|com\s+calma|direitinho)|ver\s+(?:aqui|direitinho|com\s+calma|isso)|decid\w*|analis\w*|deixa\w*\s+pra\s+(?:depois|outra|proxima)|fica\s+pra\s+(?:depois|outra|proxima)|outro\s+dia|mais\s+pra\s+frente|semana\s+que\s+vem|mes\s+que\s+vem|nao\s+sei|sei\s+la|(?:to|estou|ainda)\s+vendo)\b/;
+export const hesitates = (message: string): boolean => HESITATES.test(norm(message));
+
 /** The clause before `at` carries a negation: "ainda não comprei", "não vou querer". */
 const negatedBefore = (t: string, at: number): boolean =>
   /\b(nao|nunca|jamais|nem)\b/.test(t.slice(0, at).split(/[,;.!?\n]/).pop() ?? "");
@@ -1060,10 +1088,12 @@ export const withdrawsInBurst = (messages: readonly string[]): boolean => {
  * it takes the refusal back ("desisti não", second review of E1.1).
  */
 const DECLINE_FILLER = String.raw`(?:ah|ai|entao|olha|oi|ok|ta|bom|na verdade|pensando bem|moca|malu|obrigad[ao]s?|brigad[ao]|obg|valeu|vlw|tchau|mesmo|msm|de verdade|viu|beleza|blz|kk+|rs+|eu|ja|mas|pela|atencao)`;
+/** Personas of 2026-10-24 (cob-loja-fisica): "então deixa pra lá" / "prefiro provar antes" — the reason she will not buy here. */
+const PREFERS_TRYING = String.raw`prefiro (?:provar|experimentar|ver pessoalmente)(?: antes| primeiro| pessoalmente| na loja)?(?: ${DECLINE_FILLER})*`;
 const DECLINE_LINE = new RegExp(
   String.raw`^(?:${DECLINE_FILLER} )*(?:` +
     String.raw`(?:(?:nao|n|nem) quero mais(?: comprar| o colete| a cinta)?|nao vou (?:mais )?(?:querer|levar|comprar)|nao tenho (?:mais )?interesse(?: nenhum| (?:no|nesse|neste|em|pelo) (?:produto|colete|cinta|comprar|compra))?)(?: (?:${DECLINE_FILLER}|nao))*` +
-    String.raw`|(?:desisti(?: d[ao] (?:compra|colete|cinta|pedido))?|desisto|deixa pra la|deixa quieto)(?: ${DECLINE_FILLER})*` +
+    String.raw`|(?:desisti(?: d[ao] (?:compra|colete|cinta|pedido))?|desisto|deixa pra la|deixa quieto)(?: ${DECLINE_FILLER})*(?: ${PREFERS_TRYING})?` +
     String.raw`)$`,
 );
 const words = (line: string): string => norm(line).replace(/[^a-z0-9]+/g, " ").trim();
@@ -1073,6 +1103,7 @@ const staysClosed = (line: string): boolean =>
   declineLine(line) ||
   (closesConversation(line) && !line.includes("?") && onlyDoneWords(line)) ||
   /^(?:nao|n)(?: quero| obrigad[ao]| valeu)?$/.test(words(line)) ||
+  (!line.includes("?") && new RegExp(String.raw`^(?:${DECLINE_FILLER} )*${PREFERS_TRYING}$`).test(words(line))) ||
   isBareAck([line]);
 /**
  * The newest refusal in her words and nothing after it but lines that keep it closed. Read over the

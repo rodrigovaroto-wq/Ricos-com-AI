@@ -1422,8 +1422,10 @@ const gates: readonly Gate[] = [
       c.coupon.active
         ? `O cupom de ${c.coupon.percent}% está ativo e você pode citá-lo` +
           (c.coupon.code?.trim() ? `: o código é ${c.coupon.code.trim()}, digitado por ela no checkout. Nenhum outro código existe.` : `.`)
-        : `Não existe cupom. Você pode dizer que não temos cupom no momento — o que não pode é ` +
-          `anunciar um, porque ele não existiria no checkout.`,
+        // Personas of 2026-10-24: "não temos cupom no momento" with SUPER20 active, held for the ruler's `silence_3` (R17.4,
+        // `conversationCoupon`), and the coupon arrived after — a contradiction. Never denied, never announced: today's best price.
+        : `Nesta conversa você não cita cupom nem código: o checkout não aplicaria. Se ela perguntar de cupom, não diga que ` +
+          `não existe nem que não temos: diga o melhor valor de hoje, que está na oferta.`,
     // The gate exists so the agent never announces a coupon with no destination in
     // Coinzz. Saying "não temos cupom no momento" announces nothing — it is the honest
     // answer to a question customers ask constantly, and vetoing it left the agent
