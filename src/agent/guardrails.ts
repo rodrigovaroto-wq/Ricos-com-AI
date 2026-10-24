@@ -24,6 +24,11 @@ export interface GateConfig {
    * exists and the gate refuses every one.
    */
   kits?: readonly Kit[];
+  /**
+   * The size grade, smallest to largest (`size_claim` reads its two ends, grafo §129). OPTIONAL: the turn's fallback config has
+   * none, and absent reads as the published grade, P to XGG.
+   */
+  sizes?: readonly string[];
   prices: {
     codBrl: number;
     prepayBrl: number;
@@ -480,10 +485,11 @@ const FREIGHT_DENIAL =
  * The free claim denied, which is the honest prepaid answer: "o frete (do pix) não é grátis",
  * "no pix não tem frete grátis", "nem no pix tem frete grátis". Not when "só" follows ("não é
  * grátis só na entrega" says it is free elsewhere too), and not inside a question ("não é
- * frete grátis?" offers it).
+ * frete grátis?" offers it) — a closing ", tá?", ", viu?" or ", ok?" is no question ("No pix o frete não é grátis, …, tá?",
+ * persona kit-antecipado-frete, 2026-10-24).
  */
 const FREE_DENIED =
-  /(?:\b(?:frete|entrega)\b(?:\s+(?!gratis|gratuit|zero|free)[a-z]+){0,4}?\s+(?:nao|nunca)\s+(?:e|sai|fica|vai\s+ser|sera|esta)\s+|(?:\b(?:nao|nunca)|\bnem(?:\s+(?:n[oa]|pel[oa]|com|via|pagando|pagar)(?:\s+[a-z]+)?)?)\s+(?:tem|ha|existe|temos|oferec\w*|damos|rola|vem\s+com|inclui\w*|e|sai|fica)\s+(?:com\s+)?(?:o\s+)?frete\s+)(?:gratis|gratuit[oa]|de\s+gra[cs]a|zero)\b(?!\s+(?:so|apenas|somente)\b)(?![^.!?\n]*\?)/g;
+  /(?:\b(?:frete|entrega)\b(?:\s+(?!gratis|gratuit|zero|free)[a-z]+){0,4}?\s+(?:nao|nunca)\s+(?:e|sai|fica|vai\s+ser|sera|esta)\s+|(?:\b(?:nao|nunca)|\bnem(?:\s+(?:n[oa]|pel[oa]|com|via|pagando|pagar)(?:\s+[a-z]+)?)?)\s+(?:tem|ha|existe|temos|oferec\w*|damos|rola|vem\s+com|inclui\w*|e|sai|fica)\s+(?:com\s+)?(?:o\s+)?frete\s+)(?:gratis|gratuit[oa]|de\s+gra[cs]a|zero)\b(?!\s+(?:so|apenas|somente)\b)(?![^.!?\n]*(?<!,\s*(?:ta|viu|ok))\?)/g;
 /**
  * The only sentences a free-shipping claim may stand in while cash on delivery alone ships free
  * (2026-09-29, grafo §32). Three rounds (§29–§31) tried to prove from free text that a "grátis"
@@ -545,6 +551,21 @@ const OTHER_PAYMENT =
  * também uso!" and "Tem no G também." name none and pass.
  */
 const ALSO = /\b(?:tambem|igua\w*|mesm[oa]s?|idem)\b/;
+/**
+ * A sentence that refers back to the free one, for `shipping_promise`'s message-level rule (grafo §129): with the prepaid freight
+ * said charged elsewhere in the message, only these still extend the free to the sentence's payment.
+ */
+const EXTENDS =
+  /\b(?:tambem|igua\w*|mesm[oa]s?|idem|vale\w*|serve|inclusive|identic\w*|qualquer|outr[oa]s?)\b|\b(?:n[oa]s|pr[oa]s|para\s+[oa]s|em)\s+(?:dois|duas|ambos|ambas)\b|\btod[oa]s\b/;
+/** Boleto denied: the shop has none on any path (R31), so a denied boleto names no other payment (`shipping_promise`). */
+const BOLETO_DENIED =
+  /\b(?:nao|nem|sem)\s+(?:(?:tem|temos|trabalh\w*\s+com|aceit\w*|existe|ha)\s+)?(?:o\s+|no\s+|com\s+|de\s+)?boleto\b|\bboleto\s+(?:(?:infelizmente|aqui)\s+)?(?:nao|nunca)\s+(?:tem|temos|existe|ha|da|aceit\w*|trabalh\w*)\b(?:\s+mesmo\b)?/g;
+/**
+ * She pays at the door, said so (`shipping_promise`, grafo §129): cash beside the door or the courier, or a pay verb glued to the
+ * door ("paga direto pra ele na porta", "pagar com cartão na porta", "paga direto ao entregador").
+ */
+const DOOR_MEANS =
+  /\bdinheiro\b[^.!?]*\b(?:na\s+porta|entregador)\b|\b(?:na\s+porta|entregador)\b[^.!?]*\bdinheiro\b|\bpag\w*\s+(?:(?:direto|so|tudo)\s+)*(?:(?:pra|para)\s+ele\s+|(?:com|no)\s+cartao\s+)?(?:na\s+porta|na\s+mao|(?:ao|pro)\s+entregador)\b/;
 const PAYISH = /\b(?:pag\w*|parcel\w*|antes|agora|hoje|celular|aplicativo|app|online|loja|maquininha|compr\w*|cartao|cartoes|link|checkout)\b/;
 /**
  * The freight said to be charged: the prompt's own prepaid line ("o frete é calculado por região… no
@@ -684,6 +705,10 @@ export const asksCep = (text: string): boolean =>
   norm(text)
     .split(/(?<=[.!?])\s+|\n+/)
     .some((t) => /\bcep\b/.test(t) && (/\?/.test(t) || /\b(?:passa|passe|manda|mande|diz|digita|escreve|envia)\b/.test(t)));
+
+/** The CEP she sent, said not found or invalid (`cep_insist`, grafo §129): "esse CEP não encontrei", "não achei o seu CEP". */
+const CEP_NOT_FOUND =
+  /\b(?:nao\s+(?:encontrei|achei|localizei|consegui\s+(?:encontrar|achar|localizar))\s+(?:esse|este|o\s+seu|seu|o)\s+cep|(?:esse|este|o\s+seu|seu|o)\s+cep\b[^.!?]{0,20}?\b(?:nao\s+(?:encontrei|achei|localizei|existe|foi\s+encontrado|aparece|consta)|(?:deu|veio|parece|esta|ta)\s+(?:invalido|errado|incorreto)))/;
 
 /** A reply that asks her pants size or which size she wears (`size_insist`). */
 export const asksSize = (text: string): boolean =>
@@ -869,10 +894,11 @@ export const wantsHuman = (text: string): boolean =>
  * Whether her message asks for testimonials or for proof from other customers (R16.7), which is what
  * lets the agent bring them up (`GateContext.askedTestimonial`). Broad on purpose, and blind to
  * negation on purpose ("isso não é golpe, né?" is the question): a false positive only restores the
- * behaviour before this check, a false negative vetoes the answer she asked for.
+ * behaviour before this check, a false negative vetoes the answer she asked for. Proof and authenticity count too
+ * ("QUERO VER PROVA DE GENTE DE VERDADE", "qual a diferença pro da shopee?", "qual o insta oficial?": personas 2026-10-24, grafo §129).
  */
 export const asksForTestimonial = (message: string): boolean =>
-  /\bdepoiment|\bavalia|\bopinia|\bopinio|\breclame\s*aqui\b|\breclamac|\bquem\s+(?:ja\s+)?(?:comprou|usou|usa|testou|provou|pegou)\b|\b(?:outr[ao]s|algum[ao]s?|uma|as|suas)\s+(?:clientes?|compradoras?|pessoas\s+que)\b|\b(?:funciona|serve|resolve|modela|afina)\s+mesmo\b|\bconfia(?:vel|veis|nca|r)\b|\bgolpe\b|\bfraude\b|\breferenc|\bfeedbac?k|\bresultado|\bantes\s+e\s+depois\b|\b(?:zap|whats\w*|numero|contato|telefone|insta\w*)\s+d[ea]\s+(?:uma?|alguma|algum|outra)\s+(?:cliente|compradora|pessoa)\b/.test(
+  /\bdepoiment|\bavalia|\bopinia|\bopinio|\breclame\s*aqui\b|\breclamac|\bquem\s+(?:ja\s+)?(?:comprou|usou|usa|testou|provou|pegou)\b|\b(?:outr[ao]s|algum[ao]s?|uma|as|suas)\s+(?:clientes?|compradoras?|pessoas\s+que)\b|\b(?:funciona|serve|resolve|modela|afina)\s+mesmo\b|\bconfia(?:vel|veis|nca|r)\b|\bgolpe\b|\bfraude\b|\breferenc|\bfeedbac?k|\bresultado|\bantes\s+e\s+depois\b|\bprovas?\s+(?:de|real|reais|concreta)\b|\b(?:ver|quero|mostra|manda|cade|alguma|tem)\s+(?:uma\s+|a\s+|alguma\s+)?provas?\b|\b(?:shopee|shein|aliexpress|temu|mercado\s*livre)\b|\boriginal\b|\bfalsificad|\bpirata\b|\breplica\b|\boficial\b|\b(?:zap|whats\w*|numero|contato|telefone|insta\w*)\s+d[ea]\s+(?:uma?|alguma|algum|outra)\s+(?:cliente|compradora|pessoa)\b/.test(
     norm(message),
   );
 
@@ -889,6 +915,8 @@ export const asksWhatSheIs = (message: string): boolean =>
 
 /** The one place money is written for a human to read inside this file. */
 const money = (v: number): string => `R$ ${v.toFixed(2).replace(".", ",")}`;
+/** The published size grade, read when the config carries none (`GateConfig.sizes`). */
+const GRADE: readonly string[] = ["P", "M", "G", "GG", "XGG"];
 /** The size exchange's freight without `freeExchange`, as the prompt teaches it: not said at all (R21.4). */
 const EXCHANGE_FREIGHT_LINE = `Do envio da troca de tamanho não fale nada: nem valor, nem que é por conta dela, nem que é grátis.`;
 const savingOf = (c: GateConfig): number => +(c.prices.codBrl - c.prices.prepayBrl).toFixed(2);
@@ -940,7 +968,7 @@ interface Gate {
 // Only before the noun "pagamento" (review of f657faa, finding 4): "não faz você pagar mais, você
 // paga na entrega" denies nothing about paying at the door.
 const deniedRightBefore = (t: string, at: number): boolean =>
-  /\b(?:nao|nunca|nem)\s+(?:(?:da|pode|podem|consegue|vai|tem\s+como|tem|ha|existe|rola|aceita|aceitamos|temos|oferece|precisa|e\s+possivel|espera|aguarda)\s+(?:(?:pra|para|de)\s+)?)?(?:(?:voce|vc|ela)\s+)?$/.test(
+  /\b(?:nao|nunca|nem)\s+(?:(?:da|pode|podem|consegue|vai|tem\s+como|tem|ha|existe|rola|aceita|aceitamos|temos|oferece|precisa|e\s+possivel|espera|aguarda|leva\s+com)\s+(?:(?:pra|para|de)\s+)?)?(?:(?:voce|vc|ela)\s+)?$/.test(
     t.slice(Math.max(0, at - 40), at),
   ) ||
   (/\b(?:nao|nunca|nem)\s+(?:faz|fazemos|trabalha\s+com|trabalhamos\s+com)\s+(?:o\s+)?$/.test(t.slice(Math.max(0, at - 40), at)) &&
@@ -990,8 +1018,8 @@ const NOT_BEFORE = /\b(?:nao|nunca)\s+(?:e|sera|vai\s+ser|fica)\s+(?:antes|agora
 const NOTHING_NOW =
   /\bnao\s+(?:paga|precisa\s+pagar|vai\s+pagar|tem\s+que\s+pagar|tem\s+de\s+pagar|desembolsa)\s+nada\s+(?:agora|antes|adiantado|hoje|na\s+hora\b(?!\s+(?:da\s+entrega|que\s+(?:receber|chegar))))\b/;
 const NOTHING_NOW_ALL = new RegExp(NOTHING_NOW.source, "g");
-/** Agreeing, not extending: "isso mesmo", "é isso mesmo", "exatamente isso", "sim, mesmo". Never "o mesmo". */
-const AGREEMENT = /\b(?:e\s+)?isso\s+mesm[oa]\b|\bsim\s*,?\s+mesm[oa]\b/g;
+/** Agreeing, not extending: "isso mesmo", "é isso mesmo", "exatamente isso", "sim, mesmo", "é verdade mesmo" (persona Jussara, 2026-10-24). Never "o mesmo". */
+const AGREEMENT = /\b(?:e\s+)?isso\s+mesm[oa]\b|\bsim\s*,?\s+mesm[oa]\b|\b(?:e\s+)?verdade\s+mesm[oa]\b/g;
 /**
  * The predicate denied right after it: "pagar na entrega não está disponível no seu CEP", "o pagamento
  * na entrega não chega aí" — the sentence this path needs most, which the first version vetoed
@@ -1003,6 +1031,33 @@ const AGREEMENT = /\b(?:e\s+)?isso\s+mesm[oa]\b|\bsim\s*,?\s+mesm[oa]\b/g;
  */
 const DENIED_AFTER =
   /^(?:\s*,\s*(?:infelizmente|ainda|por\s+enquanto|por\s+ora|aqui|ai|la)\s*,)?\s+(?:ainda\s+|infelizmente\s+)?(?:nao|nunca)\s+(?:(?:esta|e|fica)\s+(?:(?:mais|ainda)\s+)?(?:disponive\w*|possive\w*|liberad\w*|ativ\w*|habilitad\w*|aceit\w*|oferecid\w*|feit\w*|atendid\w*|(?:uma\s+)?opcao)|chega\b(?!\s+a\s+ser)|atende|existe|funciona|cobre|alcanca|serve|(?:da|rola)\b(?=\s*(?:$|[,.!?]|ai\b|aqui\b|n[oa]\s+(?:seu|sua)\b|pra\s+(?:voce|vc|sua|seu)\b))|vale\s+(?:pra|para)\s+(?:a\s+|o\s+)?(?:sua|seu|voce|vc|essa|esse)\b)\b/;
+/** The message sends her to the prepaid path alone: "vai só no antecipado", "aí não tem essa opção" (`charge_promise`). */
+const ONLY_PREPAID = /\b(?:so|apenas|somente)\s+(?:(?:no|pelo|o|tem\s+o|vai\s+no)\s+)?antecipad\w*|\bnao\s+tem\s+essa\s+opcao\b/;
+/**
+ * A door payment in `charge_promise`'s sentence `s` (match from `at` to `end`) that promises her nothing, where the delivery does
+ * not reach her (personas 2026-10-24, grafo §129): the price of the other path ("os R$ 129,90 são de quem paga na entrega", "o de
+ * R$ 129,90 é pagando na entrega"); the region deciding, hers out ("o pagamento na entrega depende da região e na sua ainda não
+ * chega"); someone else's place ("sua colega deve estar onde o pagamento no recebimento já chega"); and her wish heard back
+ * ("entendo você querer pagar só quando receber", "seria ótimo pagar só quando chegar"), only in a message that tells her it does not
+ * reach her (`deniedHere`). Never in a sentence with "maioria": "na maioria das regiões tem" is the lie §3 of that review names.
+ */
+const doorNotHers = (s: string, at: number, end: number, deniedHere: boolean): boolean => {
+  if (/\bmaioria\b/.test(s)) return false;
+  const before = s.slice(0, at);
+  const after = s.slice(end);
+  if (/\br\$\s*[\d.,]+\s+(?:e|sao)\s+(?:de|pra|para)\s+quem\s+$|\b[oa]s?\s+de\s+r\$\s*[\d.,]+\s+(?:e|sao)\s+$/.test(before)) return true;
+  if (
+    /^\s+depende\s+da\s+regiao\s*(?:,|\be\b|\bmas\b)\s*(?:(?:ai\s+)?n[oa]\s+(?:sua|seu)(?:\s+(?:regiao|cep|cidade))?|pra\s+voce|ai)\s*,?\s+(?:ainda\s+|infelizmente\s+)?(?:nao|nunca)\s+(?:chega|tem|da|atende|existe|funciona)\b/.test(after)
+  )
+    return true;
+  if (/\b(?:colegas?|amigas?|vizinhas?|irmas?|primas?|conhecidas?)\b[^.!?]{0,40}\bonde\b[^.!?]{0,30}$/.test(before)) return true;
+  return (
+    deniedHere &&
+    /\b(?:entendo|entendi|compreendo|justo|faz\s+(?:todo\s+)?sentido)\b/.test(before) &&
+    (/\b(?:quer|queria|querer|quiser|prefer\w*|gostari\w*|desej\w*|seria\s+(?:otimo|bom|melhor|o\s+ideal))\s+(?:(?:so|mesmo|muito)\s+)?$/.test(before) ||
+      /^\s*,?\s*seria\s+(?:otimo|bom|melhor|o\s+ideal)\b/.test(after))
+  );
+};
 /** A sentence that makes paying on delivery its condition: "pagando na entrega…", "se pagar na entrega…". */
 const COD_CONDITION =
   /\b(?:pagando|no\s+pagamento|com\s+(?:o\s+)?pagamento|se\s+(?:voce\s+|vc\s+)?(?:pagar|escolher\s+pagar|preferir\s+pagar|optar\s+por\s+pagar))\s+na\s+entrega\b/;
@@ -1074,7 +1129,15 @@ const gates: readonly Gate[] = [
       // na entrega…" is a lie there (independent review, finding 7); on a prepaid order's own touches
       // the conditioned sentence still speaks of the other path, and passes.
       if (ctx.codUnavailable === true || (ctx.paymentPath === "prepay" && ctx.stage === "logistics")) {
-        for (const s of sentencesIn(t)) {
+        const sentences = sentencesIn(t);
+        // The message tells her the delivery does not reach her: "vai só no antecipado", or a door payment denied.
+        const deniedHere =
+          ONLY_PREPAID.test(t) ||
+          sentences.some((s) => {
+            const door = s.replace(NOT_BEFORE, " ");
+            return [...door.matchAll(DOOR_PAYMENT)].some((m) => deniedRightBefore(door, m.index ?? 0) || DENIED_AFTER.test(door.slice((m.index ?? 0) + m[0].length)));
+          });
+        for (const s of sentences) {
           if (ctx.codUnavailable !== true && COD_CONDITION.test(s) && s.search(PREPAY_NAME) === -1) continue;
           if (NOTHING_NOW.test(s))
             return "promises she pays nothing now where she only has the prepaid path, and pays in the checkout";
@@ -1082,6 +1145,7 @@ const gates: readonly Gate[] = [
           for (const m of door.matchAll(DOOR_PAYMENT)) {
             const at = m.index ?? 0;
             if (deniedRightBefore(door, at) || DENIED_AFTER.test(door.slice(at + m[0].length))) continue;
+            if (doorNotHers(door, at, at + m[0].length, deniedHere)) continue;
             return "promises payment at the door where she only has the prepaid path, and pays in the checkout";
           }
         }
@@ -1428,6 +1492,9 @@ const gates: readonly Gate[] = [
       const claims = [
         new RegExp(String.raw`\b(?:modela\w*|pega\w*|acompanha\w*|cobre|cobrem|cobrir|abraca\w*|envolve\w*|levanta\w*|empina\w*|contorna\w*|segura\w*|alcanca\w*|vai\s+ate)${GAP}\s+${HIP}\b`, "g"),
         new RegExp(String.raw`\b${HIP}\s+(?:\S+\s+){0,2}?(?:modelad|empinad|levantad|durinh|redondinh|arrebitad|contornad)\w*`, "g"),
+        // Following the hip's shape as a condition (persona venda-ajuda-tamanho, 2026-10-24, grafo §129): "ele acompanha bem mesmo
+        // quando o quadril é maior que a cintura".
+        new RegExp(String.raw`\b(?:acompanha|abraca|contorna|envolve|pega)\w*\s+(?:bem\s+)?(?:mesmo\s+)?(?:quando|se|com)\s+(?:o\s+|a\s+|seu\s+|sua\s+)?${HIP}\b`, "g"),
       ];
       for (const pattern of claims) {
         for (const m of t.matchAll(pattern)) {
@@ -1573,7 +1640,7 @@ const gates: readonly Gate[] = [
       // "abre a caixa", "já veste"). "Em casa" only with being there — "usa ele em casa" is wearing it.
       // "Prazo" is not arrival — "o prazo pra trocar" — and the rules that read it say so.
       const ARRIVAL =
-        /\b(?:cheg\w*|entreg\w*|receb\w*|lev[ae]\w*|demor\w*|envi\w*|despach\w*|post\w*|sai\w*|ai|la|na\s+sua\s+casa|mao|porta|viagem|caminho|vem|abre\s+a\s+caixa|ja\s+tem|(?:tem|tera|vai\s+ter)\s+(?:o\s+(?:seu\s+)?colete|ele)|ja\s+(?:(?:esta|ta)\s+)?(?:vest|us)\w*|e\s+(?:tod[oa]\s+)?(?:seu|sua)|(?:esta|ta|estara|estar|fica)\s+(?:(?:aqui|ai|la)\s+)?(?:com\s+(?:voce|ele)|contigo|em\s+casa))\b/;
+        /\b(?:cheg\w*|entreg\w*|receb\w*|lev[ae]\w*|demor\w*|envi\w*|despach\w*|post\w*|sai\w*|ai|la|na\s+sua\s+casa|mao|porta|viagem|caminho|vem|abre\s+a\s+caixa|ja\s+tem|(?:tem|tera|vai\s+ter)\s+(?:o\s+(?:seu\s+)?colete|ele)|ja\s+(?:(?:esta|ta)\s+)?(?:vest|us)\w*|e\s+(?:tod[oa]\s+)?(?:seu|sua)(?!\s+(?:nome|cep|endereco|e-?mail|cpf|telefone|numero|tamanho)\b)|(?:esta|ta|estara|estar|fica)\s+(?:(?:aqui|ai|la)\s+)?(?:com\s+(?:voce|ele)|contigo|em\s+casa))\b/;
       /** Delivery talk: arrival, the deadline named ("o prazo", "é rapidinho", "nesse tempo"), or the carrier. */
       const talksDelivery = (s: string): boolean => ARRIVAL.test(s) || /\b(?:prazo|rapid\w*|correio\w*|transportador\w*|(?:mesmo|nesse|esse)\s+tempo)\b/.test(s);
       const names = (re: RegExp, s: string) => s.search(re) !== -1;
@@ -1834,7 +1901,7 @@ const gates: readonly Gate[] = [
           // but "corridos/úteis", the purpose, or when the warranty starts counting.
           // "Quando chega aí você tem 7 dias pra trocar": the place of the arrival is part of it.
           // "Após o recebimento do produto": the noun's own object, only after "recebimento" (2026-10-13).
-          const WHO = String.raw`(?:(?:o\s+colete|o|voce|ele|a\s+senhora)\s+)?(?:receb|cheg)\w*(?:\s+(?:ai|la|em\s+casa|na\s+sua\s+casa)|(?<=recebimento)\s+d[oa]\s+(?:produto|colete|peca|pedido))?`;
+          const WHO = String.raw`(?:(?:o\s+colete|o|voce|ele|a\s+senhora)\s+)?(?:ja\s+)?(?:tiver\s+)?(?:receb|cheg)\w*(?:\s+(?:ai|la|em\s+casa|na\s+sua\s+casa)|(?<=recebimento)\s+d[oa]\s+(?:produto|colete|peca|pedido))?`;
           // When the warranty starts counting: "depois que receber", "a partir do recebimento",
           // "contados de quando ele chegar", "a contar do dia que receber", "após a entrega" — and
           // the script's own "contando do dia que receber / da data em que você recebe" (fifth review).
@@ -1844,7 +1911,7 @@ const gates: readonly Gate[] = [
           // pelo tamanho certo em até 7 dias após o recebimento" was not governed, and its anchor's
           // "recebimento" read as arrival).
           const OBJECT = String.raw`(?:\s+(?:de|o|a|pelo|por\s+outro)\s+(?:tamanho|produto|colete|numero)(?:\s+(?:certo|correto|ideal|maior|menor))?)?`;
-          const PURPOSE = String.raw`(?:(?:pra|para)\s+(?:(?:trocar|devolver|troca|devolu\w*|desistir|se\s+arrepender|experimentar)(?:\s+ou\s+(?:trocar|devolver|desistir))?${OBJECT}|(?:pedir|solicitar)\s+a\s+(?:troca|devolucao))|de\s+(?:garantia|arrependimento|prazo\s+(?:pra|para)\s+(?:troca|devol\w*)))`;
+          const PURPOSE = String.raw`(?:(?:pra|para)\s+(?:(?:trocar|devolver|troca|devolu\w*|desistir|se\s+arrepender|experimentar|provar)(?:\s+ou\s+(?:trocar|devolver|desistir))?${OBJECT}|(?:pedir|solicitar)\s+a\s+(?:troca|devolucao))|de\s+(?:garantia|arrependimento|prazo\s+(?:pra|para)\s+(?:troca|devol\w*)))`;
           // Getting her money back ("e recebe seu dinheiro de volta") and asking the CEP to look
           // the delivery up ("me passa seu CEP pra eu ver a entrega aí") are not delivery (loop
           // review, 2026-09-25) — only as the purpose of asking the CEP ("dá pra ver a entrega em
@@ -1861,7 +1928,13 @@ const gates: readonly Gate[] = [
               .replace(/\b(?:cep|endereco)\b[^.!?]{0,20}?\b(?:ver|conferir|checar|consultar|calcular)\s+(?:como\s+fica\s+)?(?:a\s+)?entrega\b(?:\s+ai\b)?(?![^.!?]*\b(?:cheg\w*|leva\w*|demor\w*|dias?|tempo|prazo)\b)/g, " ");
           // After the count: "corridos/úteis", the purpose and the start, in any order; a bare
           // "quando receber" only after the purpose ("7 dias pra trocar, quando receber").
-          let tail = t.slice(at + m[0].length).split(/[.!?\n]/)[0]!;
+          // Personas 2026-10-24 (grafo §129): the WhatsApp marks and an emoji are no words ("*7 Dias de Garantia*", "…pra trocar ou
+          // devolver 💛"), and the warranty's own "conta" opens its start ("a garantia de 7 dias conta depois que o colete chega").
+          let tail = t
+            .slice(at + m[0].length)
+            .split(/[.!?\n]/)[0]!
+            .replace(/[*_~]|\u200d|\ufe0f|\p{Extended_Pictographic}/gu, " ")
+            .replace(/^\s+conta(?:m|ndo)?(?=\s+(?:depois|apos|a\s+partir|de\s+quando)\b)/, " ");
           let purpose = false;
           // Her receiving it ("contando de quando recebeu"), not the store ("depois que
           // recebermos") nor the noun ("a partir do recebimento") — sixth review.
@@ -1873,6 +1946,8 @@ const gates: readonly Gate[] = [
           }
           // "A garantia de 7 dias vale (também) nos dois": the warranty's own verb opens the rest.
           tail = tail.replace(/^\s+(?:vale\w*|continua|se\s+aplica|e\s+(?:por\s+)?lei)(?:\s+tambem)?\b/, ",");
+          // "…pra provar com calma" (persona cob-gatilho-formatura, 2026-10-24): how she tries it, no time.
+          if (purpose) tail = tail.replace(/^\s+(?:com\s+calma|sem\s+pressa|com\s+tranquilidade)\b/, "");
           // Then the sentence ends, or a new clause opens that says nothing about arrival or time
           // ("…, e o frete da troca é por nossa conta", "…se não servir"). "de viagem", "até lá",
           // "ele está aí", "e o colete é seu", "…, que é bem quando ele chega" are the count's own
@@ -1892,14 +1967,22 @@ const gates: readonly Gate[] = [
           // their own, by the range rule and this loop (2026-09-28).
           const codWindow =
             /^\s*[,;]?\s*(?:(?:e|mas)\s+)?(?:(?:a|na)\s+entrega|o\s+prazo\s+d[ae]\s+entrega)\s+(?:(?:voce\s+)?(?:leva|e|chega|recebe|demora|fica)\s+)?(?:(?:em|de)\s+)?(?:ate\s+)?(?:\d{1,2}\s+a\s+)?\d{1,2}\s+dias(?:\s+uteis)?\s*$/;
+          // Where the warranty starts counting, said after it ("…pra devolver se não gostar após receber"): only `START`, never a bare
+          // "quando ele chega" ("Pode trocar em 7 dias, quando ele chega" is the deadline).
+          const START_MARK = new RegExp(String.raw`(?<!\b(?:ate|pra|para|prazo|tempo)\s)\b${START}\b(?!\s+(?:em|de|ate|dentro|daqui)\b)`, "g");
           const tailOk =
             /^\s*$/.test(tail) ||
             (newClause && PREPAY_ONE.test(tail) && onlyPrepayWindow(tail)) ||
             (newClause && codWindow.test(tail)) ||
             (newClause &&
-              !ARRIVAL.test(notDelivery(tail)) &&
+              !ARRIVAL.test(notDelivery(tail).replace(START_MARK, " ")) &&
               !/\b(?:quando|dias?|semanas?|depois|antes|ate|junto|tempo|prazo|mesm\w*|igual\w*|tambem)\b/.test(
-                tail.replace(/\btod[oa]s?\s+(?:o\s+|os\s+)?dias?\b|\bperder\s+tempo\b|\bmesm[oa]\s+(?:tamanho|numero|modelo|cor)\b/g, " "),
+                tail
+                  .replace(/\btod[oa]s?\s+(?:o\s+|os\s+)?dias?\b|\bperder\s+tempo\b|\bmesm[oa]\s+(?:tamanho|numero|modelo|cor)\b/g, " ")
+                  // The warranty said again after it is judged on its own count: "*7 Dias de Garantia*, se não gostar você tem 7
+                  // dias após o recebimento pra devolver" (persona cob-gatilho-formatura, 2026-10-24).
+                  .replace(new RegExp(String.raw`\b${ctx.config.delivery.warrantyDays}\s+dias\b`, "g"), " ")
+                  .replace(START_MARK, " "),
               ));
           const sb = t.slice(0, at).split(/[.!?\n]/).pop()!;
           // A return word taking the count right before it: "a troca é (de/em até)", "a garantia
@@ -2156,10 +2239,10 @@ const gates: readonly Gate[] = [
             // "O entregador não trabalha domingo": the denial sits between verb and day.
             /\b(?:nao|nunca)\b/.test(m[0]) ||
             // The topic first, its denial right after and closing the clause (persona Rafa, 2026-10-13): "sobre
-            // chegar até sexta eu não consigo te garantir (por aqui)". Never "…garantir mais que isso".
+            // chegar até sexta eu não consigo te garantir (por aqui)", "…garantir dia por aqui" (persona venda-com-pressa, 2026-10-24). Never "…garantir mais que isso".
             (negations === 0 &&
               /^(?:(?:cheg|entreg)ar|receber)\b/.test(m[0]) &&
-              /^\s*(?:(?:eu|a\s+gente|nos)\s+)?(?:nao|nunca|jamais)\s+(?:(?:consigo|conseguimos|posso|podemos|da\s+pra|tem\s+como|tenho\s+como|temos\s+como)\s+)?(?:(?:te|lhe)\s+)?(?:garant|promet)\w*(?:\s+(?:isso|agora|por\s+aqui|pra\s+voce))*\s*(?:[,.;:!?\n]|$)/.test(td.slice(at + m[0].length))) ||
+              /^\s*(?:(?:eu|a\s+gente|nos)\s+)?(?:nao|nunca|jamais)\s+(?:(?:consigo|conseguimos|posso|podemos|da\s+pra|tem\s+como|tenho\s+como|temos\s+como)\s+)?(?:(?:te|lhe)\s+)?(?:garant|promet)\w*(?:\s+(?:isso|agora|por\s+aqui|pra\s+voce|(?:o\s+)?dia|(?:a\s+)?data))*\s*(?:[,.;:!?\n]|$)/.test(td.slice(at + m[0].length))) ||
             (negations === 1 &&
             (new RegExp(String.raw`\b(?:nao|nunca|jamais|nem)\s+(?:${CLITIC}|(?:tem|ha|existe|faz|fazemos)\s+)$`).test(phrase) ||
               new RegExp(
@@ -2429,7 +2512,8 @@ const gates: readonly Gate[] = [
       `Você não cancela, não estorna e não altera pedido nenhum. Nunca diga que cancelou, que ` +
       `vai cancelar, que deixou cancelado, que estornou ou que mudou algo no pedido dela. Não ` +
       `ofereça chamar ninguém do time para isso: diga o que ela mesma faz (recusar na porta, pedir ` +
-      `a devolução depois de receber).`,
+      `a devolução depois de receber). Você também não reserva, separa nem guarda tamanho nenhum, e não apaga dado nenhum ` +
+      `dela: nunca diga que ficou reservado ou que apagou.`,
     check: (text, ctx) => {
       if (ctx.layer !== "agent") return null;
       const t = norm(text);
@@ -2449,6 +2533,20 @@ const gates: readonly Gate[] = [
         if (deniedJustBefore(t, m.index)) continue;
         return "claims an action on her order the agent cannot take";
       }
+      // Personas 2026-10-24 (grafo §129): nothing is reserved ("o M já fica reservado", "seu M fica lá te esperando") and no data
+      // of hers is deleted here ("confirmado, apaguei tudo que você informou aqui"). No offer exemption: offering either is the
+      // same untruth. Only a denial governing it passes ("não consigo reservar", "não tenho como apagar").
+      const untrue: ReadonlyArray<readonly [RegExp, string]> = [
+        [
+          /\breserv(?:ei|amos|ad[oa]s?|o|ar)\b|\b(?:p|m|g|gg|xgg|tamanho|colete|pedido)\b[^.!?]{0,20}?\b(?:fica|ficam|esta|ta|vai\s+ficar)\s+(?:la\s+|aqui\s+)?(?:te\s+)?esperando\b|\b(?:separei|guardei|deixei\s+(?:separad|guardad)\w*)\b[^.!?]{0,20}?\b(?:p|m|g|gg|xgg|tamanho|colete|seu|sua)\b/g,
+          "claims a size is reserved for her, and nothing is reserved",
+        ],
+        [
+          /\b(?:apaguei|deletei|exclui|removi|eliminei|apagamos|deletamos|excluimos|removemos|vou\s+(?:apagar|deletar|excluir|remover|eliminar))\s+(?:\S+\s+){0,3}?(?:tudo|dados?|informac\w*|cadastro|historico|conversa|mensagens?|numero|cep|cpf|nome|e-?mail|endereco)\b|\b(?:dados?|informac\w*|cadastro|historico|tudo)\b[^.!?]{0,30}?\b(?:foi|foram|fica\w*|ta|esta|estao)\s+(?:\S+\s+)?(?:apagad|deletad|excluid|removid|eliminad)\w*/g,
+          "claims her data was deleted, and the agent deletes nothing",
+        ],
+      ];
+      for (const [r, why] of untrue) for (const m of t.matchAll(r)) if (!deniedNear(t, m.index ?? 0)) return why;
       return null;
     },
   },
@@ -2760,7 +2858,8 @@ const gates: readonly Gate[] = [
             `palavras, numa frase só dela ("Pagando na entrega o frete é grátis: você paga só ${money(c.prices.codBrl)} quando receber."). ` +
             `Qualquer outra frase com "grátis", "sem frete" ou "não paga frete" volta pra reescrita, ` +
             `e, na mesma mensagem, toda frase que falar do antecipado, do pix, do cartão online, do site ` +
-            `diz que ali o frete é calculado no checkout ("No pix também." volta). No antecipado o ` +
+            `diz que ali o frete é calculado no checkout ("No pix também." volta). Dizer que na porta ela paga ao entregador ` +
+            `no dinheiro, Pix ou cartão é a entrega, e pode. No antecipado o ` +
             `frete é calculado por região dentro do checkout: nunca diga que é grátis e nunca cite ` +
             `valor de frete.`
           : `Nunca diga "frete grátis". No pagamento na entrega o frete já está dentro do preço; ` +
@@ -2828,9 +2927,18 @@ const gates: readonly Gate[] = [
         // 2026-10-05, Jussara — "Isso mesmo, você não paga nada antes, só quando o colete chegar"
         // beside the canonical sentence was read as the free extended to the prepaid offer, twice,
         // and the conversation went to a person by cost at the moment she said yes.
-        const plain = (s: string): string => s.replace(NOTHING_NOW_ALL, " ").replace(AGREEMENT, " ");
+        // Nor with a boleto denied ("a loja não trabalha com boleto", "boleto não tem mesmo"): the shop has none on any path, so
+        // it names no other payment; nor "também não" ("na lotérica também não consigo"), which denies and extends nothing
+        // (personas 2026-10-24, cob-boleto-insiste, grafo §129).
+        const plain = (s: string): string =>
+          s.replace(NOTHING_NOW_ALL, " ").replace(AGREEMENT, " ").replace(BOLETO_DENIED, " ").replace(/\btambem\s+nao\b/g, " nao");
         const names = (raw: string): boolean => {
-          const s = plain(raw);
+          let s = plain(raw);
+          // Pix and card at the door are the delivery's own means ("você paga direto pra ele na porta, no dinheiro, no Pix ou no
+          // cartão", persona cob-correio-na-porta, 2026-10-24): in a sentence that says she pays there (`DOOR_MEANS`) they name no
+          // other payment. Never in a question, nor with "também"/"igual"/"mesmo", nor with a free word in it.
+          if (DOOR_MEANS.test(s) && !s.trimEnd().endsWith("?") && !ALSO.test(s) && s.search(PAYMENT_FREE) === -1 && s.search(FREE_WORD) === -1)
+            s = s.replace(/\bpix\b|\b(?:no|pelo|com|via|passando\s+o)\s+(?:cartao|credito|debito)\b/g, " ");
           return s.search(PREPAY_NAME) !== -1 || OTHER_PAYMENT.test(s) || moneyMatches(s).some((x) => prepaidPrices.includes(x.value));
         };
         // Honest about the other payment: the free denied (`FREE_DENIED`, `BARE_FREE_DENIED`), or the
@@ -2956,6 +3064,7 @@ const gates: readonly Gate[] = [
         if (SAME_AS_DELIVERY.test(t)) return "says the freight is the same as on delivery, and the prepaid checkout charges it by region";
         if (freeOnDelivery.size > 0) {
           const sentence = (i: number): string => t.slice(starts[i]!, i + 1 < starts.length ? starts[i + 1]! - 1 : t.length);
+          const chargedElsewhere = starts.some((_, i) => names(sentence(i)) && FREIGHT_CHARGED.test(sentence(i)));
           for (const [i, start] of starts.entries()) {
             if (freeOnDelivery.has(start)) continue;
             const s = sentence(i);
@@ -2964,6 +3073,11 @@ const gates: readonly Gate[] = [
             const prevOther = prev !== "" && !honest(prev) && (names(prev) || PAYISH.test(prev));
             if (!names(s) && !(ALSO.test(plain(s)) && (PAYISH.test(plain(s)) || prevOther))) continue;
             if (honest(s)) continue;
+            // The prepaid freight said charged in a sentence of its own in this message ("No antecipado o frete é calculado por
+            // região no checkout"): a sentence that only names the prepaid path or its means ("o antecipado é só no pix ou no
+            // cartão") extends nothing, the message already says what the freight is there (personas 2026-10-24, boleto-insiste).
+            // One that refers back ("também", "igual", "vale", "pros dois", "qualquer forma") still does (grafo §33).
+            if (chargedElsewhere && !EXTENDS.test(plain(s))) continue;
             return beyondCod;
           }
         }
@@ -3175,7 +3289,7 @@ const gates: readonly Gate[] = [
       const SHARED = String.raw`\bcom\s+quem\s+(?:(?:os|as|seus|suas|meus|minhas|dados|informacoes)\s+)*(?:sao|e|foram|serao|ficam)\s+`;
       const TOKEN = new RegExp(
         // R24 (personas, 2026-10-15): "com quem (os dados) são divididos" is her data shared, not the price — with nothing of payment in the clause.
-        String.raw`\b(\d{1,2})\s*x\b|\b(?:em\s+(?:ate\s+)?${NUM}\s+(?:vezes|parcel\w*)|${NUM}\s+parcel\w*)\b|\bparcel\w*|\bdivid\w*\s+em\s+${NUM}\b|(?<!${SHARED})\bdivid\w*|(?<=${SHARED})\bdivid\w*(?=[^,;.!?]*\b(?:valor|preco|pag\w*|cartao|pix|boleto|credito|entrega|checkout|vezes|parcel\w*|\d{1,2}\s*x)\b)`,
+        String.raw`\b(\d{1,2})\s*x\b|\b(?:em\s+(?:ate\s+)?${NUM}\s+(?:vezes|parcel\w*)|${NUM}\s+parcel\w*)\b|\bparcel\w*|\bdivid\w*\s+em\s+${NUM}\b|(?<!${SHARED})\bdivid\w*\b(?!\s+com\s+(?:a\s+|o\s+)?(?:sua|seu|suas|seus|minha|meu|ela|ele|elas|eles|amigas?|mae|irmas?|familia|filhas?)\b(?!\s+(?:cartao|credito)\b))|(?<=${SHARED})\bdivid\w*(?=[^,;.!?]*\b(?:valor|preco|pag\w*|cartao|pix|boleto|credito|entrega|checkout|vezes|parcel\w*|\d{1,2}\s*x)\b)`,
         "g",
       );
       if (
@@ -3203,6 +3317,9 @@ const gates: readonly Gate[] = [
           String.raw`\b(?:pag\w*|parcel\w*|cartao|credito|\d{1,2}\s*x)\b(?:\s+\S+){0,3}?\s+(?:quando|ao|no|na\s+hora\s+que)\s+(?:o\s+colete\s+)?(?:cheg|receb)\w*|` +
           String.raw`\b(?:quando|ao|no)\s+(?:o\s+colete\s+)?(?:cheg|receb)\w*(?:\s+\S+){0,3}?\s+(?:pag\w*|parcel\w*|cartao|credito|\d{1,2}\s*x)\b`,
       );
+      // "Dividir com sua mãe e sua irmã" is sharing the kit, not the price (persona kit-antecipado-frete, 2026-10-24): `TOKEN` skips it.
+      const DOOR_DENIED =
+        /\b(?:nao|nunca)\s+(?:tem|ha|existe|chega|da|leva\s+com)\s+(?:o\s+)?(?:pagamento|pague|pagar)\s+na\s+entrega\b|\b(?:a\s+)?entrega\s+e\s+so\s+(?:no|pelo)\s+antecipad\w*/g;
       const EXTEND = /\b(?:tambem|igual|idem|mesmo\s+jeito|tanto|qualquer|ambos|ambas|nos\s+dois|nas\s+duas|aceit\w*|credito)\b/;
       const affirmed: Array<{ count: number | undefined; segment: string; sentence: string }> = [];
       const extended: string[] = [];
@@ -3239,16 +3356,22 @@ const gates: readonly Gate[] = [
       if (affirmed.length === 0) return null;
 
       const max = maxInstallments(ctx.config);
+      // The door denied, or the delivery as a noun of the prepaid path, is no door (personas 2026-10-24, grafo §129): "aí no seu CEP
+      // não tem pagamento na entrega, vai só no antecipado, no Pix ou em até 12x", "a entrega é só no antecipado pelos Correios".
+      const door = (segment: string): boolean => DOOR.test(segment.replace(DOOR_DENIED, " "));
       for (const { segment } of affirmed)
-        if (DOOR.test(segment)) return "promises installments on the cash-on-delivery path";
+        if (door(segment)) return "promises installments on the cash-on-delivery path";
       for (const segment of extended)
-        if (DOOR.test(segment) || /\b(?:tambem|igual|idem|mesmo\s+jeito|tanto|qualquer|ambos|ambas|nos\s+dois|nas\s+duas)\b/.test(segment))
+        if (door(segment) || /\b(?:tambem|igual|idem|mesmo\s+jeito|tanto|qualquer|ambos|ambas|nos\s+dois|nas\s+duas)\b/.test(segment))
           return "extends installments beyond the prepaid card checkout";
       if (max == null) return "promises installments, and none are configured";
       const PREPAY =
-        /(?<!\b(?:nao|sem|nem)\s+(?:\S+\s+){0,2})\b(?:antecip\w*|adiantad\w*|pagar\s+antes|pagamento\s+antes)\b(?!\s+(?:nao|nem)\b)|\bcartao\b[^.!?]{0,24}\bcheckout\b|\bcheckout\b[^.!?]{0,24}\bcartao\b/;
+        /(?<!\b(?:nao|sem|nem)\s+(?:\S+\s+){0,2})\b(?:antecip\w*|adiantad\w*|pagar\s+antes|pagamento\s+antes)\b(?!\s+(?:nao|nem)\b)|\bcartao\b[^.!?]{0,80}\bcheckout\b|\bcheckout\b[^.!?]{0,80}\bcartao\b/;
       for (const { count, segment, sentence } of affirmed) {
-        if (/\bou\b/.test(segment)) return "joins two payment paths around an installment";
+        // Pix or the card in installments are both the prepaid checkout's ("no antecipado: no Pix ou em até 12x no cartão", personas
+        // 2026-10-24): that "ou" joins no two paths. The checkout and the card, up to 80 characters apart: "lá no checkout você completa o
+        // endereço, escolhe o M e paga no Pix ou no cartão em até 12x".
+        if (/\bou\b/.test(segment.replace(/\bpix\s+ou\b|\bou\s+(?:no\s+|pelo\s+|com\s+)?pix\b/g, " "))) return "joins two payment paths around an installment";
         if (!PREPAY.test(sentence)) return "promises installments without tying them to the prepaid checkout";
         if (count !== undefined && count > max) return `promises ${count} installments, above the configured ${max}`;
       }
@@ -3304,9 +3427,12 @@ const gates: readonly Gate[] = [
     remedy: "rewrite",
     briefing: () =>
       `Sua última mensagem já pediu o CEP e ela não mandou: responda o que ela disse e siga a conversa sem pedir o CEP de novo. ` +
-      `Se ela disse que não lembra o CEP, não peça de novo até ela mandar.`,
+      `Se ela disse que não lembra o CEP, não peça de novo até ela mandar. ` +
+      `Se ela mandou um CEP que não existe, avisar que não encontrou esse CEP não é pedir de novo.`,
+    // Telling her the CEP she sent was not found is no insisting (persona cob-cep-errado, 2026-10-24, grafo §129): "Esse CEP não
+    // encontrei, me confirma depois?" — its whole sentence is set aside; any other sentence asking the CEP still counts.
     check: (text, ctx) =>
-      !asksCep(text) ? null
+      !asksCep(norm(text).split(/(?<=[.!?])\s+|\n+/).filter((s) => !CEP_NOT_FOUND.test(s)).join("\n")) ? null
       // R26.1 (persona Marcinha, 15/10): "meu cep nao lembro de cabeça agora", and the CEP asked five more times.
       : ctx.cepForgotten === true ? "asks the CEP she said she does not remember"
       : (ctx.cepAsks ?? 0) >= 1 ? "asks the CEP twice in a row"
@@ -3367,10 +3493,28 @@ const gates: readonly Gate[] = [
       if (ctx.herWords !== undefined) {
         const her = norm(ctx.herWords);
         const measures = [...t.matchAll(/\b(\d{2})\s*(?:de\s+)?(?:calca|manequim)\b|\b(?:calca|manequim)\s+(?:numero\s+)?(\d{2})\b/g)];
-        if (measures.some((m) => !new RegExp(`\\b${m[1] ?? m[2]}\\b`).test(her))) return "cites a measurement she never gave";
+        // The table's ceiling is no measurement of hers (personas 2026-10-24, grafo §129): "o XGG veste até o 52 de calça", "a tabela
+        // para no 52 de calça" — "até/no" the number, in a message naming the largest size or the table, and never of "você".
+        const top = (ctx.config.sizes?.length ? ctx.config.sizes : GRADE).at(-1)!.toLowerCase();
+        const ceiling = (m: RegExpMatchArray): boolean =>
+          m[1] !== undefined &&
+          /\b(?:ate|para\s+no)\s+(?:o\s+)?$/.test(t.slice(0, m.index)) &&
+          !/\b(?:voce|vc)\b[^,;.!?]*$/.test(t.slice(0, m.index)) &&
+          new RegExp(String.raw`\b(?:${top}|tabela|grade|maior)\b`).test(t);
+        if (measures.some((m) => !ceiling(m) && !new RegExp(`\\b${m[1] ?? m[2]}\\b`).test(her))) return "cites a measurement she never gave";
       }
       if (ctx.knownSize === undefined) return null;
-      const named = [...t.matchAll(/(?<!\bnao\s+)\b(?:e|fica|seria|vai\s+ser|indico|recomendo)\s+o\s+(pp|p|m|g|gg|xgg)\b/g)].map((m) => m[1]!.toUpperCase());
+      // "O maior (que a gente tem) é o XGG" is the table, not her size (personas 2026-10-24, grafo §129): only the configured largest
+      // (or smallest) size, after "o maior / o menor" and what the grade has.
+      const sizes = (ctx.config.sizes?.length ? ctx.config.sizes : GRADE).map((x) => x.toUpperCase());
+      const named = [...t.matchAll(/(?<!\bnao\s+)\b(?:e|fica|seria|vai\s+ser|indico|recomendo)\s+o\s+(pp|p|m|g|gg|xgg)\b/g)]
+        .filter((m) => {
+          const extreme = /\b[oa]\s+(maior|menor)\b(?:\s+(?:tamanho|que\s+(?:a\s+gente\s+)?(?:tem|temos|faz|fazemos)|d[ao]s?\s+(?:nossa\s+|nosso\s+)?(?:tabela|grade|tamanhos)))*(?:\s+(?:mesmo|aqui))?\s+$/.exec(
+            t.slice(0, m.index),
+          );
+          return !(extreme && m[1]!.toUpperCase() === (extreme[1] === "maior" ? sizes.at(-1) : sizes[0]));
+        })
+        .map((m) => m[1]!.toUpperCase());
       return named.some((size) => size !== ctx.knownSize)
         ? `names a size the size table did not give (${ctx.knownSize ?? "none yet"})`
         : null;
@@ -3533,7 +3677,12 @@ const gates: readonly Gate[] = [
       if (ctx.sizeChecked !== undefined) return null;
       // "Você tem 7 dias pra trocar de tamanho": that "tem" takes the days, not the size — the
       // warranty is not stock (2026-09-28). Only the count and the return verb go.
-      const t = norm(text).replace(/\b(?:tem|tera)\s+(?:ate\s+)?\w+\s+(?:dias?|semanas?)\s+(?:(?:corridos|uteis)\s+)?(?:pra|para)\s+(?:troc|devolv)\w*/g, " ");
+      const t = norm(text)
+        .replace(/\b(?:tem|tera)\s+(?:ate\s+)?\w+\s+(?:dias?|semanas?)\s+(?:(?:corridos|uteis)\s+)?(?:pra|para)\s+(?:troc|devolv)\w*/g, " ")
+        // The grade, not the stock (personas 2026-10-24, grafo §129): "o maior que a gente tem é o XGG", "a gente tem do P ao XGG" —
+        // never with a stock word after it ("temos do P ao XGG em estoque").
+        .replace(/\b[oa]\s+(?:maior|menor)\s+(?:tamanho\s+)?que\s+(?:a\s+gente\s+)?(?:tem|temos|tenho|faz|fazemos)\b/g, " ")
+        .replace(/\b(?:tem|temos|tenho)\s+(?:(?:so|apenas)\s+)?(?:tamanhos?\s+)?do\s+(?:pp|p)\s+(?:ao|ate\s+o)\s+(?:xgg|gg)\b(?!\s+(?:em\s+estoque|disponive\w*|pra\s+pronta|guardad\w*|reservad\w*|separad\w*))/g, " ");
       // "tem no seu tamanho", "o G está disponível", "temos o GG em estoque",
       // "já reservei o M", "o seu tamanho chega em", "tava guardando seu M" (persona round
       // 2026-10-05, Karol). Never the fitting itself, nor "guarda essa dica".

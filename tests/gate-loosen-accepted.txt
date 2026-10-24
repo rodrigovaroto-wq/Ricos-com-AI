@@ -267,3 +267,19 @@ R28-rafa | shipping_promise | Não tem como adiantar, nem pagando frete extra.
 R28-rafa | shipping_promise | Não dá pra pagar frete adicional pra chegar antes.
 §120 | unavailable_offer | Você acha rapidinho pelo buscador dos Correios aqui: https://buscacepinter.correios.com.br
 §120 | unavailable_offer | Tranquilo, dá pra achar rapidinho no buscador dos Correios pelo endereço
+§129 | shipping_promise | No pix o frete não é grátis, ele é calculado por região no checkout e aparece pra você lá dentro, antes de pagar, tá?
+§129 | installment_promise | Que amor dividir com sua mãe e sua irmã, dá pra deixar as 3 no G sim 😊
+§129 | delivery_promise | É justo ter receio com compra na internet, e dependendo da sua região você só paga quando o colete chegar na sua mão, com *7 Dias de Garantia*!!
+§129 | delivery_promise | Provar antes não dá, o entregador não espera, mas você tem *7 Dias de Garantia* após receber pra devolver se não gostar, risco zero pra você!
+§129 | delivery_promise | E fica tranquila que tem *7 Dias de Garantia*, se não gostar você tem 7 dias após o recebimento pra devolver!!
+§129 | delivery_promise | E se não gostar, você tem *7 Dias de Garantia* após o recebimento pra devolver sem custo nenhum, risco zero pra você!
+§129 | delivery_promise | Você tem 7 dias após o recebimento pra trocar ou devolver 💛
+§129 | delivery_promise | A garantia de 7 dias conta depois que o colete chega, pra você provar com o vestido justinho e ver no espelho 😊
+§129 | delivery_promise | Pra festa da sua filha o que conta é ver o vestido assentado, e a garantia é de 7 dias após o recebimento pra provar com calma
+§129 | delivery_promise | Se o entregador passar aí você pode recusar na porta, e se já tiver recebido é só pedir a devolução em até 7 dias após o recebimento.
+§129 | delivery_promise | E você tem 7 dias após receber pra devolver se não amar, pra deixar no seu nome, Vilma Torres é seu nome completo?
+§129 | delivery_promise | Sobre chegar até sábado eu não consigo garantir dia por aqui, quem escolhe o dia é você no checkout, e lá aparece o que tem pra sua região.
+§129 | unverified_size | Por aqui o maior que a gente tem é o XGG mesmo, não tenho como mandar um maior nem fazer sob medida.
+§129 | unverified_size | O maior que a gente tem é o XGG, que veste cintura de 92 a 100 cm, vai até o 52 de calça mais ou menos.
+§129 | unverified_size | A maior que a gente tem é o XGG, que veste cintura até 100 cm 😊
+§129 | unverified_size | O tamanho segue a calça que você veste, a gente tem do P ao XGG pra cobrir bem todos os corpos.
