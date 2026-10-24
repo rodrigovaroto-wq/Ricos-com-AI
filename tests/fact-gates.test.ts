@@ -136,3 +136,48 @@ describe("/code-review da E1 — negação de outro verbo e lista com vírgula",
     (frase) => expect(vetoed(frase).filter((g) => g === "hip_claim" || g === "courier_claim")).toEqual([]),
   );
 });
+
+describe("operational_claim: boleto, horário da entrega e o correio no pagamento na entrega (2026-10-24)", () => {
+  it("veta as três mentiras e as variações", () => {
+    for (const frase of [
+      "Você pode pagar no boleto, sem problema.",
+      "Aceitamos boleto também!",
+      "Dá pra pagar no pix, no cartão ou no boleto.",
+      "Fica no boleto bancário e você paga na agência.",
+      "Você escolhe o dia e o horário no checkout.",
+      "O horário você escolhe no checkout 😊",
+      "Dá pra marcar o horário da entrega direto no link.",
+      "Chega no horário que você preferir.",
+      "Você escolhe se quer de manhã ou à tarde.",
+      "Quem leva é o carteiro, e você paga na hora.",
+      "No pagamento na entrega, o pedido vem pelos Correios.",
+      "Os Correios levam até aí e você paga ao entregador.",
+      "Na entrega ou no boleto, chega em 1 a 3 dias.",
+    ]) {
+      expect(verdict("operational_claim", frase), frase).toBe("block");
+    }
+  });
+
+  it("deixa passar a verdade, a negação e a pergunta", () => {
+    for (const frase of [
+      "No antecipado é só pix ou cartão: boleto não tem.",
+      "Não temos boleto, só pix ou cartão.",
+      "Sem boleto, tá? O antecipado é no pix ou no cartão.",
+      "Você pretende pagar no boleto? Aqui é só pix ou cartão.",
+      "Você escolhe o dia no checkout; o horário não dá pra escolher, chega ao longo do dia.",
+      "O horário não se escolhe, mas o dia sim.",
+      "Você não escolhe o horário da entrega.",
+      "O horário você não escolhe, só o dia.",
+      "No antecipado o envio é pelos Correios, com código de rastreio.",
+      "No antecipado chega pelos Correios ou transportadora.",
+      "No pagamento na entrega quem leva é a entrega da Logzz, não os Correios.",
+      "Não é o carteiro que leva, é a entrega da Logzz.",
+      "Você escolhe o melhor dia no checkout.",
+      "Nada de boleto que demora: é pix ou cartão.",
+      "Coloco na carteira e já te mando o link.",
+      "A marca sai quando o turno termina.",
+    ]) {
+      expect(verdict("operational_claim", frase), frase).toBe("pass");
+    }
+  });
+});

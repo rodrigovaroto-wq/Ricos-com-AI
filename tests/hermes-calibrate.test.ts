@@ -23,7 +23,7 @@ describe("plant: um defeito numa cópia, nunca no original", () => {
     const c = conv(1);
     const { conversation, planted } = plant(c, "mentira", 2);
     expect(planted).toEqual({ conversa: c.persona, cls: "mentira", needle: LIES[2] });
-    expect(conversation.transcript.at(-1)!.text).toContain("Quem leva é o carteiro dos Correios, e você paga pra ele.");
+    expect(conversation.transcript.at(-1)!.text).toContain("Ele vem em várias cores, bege e rosa também.");
     expect(c.transcript.at(-1)!.text).toBe("resposta 2 da Malu");
   });
   it("resposta pronta: a última resposta vira o texto pronto, com três vetos", () => {
@@ -68,7 +68,7 @@ describe("trial: perClass por classe em conversas distintas, mais as limpas", ()
 describe("found e score: a revocação por classe", () => {
   const p = { conversa: "conversa-00000001", cls: "mentira" as const, needle: LIES[0] };
   it("achado quando uma proposta válida cita o trecho, ou o run o pôs de lado porque os gates de hoje já vetam", () => {
-    expect(found([checkedCiting(p.conversa, `Ok! Você pode pagar no boleto também.`)], p)).toBe(true);
+    expect(found([checkedCiting(p.conversa, `Ok! Pode lavar na máquina e na secadora sem problema.`)], p)).toBe(true);
     expect(found([checkedCiting(p.conversa, LIES[0], false, [ALREADY_VETOED])], p)).toBe(true);
   });
   it("visto mas não entregue: citado numa proposta que caiu na validação", () => {
@@ -89,7 +89,7 @@ describe("found e score: a revocação por classe", () => {
     expect(scores.find((s) => s.cls === "mentira")).toEqual({ cls: "mentira", seen: 1, planted: 2, found: 1, trialsFound: 1, trials: 2 });
     expect(scores.find((s) => s.cls === "link_repetido")).toMatchObject({ planted: 1, found: 0, trials: 1 });
     const md = renderCalibration(scores, { trials: 2, costUsd: 0.12, model: "muse-spark-1.3", source: "supabase" });
-    expect(md).toContain("| mentira que passa nos gates (boleto, horário, correio) | 2 | 1 | 1 | 50% | 1/2 |");
+    expect(md).toContain("| mentira que passa nos gates (lavagem, barbatana, cor) | 2 | 1 | 1 | 50% | 1/2 |");
     expect(md).toContain("**Abaixo da barra:** link repetido (0%)");
     expect(md).toContain("US$ 0.1200");
   });
@@ -108,6 +108,6 @@ describe("as mentiras plantadas passam nos gates de hoje e o prompt as desmente"
     const { gateBriefing } = await import("@/agent/guardrails.js");
     const { config } = await import("./fixtures.js");
     const p = systemPrompt(config, gateBriefing(config), null);
-    for (const rule of ["boleto não tem.", "Horário não se escolhe: ela escolhe o dia no checkout", "O pagamento na entrega não vem pelo correio"]) expect(p).toContain(rule);
+    for (const rule of ["máquina e secadora soltam a elasticidade", "Barbatana não tem nenhuma", "Cor: só preto"]) expect(p).toContain(rule);
   });
 });

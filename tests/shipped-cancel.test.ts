@@ -14,9 +14,10 @@ import { config, ctx } from "./fixtures.js";
 describe("cancelar pedido: a resposta depende do caminho de pagamento e de ter saído (2026-10-06)", () => {
   const reply = shippedCancelReply(config.delivery.warrantyDays);
 
-  it("o texto diz que saiu, que não dá pra cancelar, e cita os dias do config", () => {
+  it("o texto diz que saiu, que ela pode cancelar quando chegar (nunca que não pode), e cita os dias do config", () => {
     expect(reply).toContain("já saiu para entrega");
-    expect(reply).toContain("não dá mais pra cancelar");
+    expect(reply).toContain("você pode cancelar");
+    expect(reply).not.toMatch(/n[aã]o d[aá] (?:mais )?pra cancelar|n[aã]o (?:pode|tem como) (?:mais )?cancelar/i);
     expect(reply).toContain(`${config.delivery.warrantyDays} dias pra devolver depois que receber`);
     expect(shippedCancelReply(30)).toContain("30 dias pra devolver depois que receber");
     // Nothing done to the order, nothing about refusing at the door.

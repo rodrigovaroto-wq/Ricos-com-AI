@@ -292,14 +292,15 @@ export const returnsOnly = (orders: readonly OrderView[]): boolean =>
   orders.some((o) => !o.dead) && orders.every((o) => o.dead || o.stage === "entregue_pago");
 
 /**
- * The reply when she wants to cancel an order that already left for delivery (operator,
- * 2026-10-06): it cannot be cancelled any more, and the return is asked for once it arrives. A
- * person still takes the conversation. Nothing here says the agent did or will do anything to the
- * order (`order_action_claim`), and the days are the config's (`warranty_promise`). The heart is
- * not after the count: `delivery_promise` reads anything left in the count's sentence as a deadline.
+ * The reply when she wants to cancel an order that already left for delivery (operator, 2026-10-06; wording
+ * 2026-10-24, compliance A5): it is on its way, and she CAN cancel once it arrives, by asking for the return. It never
+ * says she cannot cancel any more: CDC art. 49 gives her the right to give up, and "não dá mais pra cancelar" reads as a
+ * refusal. Nothing here says the agent did or will do anything to the order (`order_action_claim`), and the days are the
+ * config's (`warranty_promise`). The heart is not after the count: `delivery_promise` reads anything left in the count's
+ * sentence as a deadline.
  */
 export const shippedCancelReply = (warrantyDays: number): string =>
-  `Seu pedido já saiu para entrega 🚚, então não dá mais pra cancelar. Quando ele chegar aí, é só me ` +
+  `Seu pedido já saiu para entrega 🚚 e vai chegar aí. Quando ele chegar, você pode cancelar: é só me ` +
   `chamar aqui pra pedir a devolução 💛 Você tem ${warrantyDays} dias pra devolver depois que receber.`;
 
 /**
