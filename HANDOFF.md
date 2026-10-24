@@ -13,6 +13,15 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-24 — A4/A5 do parecer e três mentiras operacionais com gate (R31, grafo §127). NA BRANCH, NÃO PUBLICADO (no ar segue a v43).**
+>
+> - **A5:** `shippedCancelReply` diz que o pedido já saiu e que ela pode cancelar quando ele chegar (pedindo a devolução), nunca "não dá mais pra cancelar".
+> - **A4:** `personAskExample` põe o `support.email` (já no config de 23/10) no exemplo do pedido de pessoa.
+> - **Gate `operational_claim` (33 gates):** veta boleto, "ela escolhe o horário" e carteiro/Correios no pagamento na entrega. As `LIES` do calibrador do
+>   Hermes mudaram (as antigas agora são vetadas): **a medição de 16% da classe mentira vale para as lies velhas, refazer.**
+> - **Validação:** `pnpm test` 8823+, `typecheck`, `lint`, `typecheck:function` (Deno), `dev:conversas` 1655/1655, `dev:gates` só endurece o gate novo; mutações `G127-*` 3/3.
+> - **Para publicar:** `pnpm deploy:turn` (v44) e `job:"health"`. Operador: o suporte é "o atendimento ao cliente" +55 11 98819-4261 (a Gizele saiu).
+
 > **2026-10-23 (tarde) — `turn` v43 NO AR (função v158, 17h11 UTC; alarme de cobertura das 17h15 `healthy`). Config de 23/10 colado pelo operador. JEV: 17 de 19 perguntas aprovadas (versão 5, R30.13).**
 >
 > - **R30.12 (no ar na v43):** a consulta de dias da Logzz pergunta como o checkout real — um tamanho, o produto dele

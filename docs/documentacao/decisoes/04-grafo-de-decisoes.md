@@ -4127,6 +4127,40 @@ que não conta, e "se a cliente não …, a resposta é não". Caminho que falho
 se…") virou "sim" quase sempre (58% no "não"); escrito como teste positivo dos três sinais (pergunta, link, pedido), 94%/100%. Resultado:
 17 de 19 (`hermes/jev-avaliacao.md`). Guarda: `tests/jev.test.ts` (versão 5, a regra das duas condições).
 
+## 127. Cancelar pedido já enviado, e-mail no pedido de pessoa, e três mentiras operacionais com gate (operador, 2026-10-24)
+
+**Sintoma.** O parecer de conformidade de 19/10 apontou A4 (a Malu fecha a única porta que a política do WhatsApp exige aberta: "não
+tenho como te passar pra uma pessoa", sem nenhum canal) e A5 ("não dá mais pra cancelar" a um pedido antecipado já enviado, o que lê
+como recusa do direito de desistir, CDC art. 49). Em paralelo, "pode pagar no boleto", "o horário você escolhe no checkout" e "quem leva
+é o carteiro" passavam em todos os gates (as três perguntas do JEV de R30.11; o Hermes só acha 16% dessa classe).
+
+**Causa.** (A5) `shippedCancelReply` foi escrita em 06/10 com "não dá mais pra cancelar". (A4) o exemplo do pedido de pessoa
+(`PERSON_ASK_EXAMPLE`) não levava canal algum, embora o config tenha `support.email`. (Mentiras) o prompt as desmente, mas nenhum gate
+as lia; a regra R21.6 ("gate só por frase real") as deixara como resíduo. O operador pediu a correção em 24/10, o que vale mais que o resíduo.
+
+**Correção.**
+- `shippedCancelReply`: "Seu pedido já saiu para entrega 🚚 e vai chegar aí. Quando ele chegar, você pode cancelar: é só me chamar aqui pra
+  pedir a devolução 💛 Você tem N dias pra devolver depois que receber." Nunca "não dá mais pra cancelar".
+- `personAskExample` (substitui `PERSON_ASK_EXAMPLE`): leva "Se preferir, você também pode escrever pra <e-mail>" quando o config tem
+  `support.email`; ausente, a frase de antes. A Malu continua sem prometer pessoa no chat (R22.1).
+- Gate novo `operational_claim` (`rewrite`, 33 gates): (a) qualquer menção a boleto que não seja negação ("sem boleto", "nada de boleto",
+  "boleto não tem") nem pergunta; (b) ela escolhe, marca ou define o horário (ou manhã/tarde/noite) da entrega — só o dia se escolhe;
+  (c) `carteiro` ou `Correios` numa frase do pagamento na entrega (os Correios no antecipado são verdade e passam, por qualquer sinal de
+  antecipado na frase: antecipado, pix, cartão, rastreio, transportadora, envio).
+- O calibrador do Hermes plantava exatamente essas três mentiras como "passam nos gates". Passaram a ser vetadas, então as `LIES` mudaram
+  para três que ainda passam e o prompt desmente (lavar na máquina, barbatana de metal, outras cores). A medição de 16% do Hermes
+  nessa classe era dessas três: **precisa ser refeita com as novas** antes de se citar o número.
+
+**Caminhos que falharam.** `horas?` e `turnos?` como "horário": "escolhe a forma que deseja pagar na hora da entrega" e "o turno termina"
+foram vetados (o `prompt.test.ts` e o `dev:gates` pegaram); saíram. `carteir[oa]` pegou "coloco na carteira"; ficou só `carteiro`. "Nada de
+boleto que demora" e "não é o carteiro" não eram lidos como negação por `deniedNear`; ganharam checagem própria.
+
+**Resíduos (R21.6).** "hora da entrega" sem "horário" passa; o Correios numa frase que também diz "antecipado" passa mesmo se o resto
+da frase for do pagamento na entrega; a lista com vírgula ("escolhe o dia, o horário") passa. O JEV segue lendo as três em sombra.
+
+**Guarda.** `tests/fact-gates.test.ts` (veto e negação nos dois sentidos), `tests/shipped-cancel.test.ts`, mutações `G127-boleto`,
+`G127-correio-na-entrega`, `G127-cancelar-quando-chegar`; `pnpm dev:gates` sem afrouxamento (só endurecimento no `operational_claim`).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

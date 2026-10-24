@@ -1470,40 +1470,47 @@ const gates: readonly Gate[] = [
      * Three operational details the model kept getting wrong while the prompt denies each of them (operator, 2026-10-24,
      * Jev questions `fala_boleto`, `escolhe_horario`, `correio_na_entrega`): the prepaid checkout has no boleto, the
      * delivery day is chosen at checkout but the hour is not, and the pay-at-the-door order is not carried by the mail.
+     * A sentence with a negation word is the denial ("boleto infelizmente não tem", "aí não tem pagamento na entrega, mas
+     * posso mandar pelos Correios"), so it passes; the cost is a residual "pode boleto, não pix" (R21.6).
      */
     name: "operational_claim",
     remedy: "rewrite",
     briefing: () =>
       `Boleto não existe: o antecipado é só pix ou cartão, e na entrega ela paga ao entregador. No pagamento na entrega ` +
       `ela escolhe o DIA no checkout; o horário não se escolhe, o pedido chega ao longo do dia. E quem leva o pedido do ` +
-      `pagamento na entrega é a entrega da Logzz, nunca o carteiro nem os Correios (os Correios só no antecipado).`,
+      `pagamento na entrega é o entregador, nunca o carteiro nem os Correios (os Correios só no antecipado).`,
     check: (text) => {
       const t = norm(text);
+      const NEGATION = /\b(?:nao|nunca|nem|sem(?!\s+problemas?\b)|nada\s+de)\b/;
+      const DELIVERY = /entreg|receb|chega/;
       const claims = [
-        // boleto: any mention that is not a denial or a question ("sem boleto", "boleto não tem", "quer pagar no boleto?").
-        { why: "claims a boleto, which does not exist", re: /\bboleto\w*/g, after: /^\s*(?:bancario\s+)?(?:,\s*)?(?:ai\s+)?(?:nao|nunca)\b/ },
+        { why: "claims a boleto, which does not exist", re: /\bboleto\w*/g },
         // the hour of the delivery is not hers to choose; the day is.
-        { why: "says she picks the delivery hour, which she does not", re: /\b(?:escolh|marc|combin|defin|agend|fix|determin|selecion)\w*\s+[^.!?;,]{0,30}?\b(?:horarios?|manha|tarde|noite)\b/g },
+        { why: "says she picks the delivery hour, which she does not", re: /\b(?:escolh|marc|combin|defin|agend|fix|determin|selecion)\w*\s+[^.!?;,]{0,30}?\bhorarios?\b/g },
+        { why: "says she picks the delivery hour, which she does not", re: /\b(?:escolh|marc|combin|defin|agend)\w*\s+[^.!?;,]{0,30}?\b(?:manha|tarde|noite)\b/g, needs: DELIVERY },
         { why: "says she picks the delivery hour, which she does not", re: /\bhorarios?\s+(?:de\s+entrega\s+)?(?:que|de)\s+(?:voce|vc|ela)?\s*(?:quiser|preferir|escolher|desejar|combinar|ficar\s+melhor)\b/g },
         { why: "says she picks the delivery hour, which she does not", re: /\bhorarios?\b[^.!?;,]{0,40}?\b(?:voce|vc)\s+(?:quem\s+)?(?:escolh|marc|defin|combin)\w*/g },
       ];
-      for (const { why, re, after } of claims) {
+      const sentenceAt = (at: number): string => {
+        const from = Math.max(t.lastIndexOf(".", at), t.lastIndexOf("!", at), t.lastIndexOf("?", at), t.lastIndexOf(";", at), t.lastIndexOf("\n", at)) + 1;
+        const rest = t.slice(at).search(/[.!?;\n]/);
+        return t.slice(from, rest === -1 ? undefined : at + rest);
+      };
+      for (const { why, re, needs } of claims) {
+        if (needs && !needs.test(t)) continue;
         for (const m of t.matchAll(re)) {
           const at = m.index ?? 0;
-          const end = at + m[0].length;
-          if (deniedNear(t, at) || /\bnada\s+de\s+$/.test(t.slice(0, at)) || askedAt(t, end) || (after?.test(t.slice(end)) ?? false)) continue;
+          if (deniedNear(t, at) || NEGATION.test(sentenceAt(at)) || askedAt(t, at + m[0].length)) continue;
           return why;
         }
       }
       // the mail on the pay-at-the-door path (on the prepaid path it is the truth).
       for (const m of t.matchAll(/\b(?:carteiros?|correios?)\b/g)) {
         const at = m.index ?? 0;
-        const from = Math.max(t.lastIndexOf(".", at), t.lastIndexOf("!", at), t.lastIndexOf("?", at), t.lastIndexOf(";", at), t.lastIndexOf("\n", at)) + 1;
-        const rest = t.slice(at).search(/[.!?;\n]/);
-        const sentence = t.slice(from, rest === -1 ? undefined : at + rest);
-        if (/\b(?:antecip\w*|pix|cartao|rastre\w*|transportadora|envio|postad\w*)\b/.test(sentence)) continue;
-        const atTheDoor = m[0].startsWith("carteir") || /\b(?:na\s+entrega|ao\s+entregador|pro\s+entregador|para\s+o\s+entregador)\b/.test(sentence);
-        if (atTheDoor && !deniedNear(t, at) && !/\b(?:nao|nunca)\s+(?:e|sao)\s+(?:o|os|a|as)\s+$/.test(t.slice(0, at)) && !askedAt(t, at + m[0].length)) return "says the mail carries a pay-at-the-door order";
+        const sentence = sentenceAt(at);
+        if (NEGATION.test(sentence) || /\b(?:antecip\w*|rastre\w*|transportadora|envio|postad\w*)\b/.test(sentence)) continue;
+        const atTheDoor = m[0].startsWith("carteir") || /\b(?:na\s+entrega|ao\s+entregador|pro\s+entregador|para\s+o\s+entregador|na\s+porta|no\s+ato|ao\s+receber)\b/.test(sentence);
+        if (atTheDoor && !askedAt(t, at + m[0].length)) return "says the mail carries a pay-at-the-door order";
       }
       return null;
     },

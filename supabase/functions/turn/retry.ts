@@ -149,6 +149,15 @@ export const HUMAN_HANDOFF_REPLY =
   "Entendo 💛 Por aqui o atendimento é todo comigo, a assistente virtual da Encorpa, e não tenho como te passar pra uma pessoa. Me conta o que você precisa que eu resolvo agora.";
 
 /**
+ * The person request's example for the model (copy v4): the fixed line above says "assistente virtual", which `humanity_claim`
+ * vetoes when she did not ask what Malu is. Compliance A4 (2026-10-24): WhatsApp's policy wants an escalation path beside
+ * automation, so the support e-mail rides in the line when the config has one; absent, the line of before. It promises no person (R22.1).
+ */
+export const personAskExample = (support: { email?: string }): string =>
+  `Entendo 💛 Por aqui o atendimento é todo comigo, e eu resolvo tudo pra você. Me conta o que você precisa?` +
+  (support.email ? ` Se preferir, você também pode escrever pra ${support.email}.` : ``);
+
+/**
  * A question about an order whose status the agent cannot read (no row in the vocabulary, a failed
  * attempt), or a cancel it has no line for (R13.2). Since R22.1 it promises no return: "vou checar e já
  * te retorno" was a promise nobody kept (Lu, 2026-09-24; the operator test of 2026-10-13). It says what

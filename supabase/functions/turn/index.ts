@@ -132,6 +132,7 @@ import {
   HOLDING_REPLY,
   SAFE_FALLBACK_REPLY,
   HUMAN_HANDOFF_REPLY,
+  personAskExample,
   afterRetryFailure,
   IN_CALL_RETRY_BUDGET_MS,
   MAX_REWRITES,
@@ -1047,14 +1048,6 @@ const checkoutDirectiveFor = (
  */
 /** The turn_outcomes reason of a question about an order the system cannot read: written once, read to e-mail the operator once. */
 const ORDER_UNREADABLE_REASON = "a cliente fala de um pedido que o sistema não lê";
-// The person request's example for the model (copy v4): the old fixed line says "assistente virtual", which `humanity_claim` vetoes
-// when she did not ask what Malu is (replay of 2026-10-20).
-// Compliance A4 (2026-10-24): WhatsApp's policy wants an escalation path beside automation, so the e-mail rides in the line when the config has one.
-const personAskExample = (): string => {
-  const { email } = CONFIG.support ?? {};
-  return `Entendo 💛 Por aqui o atendimento é todo comigo, e eu resolvo tudo pra você. Me conta o que você precisa?${email ? ` Se preferir, você também pode escrever pra ${email}.` : ``}`;
-};
-
 // Before the order, a new address is looked up again (operator, 2026-10-20): it may be outside the delivery network.
 const CEP_MOVED_COD = "Conferi o endereço novo: aí também chega com pagamento na entrega 😊\n\nÉ só usar esse endereço no checkout.";
 const NEW_ADDRESS_ASK = "Claro! Só preciso consultar de novo, porque o endereço novo pode estar fora da nossa rede de entrega.\n\nMe passa o CEP novo ou a rua e a cidade?";
@@ -2990,7 +2983,7 @@ const handleTurn = async (
   // The second time in a row the same line would be a loop: the model answers instead (R22.1).
   if (parts.some(wantsHuman)) {
     const sentLast = await db(`messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&select=body&order=created_at.desc&limit=1&body=neq.${encodeURIComponent(RETURN_GREETING)}`).catch(() => null);
-    if (sentLast?.[0]?.body !== HUMAN_HANDOFF_REPLY) guide("Ela pediu pra falar com uma pessoa.", personAskExample(), "a cliente pediu para falar com uma pessoa", true);
+    if (sentLast?.[0]?.body !== HUMAN_HANDOFF_REPLY) guide("Ela pediu pra falar com uma pessoa.", personAskExample(CONFIG.support ?? {}), "a cliente pediu para falar com uma pessoa", true);
   }
 
   // 4. The ceiling is checked before a byte leaves for any provider.
@@ -3669,7 +3662,7 @@ const handleTurn = async (
   let orderUnreadable = false;
   const { email: supportEmail = null } = CONFIG.support ?? {};
   if (handoffKind === "human") {
-    guide("Ela pediu pra falar com uma pessoa.", personAskExample(), "a cliente pediu para falar com uma pessoa", true);
+    guide("Ela pediu pra falar com uma pessoa.", personAskExample(CONFIG.support ?? {}), "a cliente pediu para falar com uma pessoa", true);
   }
   // No order of hers the system can read, by every path above (operator, 2026-10-20, grafo §117): she is told it is the system's
   // problem and sent to the customer service, number right after. The same line twice is a loop: the second time, the model answers.

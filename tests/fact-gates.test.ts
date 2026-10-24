@@ -148,11 +148,15 @@ describe("operational_claim: boleto, horário da entrega e o correio no pagament
       "O horário você escolhe no checkout 😊",
       "Dá pra marcar o horário da entrega direto no link.",
       "Chega no horário que você preferir.",
-      "Você escolhe se quer de manhã ou à tarde.",
+      "Você escolhe se quer receber de manhã ou à tarde.",
       "Quem leva é o carteiro, e você paga na hora.",
       "No pagamento na entrega, o pedido vem pelos Correios.",
       "Os Correios levam até aí e você paga ao entregador.",
       "Na entrega ou no boleto, chega em 1 a 3 dias.",
+      "Quem leva é o carteiro e você paga no Pix ou no cartão na hora.",
+      "No pagamento na entrega quem leva são os Correios e você paga no pix.",
+      "Os Correios entregam e você paga na porta.",
+      "Você paga no ato da entrega e quem leva são os Correios.",
     ]) {
       expect(verdict("operational_claim", frase), frase).toBe("block");
     }
@@ -176,8 +180,30 @@ describe("operational_claim: boleto, horário da entrega e o correio no pagament
       "Nada de boleto que demora: é pix ou cartão.",
       "Coloco na carteira e já te mando o link.",
       "A marca sai quando o turno termina.",
+      "Aí não tem pagamento na entrega, mas posso te mandar pelos Correios 💛",
+      "Na sua região não chega com pagamento na entrega, então vai pelos Correios.",
+      "Boleto infelizmente não tem, só pix ou cartão.",
+      "Boleto a gente não aceita, só pix ou cartão.",
+      "Boleto ainda não, só pix ou cartão.",
+      "Não tem como pagar por boleto.",
+      "A gente não tem a opção de boleto, só pix ou cartão.",
+      "Fique tranquila, o carteiro não leva: é o entregador.",
+      "Ele define a cintura e dá pra usar da manhã até a noite.",
+      "Você escolhe o tamanho hoje à noite e eu te mando o link.",
+      "Obrigada por escolher a gente e boa noite!",
     ]) {
       expect(verdict("operational_claim", frase), frase).toBe("pass");
     }
+  });
+});
+
+describe("personAskExample: o pedido de pessoa leva o e-mail do suporte (A4, 2026-10-24)", () => {
+  it("com e-mail no config a linha o cita; sem, sai a de antes; as duas passam a cadeia", async () => {
+    const { personAskExample } = await import("@/agent/retry.js");
+    const com = personAskExample({ email: "contato@encorpa-fashion.com.br" });
+    const sem = personAskExample({});
+    expect(com).toContain("escrever pra contato@encorpa-fashion.com.br");
+    expect(sem).not.toMatch(/escrever|@/);
+    for (const linha of [com, sem]) expect(runGates(linha, ctx({ config })).traces.filter((t) => t.verdict === "block"), linha).toEqual([]);
   });
 });

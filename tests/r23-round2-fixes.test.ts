@@ -196,7 +196,7 @@ describe("personas Lu e Vera (14/10): pedido que o sistema não lê é respondid
     expect(turn).toContain("Ela fala de um pedido sobre o qual você não tem informação confiável aqui");
     expect(turn).toContain("depois responda o que mais ela");
     // Negação: o pedido de pessoa continua com a frase honesta.
-    expect(turn).toContain('guide("Ela pediu pra falar com uma pessoa.", personAskExample(), "a cliente pediu para falar com uma pessoa", true);');
+    expect(turn).toContain('guide("Ela pediu pra falar com uma pessoa.", personAskExample(CONFIG.support ?? {}), "a cliente pediu para falar com uma pessoa", true);');
   });
 });
 
