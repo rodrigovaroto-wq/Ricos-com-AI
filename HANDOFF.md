@@ -13,6 +13,14 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-24 (tarde) — revisão final com personas (grafo §128): 132 leads, R$ 4,03. NÃO SUBIR antes de ler
+> [`personas-2026-10-24-revisao-final.md`](docs/agente-ia/10-auditoria/personas-2026-10-24-revisao-final.md).**
+>
+> - Estoque da Logzz por tamanho e cidade: P só no Rio, M só em BH, Recife nenhum tamanho — a maior parte das clientes do anúncio cai no antecipado.
+> - Altos: link retido quando ela pede (9), nome quebrado, oferta que promete a entrega antes do tamanho, cartão do antecipado sem o motivo,
+>   falsos vetos (`shipping_promise` 11, `charge_promise` 8, `installment_promise` 7, `delivery_promise` 6, `size_claim` 4), CEP novo e rua não
+>   consultados, "apaguei seus dados" (LGPD), link de terceiro endossado. Nenhum consertado ainda.
+
 > **2026-10-24 — A4/A5 do parecer e três mentiras operacionais com gate (R31, grafo §127). NA BRANCH, NÃO PUBLICADO (no ar segue a v43).**
 >
 > - **A5:** `shippedCancelReply` diz que o pedido já saiu e que ela pode cancelar quando ele chegar (pedindo a devolução), nunca "não dá mais pra cancelar".

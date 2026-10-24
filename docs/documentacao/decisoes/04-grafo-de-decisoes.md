@@ -4161,6 +4161,19 @@ da frase for do pagamento na entrega; a lista com vírgula ("escolhe o dia, o ho
 **Guarda.** `tests/fact-gates.test.ts` (veto e negação nos dois sentidos), `tests/shipped-cancel.test.ts`, mutações `G127-boleto`,
 `G127-correio-na-entrega`, `G127-cancelar-quando-chegar`; `pnpm dev:gates` sem afrouxamento (só endurecimento no `operational_claim`).
 
+## 128. Revisão final com personas antes do smoke test: estoque por tamanho e cidade, link retido, falsos vetos (operador, 2026-10-24)
+
+**Sintoma.** 132 leads sintéticos (51 fichas de cobertura, 16 delas novas para os PRs #76/#77/#80 e R31; 14 de segurança; 16 compradoras
+em 3 seeds), R$ 4,03, na `turn` do disco da branch R31. 12 de 16 compradoras da seed 2 caíram no antecipado; o link ficou retido depois
+de ela pedir em 9 conversas; ~40 vetos de gate em frases verdadeiras.
+
+**Causa (conferida).** (1) A Logzz responde o pagamento na entrega por **tamanho e cidade** (estoque): P só no Rio, M só em BH, Recife
+nenhum (`lookupRegion` direto, 24/10). (2) As demais causas estão listadas por defeito em
+[`personas-2026-10-24-revisao-final.md`](../../agente-ia/10-auditoria/personas-2026-10-24-revisao-final.md) e **não foram consertadas
+nesta sessão** — diagnóstico primeiro (memória `diagnostico-antes-de-consertar`).
+
+**Guarda.** As 16 fichas novas em `src/dev/scenarios/cobertura.json` e as situações O1–O11 da taxonomia; `tests/persona-coverage.test.ts`.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
