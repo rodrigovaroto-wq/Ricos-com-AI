@@ -188,7 +188,8 @@ describe("6. invented_testimonial: prova e original são pedido de depoimento", 
 
 describe("7. cep_insist: avisar que o CEP não existe não é insistir", () => {
   const asked = { ...COD, cepAsks: 1 };
-  passes("cep_insist", ["Esse CEP não encontrei, me confirma depois? Qual calça você veste?", "Não achei o seu CEP. Qual calça você veste?"], asked);
+  // Only in the turn her CEP was not found (Opus review, grafo §132).
+  passes("cep_insist", ["Esse CEP não encontrei, me confirma depois? Qual calça você veste?", "Não achei o seu CEP. Qual calça você veste?"], { ...asked, cepNotFound: true });
   vetoes("cep_insist", ["Me passa seu CEP?", "Esse CEP não encontrei. Me passa seu CEP de novo?", "Qual o seu CEP?"], asked);
 });
 

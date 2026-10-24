@@ -283,3 +283,5 @@ R28-rafa | shipping_promise | Não dá pra pagar frete adicional pra chegar ante
 §129 | unverified_size | O maior que a gente tem é o XGG, que veste cintura de 92 a 100 cm, vai até o 52 de calça mais ou menos.
 §129 | unverified_size | A maior que a gente tem é o XGG, que veste cintura até 100 cm 😊
 §129 | unverified_size | O tamanho segue a calça que você veste, a gente tem do P ao XGG pra cobrir bem todos os corpos.
+§132 | order_action_claim | Fica tranquila, eu reservo um tempinho pra te responder.
+§132 | unverified_size | O maior que a gente tem é o XGG mesmo.

@@ -9,7 +9,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import type { BusinessConfig } from "@/config/business.js";
 import { gateBriefing, runGates } from "@/agent/guardrails.js";
-import { changesAddress, declinesInBurst, hesitates, isBareAck, isBareThanks, statesPastPurchase } from "@/agent/interpret.js";
+import { changesAddress, declinesInBurst, hesitates, isBareAck, isBareThanks, reportsOrderTrouble, statesPastPurchase } from "@/agent/interpret.js";
 import { acceptsOffers, suspendsMarketingOptIn } from "@/agent/opt-in.js";
 import { countTriggerUses, honestyBriefing, systemPrompt } from "@/agent/prompt.js";
 import { OFFERS_YES_EXAMPLE, VAGUE_OBJECTION_QUESTION, VAGUE_PRICE_QUESTION, vagueObjectionSituation } from "@/agent/retry.js";
@@ -157,7 +157,7 @@ describe("5. o áudio 4 (\"agendar pra amanhã mesmo\") só quando a primeira da
 });
 
 describe("6. quem chega depois da compra não recebe a abertura de venda", () => {
-  const afterSale = (s: string) => statesPastPurchase(s) || (changesAddress(s) && /\bmudei\b/i.test(s));
+  const afterSale = (s: string) => statesPastPurchase(s, false) || (statesPastPurchase(s) && reportsOrderTrouble(s)) || (changesAddress(s) && /\bmudei\b/i.test(s));
   it("as primeiras mensagens reais das personas", () => {
     for (const s of [
       "oi comprei um colete com vcs e chegou aqui mas ficou grande\n\ncomo que faço pra trocar?",

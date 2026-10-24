@@ -135,8 +135,9 @@ describe("A3 — sem tamanho, a entrega não é prometida", () => {
 
   it("o turno segura a oferta da entrega até o tamanho, e não repete a pergunta logo depois dela", () => {
     expect(turn).toContain('} else if (region !== null && offerNow === "cod" && !sizeKnown) {');
-    expect(turn).toContain("if (lastOutbound !== SIZE_ASK) {");
-    expect(turn).toContain('const sent = await sendFunnelTurn(sizeFirstBubbles(), "roteiro v3: CEP antes do tamanho, a oferta espera o tamanho");');
+    // Once a conversation, her question answered after it (Opus review, grafo §132).
+    expect(turn).toContain("if (!recentOutbound.includes(SIZE_BEFORE_OFFER)) {");
+    expect(turn).toContain('const sent = await sendFunnelTurn(sizeFirstBubbles(), "roteiro v3: CEP antes do tamanho, a oferta espera o tamanho", {}, answerAfterOffer);');
   });
 
   it("negação: com o tamanho, a consulta é pelo tamanho e a oferta segue (a pergunta fica depois do ramo do 'No M…')", () => {

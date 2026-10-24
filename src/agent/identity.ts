@@ -223,6 +223,10 @@ const NOT_A_FIRST_NAME =
   // "prefiro não passar", "pode ser sem", "sem nome" after the name ask are refusals, not names (review of round 2).
   /^(eu|te|ta|esta|e|eh|igual|mesmo|mesma|passo|vou|vai|ja|nao|sei|depois|o|a|no|na|do|da|de|um|uma|ele|ela|meu|minha|seu|sua|que|com|pra|para|mae|filha|irma|esposa|amiga|tia|avo|sogra|prefiro|prefere|pode|sem|manda|deixa|precisa|obrigada|obrigado|nossa|vixe|pera|perai|antes|calma|eita|gente|ah|ai|ui|oxe|oxi|uai|poxa|puxa|caramba|deus|gracas|aff|hum|hmm|tipo|parque|vila|jardim|bairro|centro|condominio|residencial|conjunto|segue|endereco)$/;
 
+const UFS = "AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO";
+const UF_ALONE = new RegExp(`^(?:${UFS})$`);
+const UF_END = new RegExp(`\\s(?:${UFS})$`);
+
 export const extractName = (text: string, askedName = false): string | null => {
   // Line breaks survive: WhatsApp messages arrive several lines at once, and a name must
   // not run on into the address typed on the next line ("nome dela maria jose\nRua...").
@@ -250,7 +254,13 @@ export const extractName = (text: string, askedName = false): string | null => {
   // "é Carla Menezes", "sou patricia souza": the "it is / I am" before it is not the name.
   const bare = (t: string): string => t.replace(/^(?:[eé]h?|sou(?:\s+a)?)\s+/i, "").trim();
   const firstLine = bare(cleaned.split("\n")[0] ?? "");
-  const ownLine = askedName && cleaned.includes("\n") && lettersOnly(firstLine);
+  // Not a place nor a payment above its details (Opus review of §130): "Recife PE\n50000000", "Santa Maria\nRS", "Belo Horizonte\nrua x
+  // 10", "Cartão de crédito\nem 12x". A line below that is a state, an address word or a short one with a number is no sentence of hers.
+  const placeLine = (l: string): boolean =>
+    UF_ALONE.test(l.trim()) || /^(?:rua|r\.|av\.?|avenida|travessa|alameda|rodovia|estrada|cep|bairro|numero|n[º°])(?=\s|$)/i.test(l.trim()) ||
+    (/\d/.test(l) && l.trim().split(/\s+/).length <= 3);
+  const ownLine = askedName && cleaned.includes("\n") && lettersOnly(firstLine) && !UF_END.test(firstLine) &&
+    !/^(?:cart[aã]o|pix|boleto|dinheiro|cr[eé]dito|d[eé]bito)\b/i.test(firstLine) && !cleaned.split("\n").slice(1).some(placeLine);
   const leadRun = cleaned.match(/^[A-Za-zÀ-ÿ'´` ]{2,60}(?=[^A-Za-zÀ-ÿ'´` ,.;\n])/)?.[0].trim() ?? "";
   const opening = !askedName ? ""
     : podeSer ? cleaned.replace(/^pode\s+ser\s+/i, "").trim()

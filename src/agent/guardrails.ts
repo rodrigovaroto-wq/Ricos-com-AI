@@ -248,6 +248,8 @@ export interface GateContext {
   cepAsks?: number;
   /** She said she does not remember her CEP and has sent none since (R26.1): no CEP ask at all (`cep_insist`). */
   cepForgotten?: boolean;
+  /** The CEP she sent this turn was not found (`cep_insist`): telling her so is no insisting. */
+  cepNotFound?: boolean;
   /** She asked to change the address and has no order yet (`support_before_order`): a new CEP, never the customer service. */
   addressBeforeOrder?: boolean;
   /** How many replies in a row asked her pants size, while none was read (`size_insist`). */
@@ -557,6 +559,8 @@ const ALSO = /\b(?:tambem|igua\w*|mesm[oa]s?|idem)\b/;
  */
 const EXTENDS =
   /\b(?:tambem|igua\w*|mesm[oa]s?|idem|vale\w*|serve|inclusive|identic\w*|qualquer|outr[oa]s?)\b|\b(?:n[oa]s|pr[oa]s|para\s+[oa]s|em)\s+(?:dois|duas|ambos|ambas)\b|\btod[oa]s\b/;
+/** Nothing more to pay, said of a payment (`shipping_promise`'s `chargedElsewhere`): "com tudo incluso", "sem nada a mais", "e pronto". */
+const ALL_IN = /\b(?:tudo\s+(?:incluso|incluido|junto|dentro)|nada\s+(?:a\s+mais|mais|extra|adicional)|sem\s+(?:custo\s+|taxa\s+|valor\s+)?(?:extra|adicional)|e\s+pronto|so\s+isso|mais\s+nada|valor\s+final|fechad[oa])\b/;
 /** Boleto denied: the shop has none on any path (R31), so a denied boleto names no other payment (`shipping_promise`). */
 const BOLETO_DENIED =
   /\b(?:nao|nem|sem)\s+(?:(?:tem|temos|trabalh\w*\s+com|aceit\w*|existe|ha)\s+)?(?:o\s+|no\s+|com\s+|de\s+)?boleto\b|\bboleto\s+(?:(?:infelizmente|aqui)\s+)?(?:nao|nunca)\s+(?:tem|temos|existe|ha|da|aceit\w*|trabalh\w*)\b(?:\s+mesmo\b)?/g;
@@ -917,6 +921,8 @@ export const asksWhatSheIs = (message: string): boolean =>
 const money = (v: number): string => `R$ ${v.toFixed(2).replace(".", ",")}`;
 /** The published size grade, read when the config carries none (`GateConfig.sizes`). */
 const GRADE: readonly string[] = ["P", "M", "G", "GG", "XGG"];
+/** The largest pants number the size table covers: `TABLE_TOP_DRESS` of `sizing.ts`, which this file does not import (a test proves both equal). */
+export const TABLE_TOP_PANTS = 52;
 /** The size exchange's freight without `freeExchange`, as the prompt teaches it: not said at all (R21.4). */
 const EXCHANGE_FREIGHT_LINE = `Do envio da troca de tamanho não fale nada: nem valor, nem que é por conta dela, nem que é grátis.`;
 const savingOf = (c: GateConfig): number => +(c.prices.codBrl - c.prices.prepayBrl).toFixed(2);
@@ -2540,7 +2546,7 @@ const gates: readonly Gate[] = [
       // same untruth. Only a denial governing it passes ("não consigo reservar", "não tenho como apagar").
       const untrue: ReadonlyArray<readonly [RegExp, string]> = [
         [
-          /\breserv(?:ei|amos|ad[oa]s?|o|ar)\b|\b(?:p|m|g|gg|xgg|tamanho|colete|pedido)\b[^.!?]{0,20}?\b(?:fica|ficam|esta|ta|vai\s+ficar)\s+(?:la\s+|aqui\s+)?(?:te\s+)?esperando\b|\b(?:separei|guardei|deixei\s+(?:separad|guardad)\w*)\b[^.!?]{0,20}?\b(?:p|m|g|gg|xgg|tamanho|colete|seu|sua)\b/g,
+          /\breserv(?:ei|amos|ad[oa]s?|o|ar)\b(?=[^.!?]{0,30}\b(?:p|m|g|gg|xgg|tamanho|colete|pedido|peca|kit)\b)|(?<=\b(?:p|m|g|gg|xgg|tamanho|colete|pedido|peca|kit)\b[^.!?]{0,30})\breserv(?:ei|amos|ad[oa]s?|o|ar)\b|\b(?:p|m|g|gg|xgg|tamanho|colete|pedido)\b[^.!?]{0,20}?\b(?:fica|ficam|esta|ta|vai\s+ficar)\s+(?:la\s+|aqui\s+)?(?:te\s+)?esperando\b|\b(?:separei|guardei|deixei\s+(?:separad|guardad)\w*)\b[^.!?]{0,20}?\b(?:p|m|g|gg|xgg|tamanho|colete|seu|sua)\b/g,
           "claims a size is reserved for her, and nothing is reserved",
         ],
         [
@@ -3079,7 +3085,9 @@ const gates: readonly Gate[] = [
             // região no checkout"): a sentence that only names the prepaid path or its means ("o antecipado é só no pix ou no
             // cartão") extends nothing, the message already says what the freight is there (personas 2026-10-24, boleto-insiste).
             // One that refers back ("também", "igual", "vale", "pros dois", "qualquer forma") still does (grafo §33).
-            if (chargedElsewhere && !EXTENDS.test(plain(s))) continue;
+            // Nor one that puts a prepaid price or an "all in" on the other payment (Opus review of §129: "E no pix fica R$ 116,91 com
+            // tudo incluso", "No pix sai por R$ 116,91, sem nada a mais").
+            if (chargedElsewhere && !EXTENDS.test(plain(s)) && !moneyMatches(s).some((x) => prepaidPrices.includes(x.value)) && !ALL_IN.test(plain(s))) continue;
             return beyondCod;
           }
         }
@@ -3433,11 +3441,13 @@ const gates: readonly Gate[] = [
       `Se ela mandou um CEP que não existe, avisar que não encontrou esse CEP não é pedir de novo.`,
     // Telling her the CEP she sent was not found is no insisting (persona cob-cep-errado, 2026-10-24, grafo §129): "Esse CEP não
     // encontrei, me confirma depois?" — its whole sentence is set aside; any other sentence asking the CEP still counts.
+    // Only in the turn her CEP was not found (`cepNotFound`, Opus review of §129), and only the not-found clause: "Não achei o seu CEP
+    // aqui, me passa?" with none sent, and "Esse CEP não encontrei, me passa o CEP de novo?", still ask it.
     check: (text, ctx) =>
-      !asksCep(norm(text).split(/(?<=[.!?])\s+|\n+/).filter((s) => !CEP_NOT_FOUND.test(s)).join("\n")) ? null
       // R26.1 (persona Marcinha, 15/10): "meu cep nao lembro de cabeça agora", and the CEP asked five more times.
-      : ctx.cepForgotten === true ? "asks the CEP she said she does not remember"
-      : (ctx.cepAsks ?? 0) >= 1 ? "asks the CEP twice in a row"
+      ctx.cepForgotten === true && asksCep(text) ? "asks the CEP she said she does not remember"
+      : (ctx.cepAsks ?? 0) >= 1 && asksCep(ctx.cepNotFound === true ? norm(text).replace(new RegExp(CEP_NOT_FOUND.source, "g"), " ") : text)
+        ? "asks the CEP twice in a row"
       : null,
   },
   {
@@ -3500,6 +3510,8 @@ const gates: readonly Gate[] = [
         const top = (ctx.config.sizes?.length ? ctx.config.sizes : GRADE).at(-1)!.toLowerCase();
         const ceiling = (m: RegExpMatchArray): boolean =>
           m[1] !== undefined &&
+          // The table's real top only (Opus review of §129: "o XGG veste até o 60 de calça" passed).
+          Number(m[1]) === TABLE_TOP_PANTS &&
           /\b(?:ate|para\s+no)\s+(?:o\s+)?$/.test(t.slice(0, m.index)) &&
           !/\b(?:voce|vc)\b[^,;.!?]*$/.test(t.slice(0, m.index)) &&
           new RegExp(String.raw`\b(?:${top}|tabela|grade|maior)\b`).test(t);
@@ -3514,7 +3526,9 @@ const gates: readonly Gate[] = [
           const extreme = /\b[oa]\s+(maior|menor)\b(?:\s+(?:tamanho|que\s+(?:a\s+gente\s+)?(?:tem|temos|faz|fazemos)|d[ao]s?\s+(?:nossa\s+|nosso\s+)?(?:tabela|grade|tamanhos)))*(?:\s+(?:mesmo|aqui))?\s+$/.exec(
             t.slice(0, m.index),
           );
-          return !(extreme && m[1]!.toUpperCase() === (extreme[1] === "maior" ? sizes.at(-1) : sizes[0]));
+          // Never when it is then made hers: "O maior é o XGG, que é o seu tamanho" (Opus review of §129).
+          const madeHers = /^\W*que\s+(?:e|eh|sera|seria|fica|vai\s+ser)\s+(?:o\s+|bem\s+o\s+)?(?:seu|teu)\b/.test(t.slice((m.index ?? 0) + m[0].length));
+          return !(extreme && !madeHers && m[1]!.toUpperCase() === (extreme[1] === "maior" ? sizes.at(-1) : sizes[0]));
         })
         .map((m) => m[1]!.toUpperCase());
       return named.some((size) => size !== ctx.knownSize)
@@ -3684,7 +3698,7 @@ const gates: readonly Gate[] = [
         // The grade, not the stock (personas 2026-10-24, grafo §129): "o maior que a gente tem é o XGG", "a gente tem do P ao XGG" —
         // never with a stock word after it ("temos do P ao XGG em estoque").
         .replace(/\b[oa]\s+(?:maior|menor)\s+(?:tamanho\s+)?que\s+(?:a\s+gente\s+)?(?:tem|temos|tenho|faz|fazemos)\b/g, " ")
-        .replace(/\b(?:tem|temos|tenho)\s+(?:(?:so|apenas)\s+)?(?:tamanhos?\s+)?do\s+(?:pp|p)\s+(?:ao|ate\s+o)\s+(?:xgg|gg)\b(?!\s+(?:em\s+estoque|disponive\w*|pra\s+pronta|guardad\w*|reservad\w*|separad\w*))/g, " ");
+        .replace(/\b(?:tem|temos|tenho)\s+(?:(?:so|apenas)\s+)?(?:tamanhos?\s+)?do\s+(?:pp|p)\s+(?:ao|ate\s+o)\s+(?:xgg|gg)\b(?![^.!?]*\b(?:disponiv\w*|estoque|pronta|tem\s+sim|reservad\w*|separad\w*|guardad\w*)\b)/g, " ");
       // "tem no seu tamanho", "o G está disponível", "temos o GG em estoque",
       // "já reservei o M", "o seu tamanho chega em", "tava guardando seu M" (persona round
       // 2026-10-05, Karol). Never the fitting itself, nor "guarda essa dica".

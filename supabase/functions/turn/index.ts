@@ -210,6 +210,7 @@ import {
   offerBubbles,
   noCodReasonLine,
   sizeFirstBubbles,
+  SIZE_BEFORE_OFFER,
   openingBubbles,
   sizeTableBubbles,
   stripMediaLabels,
@@ -256,6 +257,7 @@ import {
   buyerAsk,
   sendLinkNow,
   statesPastPurchase,
+  reportsOrderTrouble,
   changesAddress,
   type Interpretation,
 } from "./interpret.ts";
@@ -416,6 +418,8 @@ if (CONVERSATION_MODEL !== DEFAULT_CONVERSATION_MODEL) {
 interface BusinessConfig extends GateConfig {
   brand: string;
   agentName: string;
+  /** The shop's own site ("encorpa-fashion.com.br"): a link to it is ours (`foreignCheckoutUrl`). Optional: absent, only the checkouts are. */
+  site?: string;
   delivery: {
     codDaysMin: number;
     codDaysMax: number;
@@ -2542,7 +2546,8 @@ const handleTurn = async (
   // Personas of 2026-10-24 (cob-troca-tamanho-depois, cob-muda-endereco-antes, cob-pos-venda-problema): "comprei … ficou grande",
   // "mudei de casa, com quem eu falo pra mudar o endereço?", "comprei faz 10 dias e não chegou" got the audios, the video and "Qual o
   // número da calça?". She is past the sale: the receipt goes, and the model answers her (`statesPastPurchase`, `changesAddress`).
-  const afterSale = statesPastPurchase(spoken(inbound.body ?? "")) || (changesAddress(spoken(inbound.body ?? "")) && /\bmudei\b/i.test(spoken(inbound.body ?? "")));
+  const afterSale = statesPastPurchase(spoken(inbound.body ?? ""), false) ||
+    (statesPastPurchase(spoken(inbound.body ?? "")) && reportsOrderTrouble(spoken(inbound.body ?? ""))) || (changesAddress(spoken(inbound.body ?? "")) && /\bmudei\b/i.test(spoken(inbound.body ?? "")));
   if (isNewLead && !isResume && !skipsOpening(spoken(inbound.body ?? "")) && !afterSale) {
     const opening = openingBubbles(CONFIG);
     const sent = await sendFunnel(conversation.id, opening);
@@ -4240,7 +4245,7 @@ const handleTurn = async (
   const pressed = recent.filter((m: { direction: string }) => m.direction === "inbound").slice(-5).filter((m: { body: string }) => asksForLink(spoken(m.body ?? "")) && /\b(?:link|checkout|pagamento)\b/i.test(spoken(m.body ?? ""))).length >= 2
     && !recentOutbound.slice(-3).some((m: string) => CHECKOUT_BASES.some((b) => m.includes(b)));
   // A payment link in her message that is not ours (A9, persona venda-decidida, 2026-10-24): never endorsed — ours goes, told apart.
-  const foreignUrl = parts.map((p: string) => foreignCheckoutUrl(p, CHECKOUT_HOSTS)).find((u: string | null) => u !== null) ?? null;
+  const foreignUrl = parts.map((p: string) => foreignCheckoutUrl(p, [...CHECKOUT_HOSTS, ...(CONFIG.site ? [CONFIG.site] : [])])).find((u: string | null) => u !== null) ?? null;
   // Her own request for the link sends it (A1, personas of 2026-10-24: "manda o link ai" got "lá no checkout você escolhe o G" for up
   // to six turns): with size and path known, her name is the checkout's to ask — and so is it after any link went (A6: "aline prado",
   // never read, held the link to her new CEP). On the prepaid path she chose, the checkout asks the address too (A8: a kit of three
@@ -4638,8 +4643,9 @@ const handleTurn = async (
     } else if (region !== null && offerNow === "cod" && !sizeKnown) {
       // A3 (personas of 2026-10-24): the delivery is the stock of her SIZE in her city — the offer promised "Chegará já segunda… Não
       // Paga Nada Agora" on any size's answer, and the next turn took it back for her M. Her size first, once; the offer goes on it.
-      if (lastOutbound !== SIZE_ASK) {
-        const sent = await sendFunnelTurn(sizeFirstBubbles(), "roteiro v3: CEP antes do tamanho, a oferta espera o tamanho");
+      // Once a conversation (Opus review of §130: it alternated with the model's ask forever), and her question beside it answered after.
+      if (!recentOutbound.includes(SIZE_BEFORE_OFFER)) {
+        const sent = await sendFunnelTurn(sizeFirstBubbles(), "roteiro v3: CEP antes do tamanho, a oferta espera o tamanho", {}, answerAfterOffer);
         if (sent) return sent;
       } else {
         guide(
@@ -4679,7 +4685,7 @@ const handleTurn = async (
     const refusedCorreios = codBefore && lastOutbound === ADDRESS_NO_COD_ASK && !parts.some((p: string) => confirmsAddress(spoken(p))) && !interpretation.wants_to_buy;
     if (refusedCorreios) guide("Ela não aceitou ir pelos Correios, ou respondeu outra coisa.", "Tudo bem! Se mudar de ideia, é só me chamar que eu te mando o link 💛", "não aceitou o antecipado depois da pergunta");
     const sent = refusedCorreios ? null : codBefore && lastOutbound !== ADDRESS_NO_COD_ASK
-      ? await sendFunnelTurn([{ text: opening(ADDRESS_NO_COD_ASK) }], "endereço novo sem entrega: pergunta do antecipado")
+      ? await sendFunnelTurn([{ text: opening(ADDRESS_NO_COD_ASK) }], "endereço novo sem entrega: pergunta do antecipado", {}, cepMoved && askedBeside && !isResume)
       : await sendFunnelTurn(
         [
           // The new CEP checked before the link goes again (operator's test, 2026-10-21): said, so the same link is no puzzle.
@@ -4979,6 +4985,8 @@ const handleTurn = async (
         addressDraft.cep || linkDue || wrongCep || cepNotFound
           ? 0
           : recentOutbound.length - 1 - recentOutbound.findLastIndex((m: string) => !asksCep(m)),
+      // The CEP of this turn not found: telling her so is no insisting (`cep_insist`, grafo §132).
+      cepNotFound,
       // R26.1: after her "não lembro o CEP", no CEP ask at all until she sends one — her wanting to buy included.
       cepForgotten,
       addressBeforeOrder: newAddressBeforeOrder,
