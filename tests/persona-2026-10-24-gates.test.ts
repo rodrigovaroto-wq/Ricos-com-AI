@@ -158,6 +158,7 @@ describe("5. size_claim / unverified_size: o maior tamanho da tabela é fato", (
     "O seu é o XGG, que vai até o 52 de calça.",
     "Com 52 de calça o seu é o XGG.",
     "Você veste até o 46 de calça, então o maior é o XGG.",
+    "Você veste até o 52 de calça, então o maior é o XGG.",
   ], before);
   passes("unverified_size", [
     "A maior que a gente tem é o XGG, que veste cintura até 100 cm 😊",
