@@ -4325,6 +4325,42 @@ do `askedBeside`. O "escrito como nome" sobre o trecho inteiro barrava "Patríci
 **Guarda.** `tests/persona-2026-10-24-conduct.test.ts` (30 testes, cada um com negação); 18 mutações `G131-*`; os `from` de
 `recusa-desisti-nao` e `R28-audio-4-sem-entrega` atualizados.
 
+## 132. A revisão Opus das ondas §129–§131 e as correções (2026-10-24)
+
+**Sintoma (revisão Opus, reprovada).**
+- `quantityOf` lia "um M ou um G?", "era um M, troquei por um G" e "comprei um G e um M mês passado" como kit.
+- `chargedElsewhere` (`shipping_promise`) deixava "No pix fica R$ 116,91 com tudo incluso" ao lado da frase do frete calculado.
+- `size_claim` aceitava qualquer número como teto da tabela.
+- `unverified_size` passava "do P ao XGG, todos disponíveis".
+- `cep_insist` passava "não achei o seu CEP" com `cepForgotten`.
+- `extractName` lia "Recife PE" e "Cartão de crédito" como nome.
+- `foreignCheckoutUrl` marcava o próprio site e os subdomínios da Coinzz/Logzz.
+- `afterSale` pulava a abertura para "comprei um vestido".
+- O pedido de tamanho antes da oferta repetia.
+- `hesitates` não lia "deixa eu ver", "to sem grana" nem "vou consultar meu marido".
+
+**Causa.** Cada exceção nova das ondas era larga demais: a negação ou a isenção olhava a palavra colada e não a frase, ou o domínio
+inteiro e não o registrável.
+
+**Correção.**
+- As peças só contam ligadas por "e" numa oração afirmativa, sem passado.
+- A isenção do `chargedElsewhere` não vale com valor do antecipado nem com "tudo incluso".
+- O teto da tabela é o real (`TABLE_TOP_PANTS` = `TABLE_TOP_DRESS`).
+- O estoque é procurado no resto da frase.
+- `cepNotFound` do turno vai ao gate.
+- A linha própria do nome não vale com dígito, UF, cidade ou pagamento.
+- O domínio registrável e o `CONFIG.site` contam como nossos; a palavra de pagamento só vale como segmento.
+- `afterSale` só vale para compra conosco ou com sinal de troca ou atraso.
+- O pedido de tamanho sai fixo uma vez, com a pergunta dela respondida.
+- `hesitates` ampliado.
+- Menores: `asksForLink` com "só no dia 5", "reservo um tempinho" não vetado, "o maior é o XGG, que é o seu" vetado.
+
+**Resíduos (R21.6).**
+- `doorNotHers` aceita afirmação depois da exceção ("o de R$ 129,90 é pagando na entrega, e é o seu caso aí").
+- "Nem no pix tem frete grátis, viu? Mentira, tem sim."
+
+**Guarda.** `tests/persona-2026-10-24-review-fixes.test.ts`; mutações `G132-*`.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

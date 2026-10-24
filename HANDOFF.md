@@ -13,6 +13,18 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-25 — correções da revisão Opus FEITAS (grafo §132, commit `b6f6850`). Branch pronta para PR e deploy (v44), NÃO publicada.**
+>
+> - **Validação no HEAD:** 9.099 testes, `typecheck`, `lint`, `typecheck:function`, espelho, `dev:conversas` 1655/1655,
+>   `dev:gates --fail-on-loosen` ok; mutações completas: ver o commit seguinte.
+> - **Falta, nesta ordem:**
+>   1. Rodada curta de personas nos casos que falharam. Sobram ~R$ 0,95 do teto de R$ 5; precisa do OK do operador.
+>   2. PR para a `main`.
+>   3. `pnpm deploy:turn` (v44) e `job:"health"`.
+>   4. Smoke test.
+>   5. Operador: estoque por tamanho e cidade na Logzz; decisões da calça 56, do colete para homem e da "postura" (R16.6).
+> - Os patches de `wip-2026-10-24/` foram aplicados e a pasta saiu.
+
 > **2026-10-24 (madrugada) — ondas 1A, 1B e 2 NA BRANCH (`dd478e0`), não publicadas; correções da revisão Opus PARADAS pelo operador.**
 >
 > - **Na branch (validadas):** 9.023 testes, `dev:conversas` 1655/1655, `dev:gates` ok, `typecheck:function` ok.
