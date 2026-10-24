@@ -13,6 +13,24 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-24 (madrugada) — ondas 1A, 1B e 2 NA BRANCH (`dd478e0`), não publicadas; correções da revisão Opus PARADAS pelo operador.**
+>
+> - **Na branch (validadas):** 9.023 testes, `dev:conversas` 1655/1655, `dev:gates` ok, `typecheck:function` ok.
+>   - Onda 1A, gates: grafo §129, mutações `G129-*`.
+>   - Onda 1B, fluxo (link a pedido, nome, oferta por tamanho, motivo do antecipado, CEP novo, rua, link de terceiro): §130, `G130-*`.
+>   - Onda 2, conduta e texto: §131, `G131-*`.
+>   - **Mutações completas NÃO rodadas** no HEAD final.
+> - **Revisão Opus do conjunto: REPROVADA.**
+>   - Bloqueantes: "um M ou um G?" lido como kit de 2 (`quantityOf`), e frete grátis no antecipado passando ao lado de uma frase honesta
+>     (`chargedElsewhere` no `shipping_promise`).
+>   - Importantes: teto da tabela qualquer número (`size_claim`); "do P ao XGG, todos disponíveis" (`unverified_size`); `cep_insist` com
+>     `cepForgotten`; cidade lida como nome (`extractName`); `foreignCheckoutUrl` marcando o próprio site e subdomínios da Coinzz/Logzz;
+>     `afterSale` pulando a abertura de quem comprou um vestido; o pedido de tamanho antes da oferta repetindo; `hesitates` estreito demais.
+> - **A correção desses achados foi parada pelo operador no meio.** O que existia está em
+>   `docs/agente-ia/10-auditoria/wip-2026-10-24/correcoes-revisao-opus.patch` (não testado). A árvore de trabalho ficou com essas mudanças
+>   não commitadas.
+> - **NÃO publicar a branch antes de corrigir os dois bloqueantes acima.**
+
 > **2026-10-24 (noite) — EXECUÇÃO PARADA A PEDIDO DO OPERADOR. Registro completo.**
 >
 > **Em produção (nada mudou hoje):**

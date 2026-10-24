@@ -1,0 +1,947 @@
+diff --git a/src/agent/guardrails.ts b/src/agent/guardrails.ts
+index 26bf2fb..abc1a32 100644
+--- a/src/agent/guardrails.ts
++++ b/src/agent/guardrails.ts
+@@ -248,6 +248,8 @@ export interface GateContext {
+   cepAsks?: number;
+   /** She said she does not remember her CEP and has sent none since (R26.1): no CEP ask at all (`cep_insist`). */
+   cepForgotten?: boolean;
++  /** The CEP she sent this turn was not found (`cep_insist`): telling her so is no insisting. */
++  cepNotFound?: boolean;
+   /** She asked to change the address and has no order yet (`support_before_order`): a new CEP, never the customer service. */
+   addressBeforeOrder?: boolean;
+   /** How many replies in a row asked her pants size, while none was read (`size_insist`). */
+@@ -557,6 +559,8 @@ const ALSO = /\b(?:tambem|igua\w*|mesm[oa]s?|idem)\b/;
+  */
+ const EXTENDS =
+   /\b(?:tambem|igua\w*|mesm[oa]s?|idem|vale\w*|serve|inclusive|identic\w*|qualquer|outr[oa]s?)\b|\b(?:n[oa]s|pr[oa]s|para\s+[oa]s|em)\s+(?:dois|duas|ambos|ambas)\b|\btod[oa]s\b/;
++/** Nothing more to pay, said of a payment (`shipping_promise`'s `chargedElsewhere`): "com tudo incluso", "sem nada a mais", "e pronto". */
++const ALL_IN = /\b(?:tudo\s+(?:incluso|incluido|junto|dentro)|nada\s+(?:a\s+mais|mais|extra|adicional)|sem\s+(?:custo\s+|taxa\s+|valor\s+)?(?:extra|adicional)|e\s+pronto|so\s+isso|mais\s+nada|valor\s+final|fechad[oa])\b/;
+ /** Boleto denied: the shop has none on any path (R31), so a denied boleto names no other payment (`shipping_promise`). */
+ const BOLETO_DENIED =
+   /\b(?:nao|nem|sem)\s+(?:(?:tem|temos|trabalh\w*\s+com|aceit\w*|existe|ha)\s+)?(?:o\s+|no\s+|com\s+|de\s+)?boleto\b|\bboleto\s+(?:(?:infelizmente|aqui)\s+)?(?:nao|nunca)\s+(?:tem|temos|existe|ha|da|aceit\w*|trabalh\w*)\b(?:\s+mesmo\b)?/g;
+@@ -917,6 +921,8 @@ export const asksWhatSheIs = (message: string): boolean =>
+ const money = (v: number): string => `R$ ${v.toFixed(2).replace(".", ",")}`;
+ /** The published size grade, read when the config carries none (`GateConfig.sizes`). */
+ const GRADE: readonly string[] = ["P", "M", "G", "GG", "XGG"];
++/** The largest pants number the size table covers: `TABLE_TOP_DRESS` of `sizing.ts`, which this file does not import (a test proves both equal). */
++export const TABLE_TOP_PANTS = 52;
+ /** The size exchange's freight without `freeExchange`, as the prompt teaches it: not said at all (R21.4). */
+ const EXCHANGE_FREIGHT_LINE = `Do envio da troca de tamanho não fale nada: nem valor, nem que é por conta dela, nem que é grátis.`;
+ const savingOf = (c: GateConfig): number => +(c.prices.codBrl - c.prices.prepayBrl).toFixed(2);
+@@ -2540,7 +2546,7 @@ const gates: readonly Gate[] = [
+       // same untruth. Only a denial governing it passes ("não consigo reservar", "não tenho como apagar").
+       const untrue: ReadonlyArray<readonly [RegExp, string]> = [
+         [
+-          /\breserv(?:ei|amos|ad[oa]s?|o|ar)\b|\b(?:p|m|g|gg|xgg|tamanho|colete|pedido)\b[^.!?]{0,20}?\b(?:fica|ficam|esta|ta|vai\s+ficar)\s+(?:la\s+|aqui\s+)?(?:te\s+)?esperando\b|\b(?:separei|guardei|deixei\s+(?:separad|guardad)\w*)\b[^.!?]{0,20}?\b(?:p|m|g|gg|xgg|tamanho|colete|seu|sua)\b/g,
++          /\breserv(?:ei|amos|ad[oa]s?|o|ar)\b(?=[^.!?]{0,30}\b(?:p|m|g|gg|xgg|tamanho|colete|pedido|peca|kit)\b)|(?<=\b(?:p|m|g|gg|xgg|tamanho|colete|pedido|peca|kit)\b[^.!?]{0,30})\breserv(?:ei|amos|ad[oa]s?|o|ar)\b|\b(?:p|m|g|gg|xgg|tamanho|colete|pedido)\b[^.!?]{0,20}?\b(?:fica|ficam|esta|ta|vai\s+ficar)\s+(?:la\s+|aqui\s+)?(?:te\s+)?esperando\b|\b(?:separei|guardei|deixei\s+(?:separad|guardad)\w*)\b[^.!?]{0,20}?\b(?:p|m|g|gg|xgg|tamanho|colete|seu|sua)\b/g,
+           "claims a size is reserved for her, and nothing is reserved",
+         ],
+         [
+@@ -3079,7 +3085,9 @@ const gates: readonly Gate[] = [
+             // região no checkout"): a sentence that only names the prepaid path or its means ("o antecipado é só no pix ou no
+             // cartão") extends nothing, the message already says what the freight is there (personas 2026-10-24, boleto-insiste).
+             // One that refers back ("também", "igual", "vale", "pros dois", "qualquer forma") still does (grafo §33).
+-            if (chargedElsewhere && !EXTENDS.test(plain(s))) continue;
++            // Nor one that puts a prepaid price or an "all in" on the other payment (Opus review of §129: "E no pix fica R$ 116,91 com
++            // tudo incluso", "No pix sai por R$ 116,91, sem nada a mais").
++            if (chargedElsewhere && !EXTENDS.test(plain(s)) && !moneyMatches(s).some((x) => prepaidPrices.includes(x.value)) && !ALL_IN.test(plain(s))) continue;
+             return beyondCod;
+           }
+         }
+@@ -3433,11 +3441,13 @@ const gates: readonly Gate[] = [
+       `Se ela mandou um CEP que não existe, avisar que não encontrou esse CEP não é pedir de novo.`,
+     // Telling her the CEP she sent was not found is no insisting (persona cob-cep-errado, 2026-10-24, grafo §129): "Esse CEP não
+     // encontrei, me confirma depois?" — its whole sentence is set aside; any other sentence asking the CEP still counts.
++    // Only in the turn her CEP was not found (`cepNotFound`, Opus review of §129), and only the not-found clause: "Não achei o seu CEP
++    // aqui, me passa?" with none sent, and "Esse CEP não encontrei, me passa o CEP de novo?", still ask it.
+     check: (text, ctx) =>
+-      !asksCep(norm(text).split(/(?<=[.!?])\s+|\n+/).filter((s) => !CEP_NOT_FOUND.test(s)).join("\n")) ? null
+       // R26.1 (persona Marcinha, 15/10): "meu cep nao lembro de cabeça agora", and the CEP asked five more times.
+-      : ctx.cepForgotten === true ? "asks the CEP she said she does not remember"
+-      : (ctx.cepAsks ?? 0) >= 1 ? "asks the CEP twice in a row"
++      ctx.cepForgotten === true && asksCep(text) ? "asks the CEP she said she does not remember"
++      : (ctx.cepAsks ?? 0) >= 1 && asksCep(ctx.cepNotFound === true ? norm(text).replace(new RegExp(CEP_NOT_FOUND.source, "g"), " ") : text)
++        ? "asks the CEP twice in a row"
+       : null,
+   },
+   {
+@@ -3500,6 +3510,8 @@ const gates: readonly Gate[] = [
+         const top = (ctx.config.sizes?.length ? ctx.config.sizes : GRADE).at(-1)!.toLowerCase();
+         const ceiling = (m: RegExpMatchArray): boolean =>
+           m[1] !== undefined &&
++          // The table's real top only (Opus review of §129: "o XGG veste até o 60 de calça" passed).
++          Number(m[1]) === TABLE_TOP_PANTS &&
+           /\b(?:ate|para\s+no)\s+(?:o\s+)?$/.test(t.slice(0, m.index)) &&
+           !/\b(?:voce|vc)\b[^,;.!?]*$/.test(t.slice(0, m.index)) &&
+           new RegExp(String.raw`\b(?:${top}|tabela|grade|maior)\b`).test(t);
+@@ -3514,7 +3526,9 @@ const gates: readonly Gate[] = [
+           const extreme = /\b[oa]\s+(maior|menor)\b(?:\s+(?:tamanho|que\s+(?:a\s+gente\s+)?(?:tem|temos|faz|fazemos)|d[ao]s?\s+(?:nossa\s+|nosso\s+)?(?:tabela|grade|tamanhos)))*(?:\s+(?:mesmo|aqui))?\s+$/.exec(
+             t.slice(0, m.index),
+           );
+-          return !(extreme && m[1]!.toUpperCase() === (extreme[1] === "maior" ? sizes.at(-1) : sizes[0]));
++          // Never when it is then made hers: "O maior é o XGG, que é o seu tamanho" (Opus review of §129).
++          const madeHers = /^\W*que\s+(?:e|eh|sera|seria|fica|vai\s+ser)\s+(?:o\s+|bem\s+o\s+)?(?:seu|teu)\b/.test(t.slice((m.index ?? 0) + m[0].length));
++          return !(extreme && !madeHers && m[1]!.toUpperCase() === (extreme[1] === "maior" ? sizes.at(-1) : sizes[0]));
+         })
+         .map((m) => m[1]!.toUpperCase());
+       return named.some((size) => size !== ctx.knownSize)
+@@ -3684,7 +3698,7 @@ const gates: readonly Gate[] = [
+         // The grade, not the stock (personas 2026-10-24, grafo §129): "o maior que a gente tem é o XGG", "a gente tem do P ao XGG" —
+         // never with a stock word after it ("temos do P ao XGG em estoque").
+         .replace(/\b[oa]\s+(?:maior|menor)\s+(?:tamanho\s+)?que\s+(?:a\s+gente\s+)?(?:tem|temos|tenho|faz|fazemos)\b/g, " ")
+-        .replace(/\b(?:tem|temos|tenho)\s+(?:(?:so|apenas)\s+)?(?:tamanhos?\s+)?do\s+(?:pp|p)\s+(?:ao|ate\s+o)\s+(?:xgg|gg)\b(?!\s+(?:em\s+estoque|disponive\w*|pra\s+pronta|guardad\w*|reservad\w*|separad\w*))/g, " ");
++        .replace(/\b(?:tem|temos|tenho)\s+(?:(?:so|apenas)\s+)?(?:tamanhos?\s+)?do\s+(?:pp|p)\s+(?:ao|ate\s+o)\s+(?:xgg|gg)\b(?![^.!?]*\b(?:disponiv\w*|estoque|pronta|tem\s+sim|reservad\w*|separad\w*|guardad\w*)\b)/g, " ");
+       // "tem no seu tamanho", "o G está disponível", "temos o GG em estoque",
+       // "já reservei o M", "o seu tamanho chega em", "tava guardando seu M" (persona round
+       // 2026-10-05, Karol). Never the fitting itself, nor "guarda essa dica".
+diff --git a/src/agent/identity.ts b/src/agent/identity.ts
+index d6d8e11..8a2955a 100644
+--- a/src/agent/identity.ts
++++ b/src/agent/identity.ts
+@@ -223,6 +223,10 @@ const NOT_A_FIRST_NAME =
+   // "prefiro não passar", "pode ser sem", "sem nome" after the name ask are refusals, not names (review of round 2).
+   /^(eu|te|ta|esta|e|eh|igual|mesmo|mesma|passo|vou|vai|ja|nao|sei|depois|o|a|no|na|do|da|de|um|uma|ele|ela|meu|minha|seu|sua|que|com|pra|para|mae|filha|irma|esposa|amiga|tia|avo|sogra|prefiro|prefere|pode|sem|manda|deixa|precisa|obrigada|obrigado|nossa|vixe|pera|perai|antes|calma|eita|gente|ah|ai|ui|oxe|oxi|uai|poxa|puxa|caramba|deus|gracas|aff|hum|hmm|tipo|parque|vila|jardim|bairro|centro|condominio|residencial|conjunto|segue|endereco)$/;
+ 
++const UFS = "AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO";
++const UF_ALONE = new RegExp(`^(?:${UFS})$`);
++const UF_END = new RegExp(`\\s(?:${UFS})$`);
++
+ export const extractName = (text: string, askedName = false): string | null => {
+   // Line breaks survive: WhatsApp messages arrive several lines at once, and a name must
+   // not run on into the address typed on the next line ("nome dela maria jose\nRua...").
+@@ -250,7 +254,13 @@ export const extractName = (text: string, askedName = false): string | null => {
+   // "é Carla Menezes", "sou patricia souza": the "it is / I am" before it is not the name.
+   const bare = (t: string): string => t.replace(/^(?:[eé]h?|sou(?:\s+a)?)\s+/i, "").trim();
+   const firstLine = bare(cleaned.split("\n")[0] ?? "");
+-  const ownLine = askedName && cleaned.includes("\n") && lettersOnly(firstLine);
++  // Not a place nor a payment above its details (Opus review of §130): "Recife PE\n50000000", "Santa Maria\nRS", "Belo Horizonte\nrua x
++  // 10", "Cartão de crédito\nem 12x". A line below that is a state, an address word or a short one with a number is no sentence of hers.
++  const placeLine = (l: string): boolean =>
++    UF_ALONE.test(l.trim()) || /^(?:rua|r\.|av\.?|avenida|travessa|alameda|rodovia|estrada|cep|bairro|numero|n[º°])(?=\s|$)/i.test(l.trim()) ||
++    (/\d/.test(l) && l.trim().split(/\s+/).length <= 3);
++  const ownLine = askedName && cleaned.includes("\n") && lettersOnly(firstLine) && !UF_END.test(firstLine) &&
++    !/^(?:cart[aã]o|pix|boleto|dinheiro|cr[eé]dito|d[eé]bito)\b/i.test(firstLine) && !cleaned.split("\n").slice(1).some(placeLine);
+   const leadRun = cleaned.match(/^[A-Za-zÀ-ÿ'´` ]{2,60}(?=[^A-Za-zÀ-ÿ'´` ,.;\n])/)?.[0].trim() ?? "";
+   const opening = !askedName ? ""
+     : podeSer ? cleaned.replace(/^pode\s+ser\s+/i, "").trim()
+diff --git a/src/agent/interpret.ts b/src/agent/interpret.ts
+index f90abab..cb3e91b 100644
+--- a/src/agent/interpret.ts
++++ b/src/agent/interpret.ts
+@@ -336,9 +336,13 @@ export const quantityOf = (
+   const units = i.units !== null && i.units > 1 && !QUANTITY_CUE.test(text) && !namesCount(text, i.units) ? null : i.units;
+   // "um G pra mim e um M pra minha cunhada" (persona cob-recompra, 2026-10-24): each piece's size, read here when the interpreter
+   // read none — she was asked the sizes again. The letter as she typed it, capital; a denied one ("não quero um M") is out.
+-  const pieces = i.unit_sizes.length > 0 ? [] : [...message.matchAll(/\bum(?:as?)?\s+(PP|P|M|GG|G|XGG)\b/g)]
+-    .filter((m) => !/\b(?:nao|nem|sem)\b[^,;.!?\n]*$/.test(norm(message.slice(0, m.index ?? 0))))
+-    .map((m) => (m[1] === "PP" ? "P" : m[1]) as SizeLetter);
++  // Only pieces joined by "e" in a statement of what she wants now: a doubt ("um M ou um G?"), a question or the past ("comprei um G
++  // e um M", "era um M, mas troquei por um G") counts no piece (Opus review of §130).
++  const doubt = message.includes("?") || /\b(?:ou|comprei|comprou|compramos|era|eram|troquei|tinha|tinham|usei|veio|vieram)\b/.test(norm(message));
++  const found = doubt || i.unit_sizes.length > 0 ? [] : [...message.matchAll(/\bum(?:as?)?\s+(PP|P|M|GG|G|XGG)\b/g)]
++    .filter((m) => !/\b(?:nao|nem|sem)\b[^,;.!?\n]*$/.test(norm(message.slice(0, m.index ?? 0))));
++  const joined = found.every((m, k) => k === 0 || /\be\b/.test(norm(message.slice(found[k - 1]!.index ?? 0, m.index ?? 0))));
++  const pieces = joined ? found.map((m) => (m[1] === "PP" ? "P" : m[1]) as SizeLetter) : [];
+   if (pieces.length >= 2) return { units: units !== null && units > pieces.length ? units : pieces.length, sizes: pieces };
+   if (units === null && i.unit_sizes.length === 0) return null;
+   return { units, sizes: [...i.unit_sizes] };
+@@ -827,7 +831,7 @@ export const isBareThanks = (parts: readonly string[]): boolean =>
+  * errand, read by the interpreter as "vou pensar". Only thinking, looking, deciding or putting the purchase off counts.
+  */
+ const HESITATES =
+-  /\b(?:pens\w*|vou\s+(?:ver|olhar|analisar|decidir|deixar|esperar|fechar)|(?:de|pra)\s+olhar|olhar\s+(?:aqui|com\s+calma|direitinho)|ver\s+(?:aqui|direitinho|com\s+calma|isso)|decid\w*|analis\w*|deixa\w*\s+pra\s+(?:depois|outra|proxima)|fica\s+pra\s+(?:depois|outra|proxima)|outro\s+dia|mais\s+pra\s+frente|semana\s+que\s+vem|mes\s+que\s+vem|nao\s+sei|sei\s+la|(?:to|estou|ainda)\s+vendo)\b/;
++  /\b(?:pens\w*|vou\s+(?:ver|olhar|analisar|decidir|deixar|esperar|fechar)|(?:de|pra)\s+olhar|olhar\s+(?:aqui|com\s+calma|direitinho)|ver\s+(?:aqui|direitinho|com\s+calma|isso)|decid\w*|analis\w*|deixa\w*\s+pra\s+(?:depois|outra|proxima)|fica\s+pra\s+(?:depois|outra|proxima)|outro\s+dia|mais\s+pra\s+frente|semana\s+que\s+vem|mes\s+que\s+vem|nao\s+sei|sei\s+la|(?:to|estou|ainda)\s+vendo|deixa\s+eu\s+ver|(?:vou|vo)\s+dar\s+uma\s+olhad\w*|depois\s+(?:eu\s+)?(?:compro|te\s+(?:chamo|falo|aviso))|hoje\s+nao|agora\s+nao\s+(?:posso|da|consigo)|(?:nao\s+tenho|(?:to|estou|tou)\s+sem)\s+(?:\w+\s+)?(?:dinheiro|grana)|vou\s+(?:consultar|perguntar\s+(?:pro|pra|ao|a)|falar\s+com)\s+(?:o\s+|a\s+)?(?:meu|minha)\s+(?:marido|esposo|esposa|namorad[oa]|noivo|noiva))\b/;
+ export const hesitates = (message: string): boolean => HESITATES.test(norm(message));
+ 
+ /** The clause before `at` carries a negation: "ainda não comprei", "não vou querer". */
+@@ -902,6 +906,13 @@ export const changesAddress = (message: string): boolean => {
+     /\b(?:nao\s+tem|sem)\s+entrega\s+(?:pro|pra|para\s+o|no|nesse|neste)\s+(?:meu\s+|esse\s+|novo\s+)?endereco\b/.test(t);
+ };
+ 
++/**
++ * A bare "comprei" on a new lead's first message is past the sale only with what comes after one of ours (Opus review of §131:
++ * "comprei um vestido pra formatura, esse colete serve?" skipped the opening): the fit, the delay, the order, the vest or us named.
++ */
++export const reportsOrderTrouble = (message: string): boolean =>
++  /\b(?:ficou\s+(?:\w+\s+)?(?:grande|pequen\w*|apertad\w*|larg\w*|folgad\w*)|nao\s+(?:serviu|chegou|veio)|chegou|meu\s+pedido|(?:comprei|paguei)\s+(?:\w+\s+){0,2}colete|com\s+(?:voces|vcs|vc|voce)|daqui|rastrei\w*|trocar|troca)\b/.test(norm(message));
++
+ export const statesPastPurchase = (message: string, current = true): boolean => {
+   const t = norm(message);
+   for (const re of current ? [ORDER_WITH_US, BARE_PURCHASE] : [ORDER_WITH_US]) {
+@@ -1256,6 +1267,7 @@ export const linkHeldBack = (
+  * answered "Combinado, fica no seu nome assim"): never endorsed, ours goes instead. A checkout, payment or cart word in it, on a
+  * host that is none of `ourHosts` nor under one of them. Our own link pasted back, a site or an Instagram post is not one.
+  */
++const registrable = (host: string): string => host.split(".").slice(/\.(?:com|net|org|gov|edu|co)\.[a-z]{2}$/.test(host) ? -3 : -2).join(".");
+ export const foreignCheckoutUrl = (message: string, ourHosts: readonly string[]): string | null => {
+   for (const m of message.matchAll(/\b(?:https?:\/\/|www\.)[^\s<>"']+|\b[a-z0-9-]+(?:\.[a-z0-9-]+)+\/[^\s<>"']*/gi)) {
+     const raw = m[0].replace(/[.,;!?)]+$/, "");
+@@ -1263,8 +1275,10 @@ export const foreignCheckoutUrl = (message: string, ourHosts: readonly string[])
+     const url = URL.canParse(href) ? new URL(href) : null;
+     if (!url || !/\./.test(url.hostname)) continue;
+     const host = url.hostname.toLowerCase();
+-    if (ourHosts.some((h) => host === h.toLowerCase() || host.endsWith(`.${h.toLowerCase()}`))) continue;
+-    if (/checkout|pay|pagamento|pagar|pix|boleto|carrinho|cart|compra|order|pedido/i.test(`${host}${url.pathname}${url.search}`)) return raw;
++    // Ours by the registrable domain (Opus review of §130: "pay.coinzz.com.br", "logzz.com.br/pedido", the site's "/cart"), and a
++    // payment word only as a whole segment of the host or path ("maps.app.goo.gl/Pixa12" is a map).
++    if (ourHosts.some((h) => registrable(h.toLowerCase().replace(/^https?:\/\//, "").split("/")[0]!) === registrable(host))) continue;
++    if (/(?:^|[/._?=&-])(?:checkout|pay|pagamento|pagar|pix|boleto|carrinho|cart|compra|order|pedido)(?:$|[/._?=&-])/i.test(`${host}${url.pathname}${url.search}`)) return raw;
+   }
+   return null;
+ };
+@@ -1305,6 +1319,9 @@ export const asksForLink = (message: string): boolean => {
+   for (const m of t.matchAll(/(?:^|[,;.!?\n]\s*|\b(?:sim|ok|entao|ta|blz)\s+)(?:(?:ah|sim|entao|ok|ta|por\s+favor)\s+)*(?:pode\s+(?:me\s+)?agendar|agenda|agende)(?:\s+(?:pra|para)\s+mim)?\b/g)) {
+     const after = t.slice((m.index ?? 0) + m[0].length);
+     if (/\b(?:nao|se|quando|depois|amanha|mais\s+tarde|noite|semana|segunda|terca|quarta|quinta|sexta|sabado|domingo|dia|cheia|lotada)\b/.test(after)) continue;
++    // "agenda" alone is a word, not a yes; and what she schedules is the order, not "o meu horário no dentista" (Opus review of §130).
++    if (/^\s*agend[ae]\s*[!.?]*\s*$/.test(t)) continue;
++    if (/^\s+(?:(?:o|a|os|as|meu|minha|um|uma)\s+)+(?!(?:o|a|os|as|meu|minha|um|uma|pedido|colete|entrega|kit)\b)\p{L}/u.test(after)) continue;
+     return true;
+   }
+   // An allowlist, not a blocklist (second review, three rounds): the imperative opens the
+@@ -1317,7 +1334,7 @@ export const asksForLink = (message: string): boolean => {
+     // are not a request for now (second review, 5th round).
+     // "Só" puts it off only before a time ("só às 18h", "só a partir de"): "manda o link só aí eu vejo" asks for it now (2026-10-24).
+     const after = t.slice((m.index ?? 0) + m[0].length);
+-    if (/\b(?:nao|se|quando|depois|amanha|mais\s+tarde|noite|semana|segunda|terca|quarta|quinta|sexta|sabado|domingo|so\s+(?:as|a\s+partir|la\s+pr?a|de\s+tarde|mais))\b/.test(after)) continue;
++    if (/\b(?:nao|se|quando|depois|amanha|mais\s+tarde|noite|semana|segunda|terca|quarta|quinta|sexta|sabado|domingo|dia\s+\d+|so\s+(?:as|a\s+partir|la\s+pr?a|de\s+tarde|mais|no\s+dia))\b/.test(after)) continue;
+     return true;
+   }
+   return false;
+diff --git a/src/dev/verify-guards.ts b/src/dev/verify-guards.ts
+index 9ee9334..7c783bf 100644
+--- a/src/dev/verify-guards.ts
++++ b/src/dev/verify-guards.ts
+@@ -33,6 +33,8 @@ const G130 = ["pnpm", "-s", "vitest", "run", "tests/persona-2026-10-24-flow.test
+ 
+ const G131 = ["pnpm", "-s", "vitest", "run", "tests/persona-2026-10-24-conduct.test.ts"];
+ 
++const G132 = ["pnpm", "-s", "vitest", "run", "tests/persona-2026-10-24-review-fixes.test.ts"];
++
+ const MUTATIONS: Mutation[] = [
+   {
+     id: "WA-selo",
+@@ -3294,8 +3296,8 @@ const MUTATIONS: Mutation[] = [
+     id: "D17-cep-no-maximo-2",
+     bug: "a Neusa recebeu o pedido do CEP dez vezes seguidas",
+     files: ["src/agent/guardrails.ts"],
+-    from: ": (ctx.cepAsks ?? 0) >= 1 ? \"asks the CEP twice in a row\"",
+-    to: ": false ? \"asks the CEP twice in a row\"",
++    from: ": (ctx.cepAsks ?? 0) >= 1 && asksCep(",
++    to: ": false && asksCep(",
+     guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
+   },
+   {
+@@ -4683,8 +4685,8 @@ const MUTATIONS: Mutation[] = [
+     id: "R28-cep-duas-seguidas",
+     bug: "o CEP saía duas mensagens seguidas a quem não tinha mandado (persona Marcinha, 19/10)",
+     files: ["src/agent/guardrails.ts"],
+-    from: ": (ctx.cepAsks ?? 0) >= 1 ? \"asks the CEP twice in a row\"",
+-    to: ": (ctx.cepAsks ?? 0) >= 2 ? \"asks the CEP twice in a row\"",
++    from: ": (ctx.cepAsks ?? 0) >= 1 && asksCep(",
++    to: ": (ctx.cepAsks ?? 0) >= 2 && asksCep(",
+     guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
+   },
+   {
+@@ -5215,7 +5217,7 @@ const MUTATIONS: Mutation[] = [
+   { id: "G130-terceiro-segura-o-nosso", bug: "com o link de terceiro na mensagem, o nosso link já mandado seria segurado (24/10)", files: ["supabase/functions/turn/index.ts"],
+     from: "const linkJustSent = !cepMoved && foreignUrl === null && linkHeldBack(", to: "const linkJustSent = !cepMoved && linkHeldBack(", guard: G130 },
+   { id: "G130-nosso-link-como-terceiro", bug: "o nosso próprio link colado de volta seria tratado como de terceiro (negação, 24/10)", files: ["src/agent/interpret.ts"],
+-    from: "    if (ourHosts.some((h) => host === h.toLowerCase() || host.endsWith(`.${h.toLowerCase()}`))) continue;\n", to: "", guard: G130 },
++    from: "    if (ourHosts.some((h) => registrable(h.toLowerCase().replace(/^https?:\\/\\//, \"\").split(\"/\")[0]!) === registrable(host))) continue;\n", to: "", guard: G130 },
+   { id: "G130-cade-o-link", bug: "'cade o link então' voltaria a não ser pedido de link (venda-curiosa, 24/10)", files: ["src/agent/interpret.ts"],
+     from: "  if (/\\bcade\\s+(?:o\\s+)?(?:meu\\s+)?link\\b/.test(t)) return true;\n", to: "", guard: G130 },
+   { id: "G130-agendar-adiado", bug: "'pode agendar outro dia' / 'agenda cheia hoje' seriam lidos como pedido de link (negação, 24/10)", files: ["src/agent/interpret.ts"],
+@@ -5240,7 +5242,7 @@ const MUTATIONS: Mutation[] = [
+     id: "G129-frete-cobrado-na-mensagem",
+     bug: "\"o antecipado é só no pix ou no cartão\" voltaria a ser vetado mesmo com \"No antecipado o frete é calculado…\" na mensagem (cob-boleto-insiste)",
+     files: ["src/agent/guardrails.ts"],
+-    from: "            if (chargedElsewhere && !EXTENDS.test(plain(s))) continue;",
++    from: "            if (chargedElsewhere && !EXTENDS.test(plain(s)) && !moneyMatches(s).some((x) => prepaidPrices.includes(x.value)) && !ALL_IN.test(plain(s))) continue;",
+     to: "",
+     guard: ["pnpm", "-s", "vitest", "run", "tests/persona-2026-10-24-gates.test.ts"],
+   },
+@@ -5248,8 +5250,8 @@ const MUTATIONS: Mutation[] = [
+     id: "G129-frete-cobrado-sem-extensao",
+     bug: "\"No pix também.\" passaria ao lado da canônica só porque outra frase diz que o frete do antecipado é calculado",
+     files: ["src/agent/guardrails.ts"],
+-    from: "            if (chargedElsewhere && !EXTENDS.test(plain(s))) continue;",
+-    to: "            if (chargedElsewhere) continue;",
++    from: "if (chargedElsewhere && !EXTENDS.test(plain(s)) &&",
++    to: "if (chargedElsewhere &&",
+     guard: ["pnpm", "-s", "vitest", "run", "tests/persona-2026-10-24-gates.test.ts"],
+   },
+   {
+@@ -5376,7 +5378,7 @@ const MUTATIONS: Mutation[] = [
+     id: "G129-maior-xgg",
+     bug: "\"o maior que a gente tem é o XGG\" voltaria a ser indicação de tamanho",
+     files: ["src/agent/guardrails.ts"],
+-    from: "return !(extreme && m[1]!.toUpperCase() === (extreme[1] === \"maior\" ? sizes.at(-1) : sizes[0]));",
++    from: "return !(extreme && !madeHers && m[1]!.toUpperCase() === (extreme[1] === \"maior\" ? sizes.at(-1) : sizes[0]));",
+     to: "return true;",
+     guard: ["pnpm", "-s", "vitest", "run", "tests/persona-2026-10-24-gates.test.ts"],
+   },
+@@ -5384,8 +5386,8 @@ const MUTATIONS: Mutation[] = [
+     id: "G129-maior-qualquer",
+     bug: "\"O maior é o G.\" (fato errado da grade) passaria",
+     files: ["src/agent/guardrails.ts"],
+-    from: "return !(extreme && m[1]!.toUpperCase() === (extreme[1] === \"maior\" ? sizes.at(-1) : sizes[0]));",
+-    to: "return !extreme;",
++    from: "return !(extreme && !madeHers && m[1]!.toUpperCase() === (extreme[1] === \"maior\" ? sizes.at(-1) : sizes[0]));",
++    to: "return !(extreme && !madeHers);",
+     guard: ["pnpm", "-s", "vitest", "run", "tests/persona-2026-10-24-gates.test.ts"],
+   },
+   {
+@@ -5416,7 +5418,7 @@ const MUTATIONS: Mutation[] = [
+     id: "G129-grade-estoque",
+     bug: "\"Temos do P ao XGG em estoque\" passaria antes da consulta",
+     files: ["src/agent/guardrails.ts"],
+-    from: "(?!\\s+(?:em\\s+estoque|disponive\\w*|pra\\s+pronta|guardad\\w*|reservad\\w*|separad\\w*))/g, \" \");",
++    from: "(?![^.!?]*\\b(?:disponiv\\w*|estoque|pronta|tem\\s+sim|reservad\\w*|separad\\w*|guardad\\w*)\\b)/g, \" \");",
+     to: "/g, \" \");",
+     guard: ["pnpm", "-s", "vitest", "run", "tests/persona-2026-10-24-gates.test.ts"],
+   },
+@@ -5432,8 +5434,8 @@ const MUTATIONS: Mutation[] = [
+     id: "G129-cep-nao-encontrado",
+     bug: "\"Esse CEP não encontrei, me confirma depois?\" voltaria a ser insistência no CEP",
+     files: ["src/agent/guardrails.ts"],
+-    from: ".filter((s) => !CEP_NOT_FOUND.test(s))",
+-    to: "",
++    from: "asksCep(ctx.cepNotFound === true ? norm(text).replace(new RegExp(CEP_NOT_FOUND.source, \"g\"), \" \") : text)",
++    to: "asksCep(text)",
+     guard: ["pnpm", "-s", "vitest", "run", "tests/persona-2026-10-24-gates.test.ts"],
+   },
+   {
+@@ -5472,8 +5474,8 @@ const MUTATIONS: Mutation[] = [
+     id: "G131-hesitacao-despedida",
+     bug: "agradecimento e recado (\"obrigada\", \"te chamo\", \"eu vejo\") contariam como hesitação dela",
+     files: ["src/agent/interpret.ts"],
+-    from: "|(?:to|estou|ainda)\\s+vendo)\\b/;",
+-    to: "|(?:to|estou|ainda)\\s+vendo|obrigad\\w*|chamo|vejo)\\b/;",
++    from: "|(?:to|estou|ainda)\\s+vendo|deixa\\s+eu\\s+ver|",
++    to: "|(?:to|estou|ainda)\\s+vendo|obrigad\\w*|chamo|vejo|deixa\\s+eu\\s+ver|",
+     guard: G131,
+   },
+   {
+@@ -5597,6 +5599,60 @@ const MUTATIONS: Mutation[] = [
+     guard: G131,
+   },
+ 
++  { id: "G132-kit-duvida", bug: "\"Fica um M ou um G pra mim?\" e \"Comprei um G e um M mês passado\" voltariam a ser kit (revisão Opus do §130)", files: ["src/agent/interpret.ts"],
++    from: "const doubt = message.includes(\"?\") || /\\b(?:ou|comprei|comprou|compramos|era|eram|troquei|tinha|tinham|usei|veio|vieram)\\b/.test(norm(message));", to: "const doubt = false;", guard: G132 },
++  { id: "G132-kit-sem-e", bug: "\"um G não, quero um M\" contaria duas peças: só as ligadas por \"e\" contam", files: ["src/agent/interpret.ts"],
++    from: "const pieces = joined ? found", to: "const pieces = true ? found", guard: G132 },
++  { id: "G132-frete-valor-antecipado", bug: "\"E no pix fica R$ 116,91.\" ao lado da canônica e do frete calculado passaria pelo shipping_promise", files: ["src/agent/guardrails.ts"],
++    from: "&& !moneyMatches(s).some((x) => prepaidPrices.includes(x.value)) && !ALL_IN", to: "&& !ALL_IN", guard: G132 },
++  { id: "G132-frete-tudo-incluso", bug: "\"No pix fica tudo incluso.\" ao lado da canônica e do frete calculado passaria", files: ["src/agent/guardrails.ts"],
++    from: "&& !ALL_IN.test(plain(s))) continue;", to: ") continue;", guard: G132 },
++  { id: "G132-teto-numero", bug: "\"O XGG veste até o 60 de calça\" passaria como teto da tabela", files: ["src/agent/guardrails.ts"],
++    from: "          Number(m[1]) === TABLE_TOP_PANTS &&\n", to: "", guard: G132 },
++  { id: "G132-teto-igual-tabela", bug: "o teto do gate divergiria do TABLE_TOP_DRESS de sizing.ts", files: ["src/agent/guardrails.ts"],
++    from: "export const TABLE_TOP_PANTS = 52;", to: "export const TABLE_TOP_PANTS = 60;", guard: G132 },
++  { id: "G132-grade-resto-da-frase", bug: "\"Temos do P ao XGG, todos disponíveis aí.\" passaria antes da consulta", files: ["src/agent/guardrails.ts"],
++    from: "(?![^.!?]*\\b(?:disponiv\\w*|estoque", to: "(?!\\s+(?:disponiv\\w*|estoque", guard: G132 },
++  { id: "G132-cep-so-nao-encontrado", bug: "\"Não achei o seu CEP aqui na conversa, me passa?\" passaria com o CEP pedido e nenhum CEP não encontrado no turno", files: ["src/agent/guardrails.ts"],
++    from: "asksCep(ctx.cepNotFound === true ? ", to: "asksCep(true ? ", guard: G132 },
++  { id: "G132-cep-esquecido-sempre", bug: "depois do \"não lembro o CEP\", \"Não achei o seu CEP aqui na conversa, me passa?\" passaria", files: ["src/agent/guardrails.ts"],
++    from: "ctx.cepForgotten === true && asksCep(text) ?", to: "ctx.cepForgotten === true && asksCep(norm(text).replace(new RegExp(CEP_NOT_FOUND.source, \"g\"), \" \")) ?", guard: G132 },
++  { id: "G132-cep-fiacao", bug: "o cepNotFound do turno não chegaria ao gate e o aviso de CEP não encontrado voltaria a ser insistência", files: ["supabase/functions/turn/index.ts"],
++    from: "      cepNotFound,\n      // R26.1", to: "      // R26.1", guard: G132 },
++  { id: "G132-nome-linha-lugar", bug: "\"Belo Horizonte\\nrua x 10\" e \"Santa Maria\\nRS\" virariam o nome dela", files: ["src/agent/identity.ts"],
++    from: " && !cleaned.split(\"\\n\").slice(1).some(placeLine);", to: ";", guard: G132 },
++  { id: "G132-nome-uf-no-fim", bug: "\"Recife PE\\nquero saber o frete\" viraria o nome dela", files: ["src/agent/identity.ts"],
++    from: "&& !UF_END.test(firstLine) &&", to: "&&", guard: G132 },
++  { id: "G132-nome-pagamento", bug: "\"Cartão de crédito\\nou pix\" viraria o nome dela", files: ["src/agent/identity.ts"],
++    from: "    !/^(?:cart[aã]o|pix|boleto|dinheiro|cr[eé]dito|d[eé]bito)\\b/i.test(firstLine) && ", to: "    ", guard: G132 },
++  { id: "G132-site-nosso", bug: "o link do nosso site (\"encorpa-fashion.com.br/cart\") seria tratado como de terceiro", files: ["supabase/functions/turn/index.ts"],
++    from: "foreignCheckoutUrl(p, [...CHECKOUT_HOSTS, ...(CONFIG.site ? [CONFIG.site] : [])])", to: "foreignCheckoutUrl(p, CHECKOUT_HOSTS)", guard: G132 },
++  { id: "G132-dominio-registravel", bug: "\"pay.coinzz.com.br\" e \"logzz.com.br/pedido\" seriam de terceiro", files: ["src/agent/interpret.ts"],
++    from: "host.split(\".\").slice(/\\.(?:com|net|org|gov|edu|co)\\.[a-z]{2}$/.test(host) ? -3 : -2).join(\".\")", to: "host", guard: G132 },
++  { id: "G132-pagamento-segmento", bug: "\"maps.app.goo.gl/Pixa12\" seria um link de pagamento de terceiro", files: ["src/agent/interpret.ts"],
++    from: "|order|pedido)(?:$|[/._?=&-])/i", to: "|order|pedido)/i", guard: G132 },
++  { id: "G132-pos-venda-sinal", bug: "\"comprei um vestido pra formatura, esse colete serve?\" pularia a abertura", files: ["src/agent/interpret.ts"],
++    from: "export const reportsOrderTrouble = (message: string): boolean =>\n  /", to: "export const reportsOrderTrouble = (message: string): boolean =>\n  true || /", guard: G132 },
++  { id: "G132-pos-venda-fiacao", bug: "a turn voltaria a pular a abertura em todo \"comprei\" do lead novo", files: ["supabase/functions/turn/index.ts"],
++    from: "(statesPastPurchase(spoken(inbound.body ?? \"\")) && reportsOrderTrouble(spoken(inbound.body ?? \"\")))", to: "statesPastPurchase(spoken(inbound.body ?? \"\"))", guard: G132 },
++  { id: "G132-cep-antes-tamanho-uma-vez", bug: "\"Anotei seu CEP…\" e a pergunta do tamanho alternariam com o modelo sem fim", files: ["supabase/functions/turn/index.ts"],
++    from: "if (!recentOutbound.includes(SIZE_BEFORE_OFFER)) {", to: "if (lastOutbound !== SIZE_ASK) {", guard: G132 },
++  { id: "G132-cep-antes-tamanho-pergunta", bug: "a pergunta dela ao lado do CEP (\"e quanto fica o frete?\") seria descartada no fixo do tamanho", files: ["supabase/functions/turn/index.ts"],
++    from: "\"roteiro v3: CEP antes do tamanho, a oferta espera o tamanho\", {}, answerAfterOffer);", to: "\"roteiro v3: CEP antes do tamanho, a oferta espera o tamanho\");", guard: G132 },
++  { id: "G132-endereco-sem-entrega-pergunta", bug: "a pergunta dela ao lado do CEP novo sem entrega seria descartada", files: ["supabase/functions/turn/index.ts"],
++    from: "\"endereço novo sem entrega: pergunta do antecipado\", {}, cepMoved && askedBeside && !isResume)", to: "\"endereço novo sem entrega: pergunta do antecipado\")", guard: G132 },
++  { id: "G132-hesitacao-adiar", bug: "\"deixa eu ver\", \"to sem grana\" e \"vou consultar meu marido\" deixariam de ser hesitação", files: ["src/agent/interpret.ts"],
++    from: "|deixa\\s+eu\\s+ver|", to: "|zzzz|", guard: G132 },
++  { id: "G132-link-dia", bug: "\"ta, manda o link mas so no dia 5\" voltaria a ser pedido de link agora", files: ["src/agent/interpret.ts"],
++    from: "|domingo|dia\\s+\\d+|so\\s+(?:as|a\\s+partir|la\\s+pr?a|de\\s+tarde|mais|no\\s+dia))", to: "|domingo|so\\s+(?:as|a\\s+partir|la\\s+pr?a|de\\s+tarde|mais))", guard: G132 },
++  { id: "G132-agenda-sozinha", bug: "\"agenda\" sozinha seria pedido de link", files: ["src/agent/interpret.ts"],
++    from: "    if (/^\\s*agend[ae]\\s*[!.?]*\\s*$/.test(t)) continue;\n", to: "", guard: G132 },
++  { id: "G132-agenda-objeto", bug: "\"pode agendar o meu horario no dentista\" seria pedido de link", files: ["src/agent/interpret.ts"],
++    from: "    if (/^\\s+(?:(?:o|a|os|as|meu|minha|um|uma)\\s+)+(?!(?:o|a|os|as|meu|minha|um|uma|pedido|colete|entrega|kit)\\b)\\p{L}/u.test(after)) continue;\n", to: "", guard: G132 },
++  { id: "G132-reserva-perto-da-peca", bug: "\"eu reservo um tempinho pra te responder\" seria vetada como reserva de tamanho", files: ["src/agent/guardrails.ts"],
++    from: "\\breserv(?:ei|amos|ad[oa]s?|o|ar)\\b(?=[^.!?]{0,30}\\b(?:p|m|g|gg|xgg|tamanho|colete|pedido|peca|kit)\\b)|(?<=\\b(?:p|m|g|gg|xgg|tamanho|colete|pedido|peca|kit)\\b[^.!?]{0,30})\\breserv(?:ei|amos|ad[oa]s?|o|ar)\\b|", to: "\\breserv(?:ei|amos|ad[oa]s?|o|ar)\\b|", guard: G132 },
++  { id: "G132-maior-que-e-o-seu", bug: "\"O maior é o XGG, que é o seu tamanho.\" passaria com o G da tabela", files: ["src/agent/guardrails.ts"],
++    from: "extreme && !madeHers && m[1]", to: "extreme && m[1]", guard: G132 },
+ // Correções de from em entradas existentes (o resto da entrada fica igual):,
+   {
+     id: "E15-afina-de-vez",
+@@ -5958,8 +6014,8 @@ const MUTATIONS: Mutation[] = [
+     id: "R26-cep-esquecido-gate",
+     bug: "depois de 'meu cep nao lembro de cabeça agora' o CEP foi pedido mais cinco vezes (persona Marcinha, 15/10)",
+     files: ["src/agent/guardrails.ts"],
+-    from: ': ctx.cepForgotten === true ? "asks the CEP she said she does not remember"',
+-    to: ': false ? "asks the CEP she said she does not remember"',
++    from: "ctx.cepForgotten === true && asksCep(text) ? \"asks the CEP she said she does not remember\"",
++    to: "false ? \"asks the CEP she said she does not remember\"",
+     guard: ["pnpm", "-s", "vitest", "run", "tests/r26-operator-decisions.test.ts"],
+   },
+   {
+diff --git a/supabase/functions/turn/guardrails.ts b/supabase/functions/turn/guardrails.ts
+index 26bf2fb..abc1a32 100644
+--- a/supabase/functions/turn/guardrails.ts
++++ b/supabase/functions/turn/guardrails.ts
+@@ -248,6 +248,8 @@ export interface GateContext {
+   cepAsks?: number;
+   /** She said she does not remember her CEP and has sent none since (R26.1): no CEP ask at all (`cep_insist`). */
+   cepForgotten?: boolean;
++  /** The CEP she sent this turn was not found (`cep_insist`): telling her so is no insisting. */
++  cepNotFound?: boolean;
+   /** She asked to change the address and has no order yet (`support_before_order`): a new CEP, never the customer service. */
+   addressBeforeOrder?: boolean;
+   /** How many replies in a row asked her pants size, while none was read (`size_insist`). */
+@@ -557,6 +559,8 @@ const ALSO = /\b(?:tambem|igua\w*|mesm[oa]s?|idem)\b/;
+  */
+ const EXTENDS =
+   /\b(?:tambem|igua\w*|mesm[oa]s?|idem|vale\w*|serve|inclusive|identic\w*|qualquer|outr[oa]s?)\b|\b(?:n[oa]s|pr[oa]s|para\s+[oa]s|em)\s+(?:dois|duas|ambos|ambas)\b|\btod[oa]s\b/;
++/** Nothing more to pay, said of a payment (`shipping_promise`'s `chargedElsewhere`): "com tudo incluso", "sem nada a mais", "e pronto". */
++const ALL_IN = /\b(?:tudo\s+(?:incluso|incluido|junto|dentro)|nada\s+(?:a\s+mais|mais|extra|adicional)|sem\s+(?:custo\s+|taxa\s+|valor\s+)?(?:extra|adicional)|e\s+pronto|so\s+isso|mais\s+nada|valor\s+final|fechad[oa])\b/;
+ /** Boleto denied: the shop has none on any path (R31), so a denied boleto names no other payment (`shipping_promise`). */
+ const BOLETO_DENIED =
+   /\b(?:nao|nem|sem)\s+(?:(?:tem|temos|trabalh\w*\s+com|aceit\w*|existe|ha)\s+)?(?:o\s+|no\s+|com\s+|de\s+)?boleto\b|\bboleto\s+(?:(?:infelizmente|aqui)\s+)?(?:nao|nunca)\s+(?:tem|temos|existe|ha|da|aceit\w*|trabalh\w*)\b(?:\s+mesmo\b)?/g;
+@@ -917,6 +921,8 @@ export const asksWhatSheIs = (message: string): boolean =>
+ const money = (v: number): string => `R$ ${v.toFixed(2).replace(".", ",")}`;
+ /** The published size grade, read when the config carries none (`GateConfig.sizes`). */
+ const GRADE: readonly string[] = ["P", "M", "G", "GG", "XGG"];
++/** The largest pants number the size table covers: `TABLE_TOP_DRESS` of `sizing.ts`, which this file does not import (a test proves both equal). */
++export const TABLE_TOP_PANTS = 52;
+ /** The size exchange's freight without `freeExchange`, as the prompt teaches it: not said at all (R21.4). */
+ const EXCHANGE_FREIGHT_LINE = `Do envio da troca de tamanho não fale nada: nem valor, nem que é por conta dela, nem que é grátis.`;
+ const savingOf = (c: GateConfig): number => +(c.prices.codBrl - c.prices.prepayBrl).toFixed(2);
+@@ -2540,7 +2546,7 @@ const gates: readonly Gate[] = [
+       // same untruth. Only a denial governing it passes ("não consigo reservar", "não tenho como apagar").
+       const untrue: ReadonlyArray<readonly [RegExp, string]> = [
+         [
+-          /\breserv(?:ei|amos|ad[oa]s?|o|ar)\b|\b(?:p|m|g|gg|xgg|tamanho|colete|pedido)\b[^.!?]{0,20}?\b(?:fica|ficam|esta|ta|vai\s+ficar)\s+(?:la\s+|aqui\s+)?(?:te\s+)?esperando\b|\b(?:separei|guardei|deixei\s+(?:separad|guardad)\w*)\b[^.!?]{0,20}?\b(?:p|m|g|gg|xgg|tamanho|colete|seu|sua)\b/g,
++          /\breserv(?:ei|amos|ad[oa]s?|o|ar)\b(?=[^.!?]{0,30}\b(?:p|m|g|gg|xgg|tamanho|colete|pedido|peca|kit)\b)|(?<=\b(?:p|m|g|gg|xgg|tamanho|colete|pedido|peca|kit)\b[^.!?]{0,30})\breserv(?:ei|amos|ad[oa]s?|o|ar)\b|\b(?:p|m|g|gg|xgg|tamanho|colete|pedido)\b[^.!?]{0,20}?\b(?:fica|ficam|esta|ta|vai\s+ficar)\s+(?:la\s+|aqui\s+)?(?:te\s+)?esperando\b|\b(?:separei|guardei|deixei\s+(?:separad|guardad)\w*)\b[^.!?]{0,20}?\b(?:p|m|g|gg|xgg|tamanho|colete|seu|sua)\b/g,
+           "claims a size is reserved for her, and nothing is reserved",
+         ],
+         [
+@@ -3079,7 +3085,9 @@ const gates: readonly Gate[] = [
+             // região no checkout"): a sentence that only names the prepaid path or its means ("o antecipado é só no pix ou no
+             // cartão") extends nothing, the message already says what the freight is there (personas 2026-10-24, boleto-insiste).
+             // One that refers back ("também", "igual", "vale", "pros dois", "qualquer forma") still does (grafo §33).
+-            if (chargedElsewhere && !EXTENDS.test(plain(s))) continue;
++            // Nor one that puts a prepaid price or an "all in" on the other payment (Opus review of §129: "E no pix fica R$ 116,91 com
++            // tudo incluso", "No pix sai por R$ 116,91, sem nada a mais").
++            if (chargedElsewhere && !EXTENDS.test(plain(s)) && !moneyMatches(s).some((x) => prepaidPrices.includes(x.value)) && !ALL_IN.test(plain(s))) continue;
+             return beyondCod;
+           }
+         }
+@@ -3433,11 +3441,13 @@ const gates: readonly Gate[] = [
+       `Se ela mandou um CEP que não existe, avisar que não encontrou esse CEP não é pedir de novo.`,
+     // Telling her the CEP she sent was not found is no insisting (persona cob-cep-errado, 2026-10-24, grafo §129): "Esse CEP não
+     // encontrei, me confirma depois?" — its whole sentence is set aside; any other sentence asking the CEP still counts.
++    // Only in the turn her CEP was not found (`cepNotFound`, Opus review of §129), and only the not-found clause: "Não achei o seu CEP
++    // aqui, me passa?" with none sent, and "Esse CEP não encontrei, me passa o CEP de novo?", still ask it.
+     check: (text, ctx) =>
+-      !asksCep(norm(text).split(/(?<=[.!?])\s+|\n+/).filter((s) => !CEP_NOT_FOUND.test(s)).join("\n")) ? null
+       // R26.1 (persona Marcinha, 15/10): "meu cep nao lembro de cabeça agora", and the CEP asked five more times.
+-      : ctx.cepForgotten === true ? "asks the CEP she said she does not remember"
+-      : (ctx.cepAsks ?? 0) >= 1 ? "asks the CEP twice in a row"
++      ctx.cepForgotten === true && asksCep(text) ? "asks the CEP she said she does not remember"
++      : (ctx.cepAsks ?? 0) >= 1 && asksCep(ctx.cepNotFound === true ? norm(text).replace(new RegExp(CEP_NOT_FOUND.source, "g"), " ") : text)
++        ? "asks the CEP twice in a row"
+       : null,
+   },
+   {
+@@ -3500,6 +3510,8 @@ const gates: readonly Gate[] = [
+         const top = (ctx.config.sizes?.length ? ctx.config.sizes : GRADE).at(-1)!.toLowerCase();
+         const ceiling = (m: RegExpMatchArray): boolean =>
+           m[1] !== undefined &&
++          // The table's real top only (Opus review of §129: "o XGG veste até o 60 de calça" passed).
++          Number(m[1]) === TABLE_TOP_PANTS &&
+           /\b(?:ate|para\s+no)\s+(?:o\s+)?$/.test(t.slice(0, m.index)) &&
+           !/\b(?:voce|vc)\b[^,;.!?]*$/.test(t.slice(0, m.index)) &&
+           new RegExp(String.raw`\b(?:${top}|tabela|grade|maior)\b`).test(t);
+@@ -3514,7 +3526,9 @@ const gates: readonly Gate[] = [
+           const extreme = /\b[oa]\s+(maior|menor)\b(?:\s+(?:tamanho|que\s+(?:a\s+gente\s+)?(?:tem|temos|faz|fazemos)|d[ao]s?\s+(?:nossa\s+|nosso\s+)?(?:tabela|grade|tamanhos)))*(?:\s+(?:mesmo|aqui))?\s+$/.exec(
+             t.slice(0, m.index),
+           );
+-          return !(extreme && m[1]!.toUpperCase() === (extreme[1] === "maior" ? sizes.at(-1) : sizes[0]));
++          // Never when it is then made hers: "O maior é o XGG, que é o seu tamanho" (Opus review of §129).
++          const madeHers = /^\W*que\s+(?:e|eh|sera|seria|fica|vai\s+ser)\s+(?:o\s+|bem\s+o\s+)?(?:seu|teu)\b/.test(t.slice((m.index ?? 0) + m[0].length));
++          return !(extreme && !madeHers && m[1]!.toUpperCase() === (extreme[1] === "maior" ? sizes.at(-1) : sizes[0]));
+         })
+         .map((m) => m[1]!.toUpperCase());
+       return named.some((size) => size !== ctx.knownSize)
+@@ -3684,7 +3698,7 @@ const gates: readonly Gate[] = [
+         // The grade, not the stock (personas 2026-10-24, grafo §129): "o maior que a gente tem é o XGG", "a gente tem do P ao XGG" —
+         // never with a stock word after it ("temos do P ao XGG em estoque").
+         .replace(/\b[oa]\s+(?:maior|menor)\s+(?:tamanho\s+)?que\s+(?:a\s+gente\s+)?(?:tem|temos|tenho|faz|fazemos)\b/g, " ")
+-        .replace(/\b(?:tem|temos|tenho)\s+(?:(?:so|apenas)\s+)?(?:tamanhos?\s+)?do\s+(?:pp|p)\s+(?:ao|ate\s+o)\s+(?:xgg|gg)\b(?!\s+(?:em\s+estoque|disponive\w*|pra\s+pronta|guardad\w*|reservad\w*|separad\w*))/g, " ");
++        .replace(/\b(?:tem|temos|tenho)\s+(?:(?:so|apenas)\s+)?(?:tamanhos?\s+)?do\s+(?:pp|p)\s+(?:ao|ate\s+o)\s+(?:xgg|gg)\b(?![^.!?]*\b(?:disponiv\w*|estoque|pronta|tem\s+sim|reservad\w*|separad\w*|guardad\w*)\b)/g, " ");
+       // "tem no seu tamanho", "o G está disponível", "temos o GG em estoque",
+       // "já reservei o M", "o seu tamanho chega em", "tava guardando seu M" (persona round
+       // 2026-10-05, Karol). Never the fitting itself, nor "guarda essa dica".
+diff --git a/supabase/functions/turn/identity.ts b/supabase/functions/turn/identity.ts
+index d6d8e11..8a2955a 100644
+--- a/supabase/functions/turn/identity.ts
++++ b/supabase/functions/turn/identity.ts
+@@ -223,6 +223,10 @@ const NOT_A_FIRST_NAME =
+   // "prefiro não passar", "pode ser sem", "sem nome" after the name ask are refusals, not names (review of round 2).
+   /^(eu|te|ta|esta|e|eh|igual|mesmo|mesma|passo|vou|vai|ja|nao|sei|depois|o|a|no|na|do|da|de|um|uma|ele|ela|meu|minha|seu|sua|que|com|pra|para|mae|filha|irma|esposa|amiga|tia|avo|sogra|prefiro|prefere|pode|sem|manda|deixa|precisa|obrigada|obrigado|nossa|vixe|pera|perai|antes|calma|eita|gente|ah|ai|ui|oxe|oxi|uai|poxa|puxa|caramba|deus|gracas|aff|hum|hmm|tipo|parque|vila|jardim|bairro|centro|condominio|residencial|conjunto|segue|endereco)$/;
+ 
++const UFS = "AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO";
++const UF_ALONE = new RegExp(`^(?:${UFS})$`);
++const UF_END = new RegExp(`\\s(?:${UFS})$`);
++
+ export const extractName = (text: string, askedName = false): string | null => {
+   // Line breaks survive: WhatsApp messages arrive several lines at once, and a name must
+   // not run on into the address typed on the next line ("nome dela maria jose\nRua...").
+@@ -250,7 +254,13 @@ export const extractName = (text: string, askedName = false): string | null => {
+   // "é Carla Menezes", "sou patricia souza": the "it is / I am" before it is not the name.
+   const bare = (t: string): string => t.replace(/^(?:[eé]h?|sou(?:\s+a)?)\s+/i, "").trim();
+   const firstLine = bare(cleaned.split("\n")[0] ?? "");
+-  const ownLine = askedName && cleaned.includes("\n") && lettersOnly(firstLine);
++  // Not a place nor a payment above its details (Opus review of §130): "Recife PE\n50000000", "Santa Maria\nRS", "Belo Horizonte\nrua x
++  // 10", "Cartão de crédito\nem 12x". A line below that is a state, an address word or a short one with a number is no sentence of hers.
++  const placeLine = (l: string): boolean =>
++    UF_ALONE.test(l.trim()) || /^(?:rua|r\.|av\.?|avenida|travessa|alameda|rodovia|estrada|cep|bairro|numero|n[º°])(?=\s|$)/i.test(l.trim()) ||
++    (/\d/.test(l) && l.trim().split(/\s+/).length <= 3);
++  const ownLine = askedName && cleaned.includes("\n") && lettersOnly(firstLine) && !UF_END.test(firstLine) &&
++    !/^(?:cart[aã]o|pix|boleto|dinheiro|cr[eé]dito|d[eé]bito)\b/i.test(firstLine) && !cleaned.split("\n").slice(1).some(placeLine);
+   const leadRun = cleaned.match(/^[A-Za-zÀ-ÿ'´` ]{2,60}(?=[^A-Za-zÀ-ÿ'´` ,.;\n])/)?.[0].trim() ?? "";
+   const opening = !askedName ? ""
+     : podeSer ? cleaned.replace(/^pode\s+ser\s+/i, "").trim()
+diff --git a/supabase/functions/turn/index.ts b/supabase/functions/turn/index.ts
+index 565516b..fc12657 100644
+--- a/supabase/functions/turn/index.ts
++++ b/supabase/functions/turn/index.ts
+@@ -210,6 +210,7 @@ import {
+   offerBubbles,
+   noCodReasonLine,
+   sizeFirstBubbles,
++  SIZE_BEFORE_OFFER,
+   openingBubbles,
+   sizeTableBubbles,
+   stripMediaLabels,
+@@ -256,6 +257,7 @@ import {
+   buyerAsk,
+   sendLinkNow,
+   statesPastPurchase,
++  reportsOrderTrouble,
+   changesAddress,
+   type Interpretation,
+ } from "./interpret.ts";
+@@ -416,6 +418,8 @@ if (CONVERSATION_MODEL !== DEFAULT_CONVERSATION_MODEL) {
+ interface BusinessConfig extends GateConfig {
+   brand: string;
+   agentName: string;
++  /** The shop's own site ("encorpa-fashion.com.br"): a link to it is ours (`foreignCheckoutUrl`). Optional: absent, only the checkouts are. */
++  site?: string;
+   delivery: {
+     codDaysMin: number;
+     codDaysMax: number;
+@@ -2542,7 +2546,8 @@ const handleTurn = async (
+   // Personas of 2026-10-24 (cob-troca-tamanho-depois, cob-muda-endereco-antes, cob-pos-venda-problema): "comprei … ficou grande",
+   // "mudei de casa, com quem eu falo pra mudar o endereço?", "comprei faz 10 dias e não chegou" got the audios, the video and "Qual o
+   // número da calça?". She is past the sale: the receipt goes, and the model answers her (`statesPastPurchase`, `changesAddress`).
+-  const afterSale = statesPastPurchase(spoken(inbound.body ?? "")) || (changesAddress(spoken(inbound.body ?? "")) && /\bmudei\b/i.test(spoken(inbound.body ?? "")));
++  const afterSale = statesPastPurchase(spoken(inbound.body ?? ""), false) ||
++    (statesPastPurchase(spoken(inbound.body ?? "")) && reportsOrderTrouble(spoken(inbound.body ?? ""))) || (changesAddress(spoken(inbound.body ?? "")) && /\bmudei\b/i.test(spoken(inbound.body ?? "")));
+   if (isNewLead && !isResume && !skipsOpening(spoken(inbound.body ?? "")) && !afterSale) {
+     const opening = openingBubbles(CONFIG);
+     const sent = await sendFunnel(conversation.id, opening);
+@@ -4240,7 +4245,7 @@ const handleTurn = async (
+   const pressed = recent.filter((m: { direction: string }) => m.direction === "inbound").slice(-5).filter((m: { body: string }) => asksForLink(spoken(m.body ?? "")) && /\b(?:link|checkout|pagamento)\b/i.test(spoken(m.body ?? ""))).length >= 2
+     && !recentOutbound.slice(-3).some((m: string) => CHECKOUT_BASES.some((b) => m.includes(b)));
+   // A payment link in her message that is not ours (A9, persona venda-decidida, 2026-10-24): never endorsed — ours goes, told apart.
+-  const foreignUrl = parts.map((p: string) => foreignCheckoutUrl(p, CHECKOUT_HOSTS)).find((u: string | null) => u !== null) ?? null;
++  const foreignUrl = parts.map((p: string) => foreignCheckoutUrl(p, [...CHECKOUT_HOSTS, ...(CONFIG.site ? [CONFIG.site] : [])])).find((u: string | null) => u !== null) ?? null;
+   // Her own request for the link sends it (A1, personas of 2026-10-24: "manda o link ai" got "lá no checkout você escolhe o G" for up
+   // to six turns): with size and path known, her name is the checkout's to ask — and so is it after any link went (A6: "aline prado",
+   // never read, held the link to her new CEP). On the prepaid path she chose, the checkout asks the address too (A8: a kit of three
+@@ -4638,8 +4643,9 @@ const handleTurn = async (
+     } else if (region !== null && offerNow === "cod" && !sizeKnown) {
+       // A3 (personas of 2026-10-24): the delivery is the stock of her SIZE in her city — the offer promised "Chegará já segunda… Não
+       // Paga Nada Agora" on any size's answer, and the next turn took it back for her M. Her size first, once; the offer goes on it.
+-      if (lastOutbound !== SIZE_ASK) {
+-        const sent = await sendFunnelTurn(sizeFirstBubbles(), "roteiro v3: CEP antes do tamanho, a oferta espera o tamanho");
++      // Once a conversation (Opus review of §130: it alternated with the model's ask forever), and her question beside it answered after.
++      if (!recentOutbound.includes(SIZE_BEFORE_OFFER)) {
++        const sent = await sendFunnelTurn(sizeFirstBubbles(), "roteiro v3: CEP antes do tamanho, a oferta espera o tamanho", {}, answerAfterOffer);
+         if (sent) return sent;
+       } else {
+         guide(
+@@ -4679,7 +4685,7 @@ const handleTurn = async (
+     const refusedCorreios = codBefore && lastOutbound === ADDRESS_NO_COD_ASK && !parts.some((p: string) => confirmsAddress(spoken(p))) && !interpretation.wants_to_buy;
+     if (refusedCorreios) guide("Ela não aceitou ir pelos Correios, ou respondeu outra coisa.", "Tudo bem! Se mudar de ideia, é só me chamar que eu te mando o link 💛", "não aceitou o antecipado depois da pergunta");
+     const sent = refusedCorreios ? null : codBefore && lastOutbound !== ADDRESS_NO_COD_ASK
+-      ? await sendFunnelTurn([{ text: opening(ADDRESS_NO_COD_ASK) }], "endereço novo sem entrega: pergunta do antecipado")
++      ? await sendFunnelTurn([{ text: opening(ADDRESS_NO_COD_ASK) }], "endereço novo sem entrega: pergunta do antecipado", {}, cepMoved && askedBeside && !isResume)
+       : await sendFunnelTurn(
+         [
+           // The new CEP checked before the link goes again (operator's test, 2026-10-21): said, so the same link is no puzzle.
+@@ -4979,6 +4985,8 @@ const handleTurn = async (
+         addressDraft.cep || linkDue || wrongCep || cepNotFound
+           ? 0
+           : recentOutbound.length - 1 - recentOutbound.findLastIndex((m: string) => !asksCep(m)),
++      // The CEP of this turn not found: telling her so is no insisting (`cep_insist`, grafo §132).
++      cepNotFound,
+       // R26.1: after her "não lembro o CEP", no CEP ask at all until she sends one — her wanting to buy included.
+       cepForgotten,
+       addressBeforeOrder: newAddressBeforeOrder,
+diff --git a/supabase/functions/turn/interpret.ts b/supabase/functions/turn/interpret.ts
+index f90abab..cb3e91b 100644
+--- a/supabase/functions/turn/interpret.ts
++++ b/supabase/functions/turn/interpret.ts
+@@ -336,9 +336,13 @@ export const quantityOf = (
+   const units = i.units !== null && i.units > 1 && !QUANTITY_CUE.test(text) && !namesCount(text, i.units) ? null : i.units;
+   // "um G pra mim e um M pra minha cunhada" (persona cob-recompra, 2026-10-24): each piece's size, read here when the interpreter
+   // read none — she was asked the sizes again. The letter as she typed it, capital; a denied one ("não quero um M") is out.
+-  const pieces = i.unit_sizes.length > 0 ? [] : [...message.matchAll(/\bum(?:as?)?\s+(PP|P|M|GG|G|XGG)\b/g)]
+-    .filter((m) => !/\b(?:nao|nem|sem)\b[^,;.!?\n]*$/.test(norm(message.slice(0, m.index ?? 0))))
+-    .map((m) => (m[1] === "PP" ? "P" : m[1]) as SizeLetter);
++  // Only pieces joined by "e" in a statement of what she wants now: a doubt ("um M ou um G?"), a question or the past ("comprei um G
++  // e um M", "era um M, mas troquei por um G") counts no piece (Opus review of §130).
++  const doubt = message.includes("?") || /\b(?:ou|comprei|comprou|compramos|era|eram|troquei|tinha|tinham|usei|veio|vieram)\b/.test(norm(message));
++  const found = doubt || i.unit_sizes.length > 0 ? [] : [...message.matchAll(/\bum(?:as?)?\s+(PP|P|M|GG|G|XGG)\b/g)]
++    .filter((m) => !/\b(?:nao|nem|sem)\b[^,;.!?\n]*$/.test(norm(message.slice(0, m.index ?? 0))));
++  const joined = found.every((m, k) => k === 0 || /\be\b/.test(norm(message.slice(found[k - 1]!.index ?? 0, m.index ?? 0))));
++  const pieces = joined ? found.map((m) => (m[1] === "PP" ? "P" : m[1]) as SizeLetter) : [];
+   if (pieces.length >= 2) return { units: units !== null && units > pieces.length ? units : pieces.length, sizes: pieces };
+   if (units === null && i.unit_sizes.length === 0) return null;
+   return { units, sizes: [...i.unit_sizes] };
+@@ -827,7 +831,7 @@ export const isBareThanks = (parts: readonly string[]): boolean =>
+  * errand, read by the interpreter as "vou pensar". Only thinking, looking, deciding or putting the purchase off counts.
+  */
+ const HESITATES =
+-  /\b(?:pens\w*|vou\s+(?:ver|olhar|analisar|decidir|deixar|esperar|fechar)|(?:de|pra)\s+olhar|olhar\s+(?:aqui|com\s+calma|direitinho)|ver\s+(?:aqui|direitinho|com\s+calma|isso)|decid\w*|analis\w*|deixa\w*\s+pra\s+(?:depois|outra|proxima)|fica\s+pra\s+(?:depois|outra|proxima)|outro\s+dia|mais\s+pra\s+frente|semana\s+que\s+vem|mes\s+que\s+vem|nao\s+sei|sei\s+la|(?:to|estou|ainda)\s+vendo)\b/;
++  /\b(?:pens\w*|vou\s+(?:ver|olhar|analisar|decidir|deixar|esperar|fechar)|(?:de|pra)\s+olhar|olhar\s+(?:aqui|com\s+calma|direitinho)|ver\s+(?:aqui|direitinho|com\s+calma|isso)|decid\w*|analis\w*|deixa\w*\s+pra\s+(?:depois|outra|proxima)|fica\s+pra\s+(?:depois|outra|proxima)|outro\s+dia|mais\s+pra\s+frente|semana\s+que\s+vem|mes\s+que\s+vem|nao\s+sei|sei\s+la|(?:to|estou|ainda)\s+vendo|deixa\s+eu\s+ver|(?:vou|vo)\s+dar\s+uma\s+olhad\w*|depois\s+(?:eu\s+)?(?:compro|te\s+(?:chamo|falo|aviso))|hoje\s+nao|agora\s+nao\s+(?:posso|da|consigo)|(?:nao\s+tenho|(?:to|estou|tou)\s+sem)\s+(?:\w+\s+)?(?:dinheiro|grana)|vou\s+(?:consultar|perguntar\s+(?:pro|pra|ao|a)|falar\s+com)\s+(?:o\s+|a\s+)?(?:meu|minha)\s+(?:marido|esposo|esposa|namorad[oa]|noivo|noiva))\b/;
+ export const hesitates = (message: string): boolean => HESITATES.test(norm(message));
+ 
+ /** The clause before `at` carries a negation: "ainda não comprei", "não vou querer". */
+@@ -902,6 +906,13 @@ export const changesAddress = (message: string): boolean => {
+     /\b(?:nao\s+tem|sem)\s+entrega\s+(?:pro|pra|para\s+o|no|nesse|neste)\s+(?:meu\s+|esse\s+|novo\s+)?endereco\b/.test(t);
+ };
+ 
++/**
++ * A bare "comprei" on a new lead's first message is past the sale only with what comes after one of ours (Opus review of §131:
++ * "comprei um vestido pra formatura, esse colete serve?" skipped the opening): the fit, the delay, the order, the vest or us named.
++ */
++export const reportsOrderTrouble = (message: string): boolean =>
++  /\b(?:ficou\s+(?:\w+\s+)?(?:grande|pequen\w*|apertad\w*|larg\w*|folgad\w*)|nao\s+(?:serviu|chegou|veio)|chegou|meu\s+pedido|(?:comprei|paguei)\s+(?:\w+\s+){0,2}colete|com\s+(?:voces|vcs|vc|voce)|daqui|rastrei\w*|trocar|troca)\b/.test(norm(message));
++
+ export const statesPastPurchase = (message: string, current = true): boolean => {
+   const t = norm(message);
+   for (const re of current ? [ORDER_WITH_US, BARE_PURCHASE] : [ORDER_WITH_US]) {
+@@ -1256,6 +1267,7 @@ export const linkHeldBack = (
+  * answered "Combinado, fica no seu nome assim"): never endorsed, ours goes instead. A checkout, payment or cart word in it, on a
+  * host that is none of `ourHosts` nor under one of them. Our own link pasted back, a site or an Instagram post is not one.
+  */
++const registrable = (host: string): string => host.split(".").slice(/\.(?:com|net|org|gov|edu|co)\.[a-z]{2}$/.test(host) ? -3 : -2).join(".");
+ export const foreignCheckoutUrl = (message: string, ourHosts: readonly string[]): string | null => {
+   for (const m of message.matchAll(/\b(?:https?:\/\/|www\.)[^\s<>"']+|\b[a-z0-9-]+(?:\.[a-z0-9-]+)+\/[^\s<>"']*/gi)) {
+     const raw = m[0].replace(/[.,;!?)]+$/, "");
+@@ -1263,8 +1275,10 @@ export const foreignCheckoutUrl = (message: string, ourHosts: readonly string[])
+     const url = URL.canParse(href) ? new URL(href) : null;
+     if (!url || !/\./.test(url.hostname)) continue;
+     const host = url.hostname.toLowerCase();
+-    if (ourHosts.some((h) => host === h.toLowerCase() || host.endsWith(`.${h.toLowerCase()}`))) continue;
+-    if (/checkout|pay|pagamento|pagar|pix|boleto|carrinho|cart|compra|order|pedido/i.test(`${host}${url.pathname}${url.search}`)) return raw;
++    // Ours by the registrable domain (Opus review of §130: "pay.coinzz.com.br", "logzz.com.br/pedido", the site's "/cart"), and a
++    // payment word only as a whole segment of the host or path ("maps.app.goo.gl/Pixa12" is a map).
++    if (ourHosts.some((h) => registrable(h.toLowerCase().replace(/^https?:\/\//, "").split("/")[0]!) === registrable(host))) continue;
++    if (/(?:^|[/._?=&-])(?:checkout|pay|pagamento|pagar|pix|boleto|carrinho|cart|compra|order|pedido)(?:$|[/._?=&-])/i.test(`${host}${url.pathname}${url.search}`)) return raw;
+   }
+   return null;
+ };
+@@ -1305,6 +1319,9 @@ export const asksForLink = (message: string): boolean => {
+   for (const m of t.matchAll(/(?:^|[,;.!?\n]\s*|\b(?:sim|ok|entao|ta|blz)\s+)(?:(?:ah|sim|entao|ok|ta|por\s+favor)\s+)*(?:pode\s+(?:me\s+)?agendar|agenda|agende)(?:\s+(?:pra|para)\s+mim)?\b/g)) {
+     const after = t.slice((m.index ?? 0) + m[0].length);
+     if (/\b(?:nao|se|quando|depois|amanha|mais\s+tarde|noite|semana|segunda|terca|quarta|quinta|sexta|sabado|domingo|dia|cheia|lotada)\b/.test(after)) continue;
++    // "agenda" alone is a word, not a yes; and what she schedules is the order, not "o meu horário no dentista" (Opus review of §130).
++    if (/^\s*agend[ae]\s*[!.?]*\s*$/.test(t)) continue;
++    if (/^\s+(?:(?:o|a|os|as|meu|minha|um|uma)\s+)+(?!(?:o|a|os|as|meu|minha|um|uma|pedido|colete|entrega|kit)\b)\p{L}/u.test(after)) continue;
+     return true;
+   }
+   // An allowlist, not a blocklist (second review, three rounds): the imperative opens the
+@@ -1317,7 +1334,7 @@ export const asksForLink = (message: string): boolean => {
+     // are not a request for now (second review, 5th round).
+     // "Só" puts it off only before a time ("só às 18h", "só a partir de"): "manda o link só aí eu vejo" asks for it now (2026-10-24).
+     const after = t.slice((m.index ?? 0) + m[0].length);
+-    if (/\b(?:nao|se|quando|depois|amanha|mais\s+tarde|noite|semana|segunda|terca|quarta|quinta|sexta|sabado|domingo|so\s+(?:as|a\s+partir|la\s+pr?a|de\s+tarde|mais))\b/.test(after)) continue;
++    if (/\b(?:nao|se|quando|depois|amanha|mais\s+tarde|noite|semana|segunda|terca|quarta|quinta|sexta|sabado|domingo|dia\s+\d+|so\s+(?:as|a\s+partir|la\s+pr?a|de\s+tarde|mais|no\s+dia))\b/.test(after)) continue;
+     return true;
+   }
+   return false;
+diff --git a/tests/gate-loosen-accepted.txt b/tests/gate-loosen-accepted.txt
+index f6a3812..54099df 100644
+--- a/tests/gate-loosen-accepted.txt
++++ b/tests/gate-loosen-accepted.txt
+@@ -283,3 +283,5 @@ R28-rafa | shipping_promise | Não dá pra pagar frete adicional pra chegar ante
+ §129 | unverified_size | O maior que a gente tem é o XGG, que veste cintura de 92 a 100 cm, vai até o 52 de calça mais ou menos.
+ §129 | unverified_size | A maior que a gente tem é o XGG, que veste cintura até 100 cm 😊
+ §129 | unverified_size | O tamanho segue a calça que você veste, a gente tem do P ao XGG pra cobrir bem todos os corpos.
++§132 | order_action_claim | Fica tranquila, eu reservo um tempinho pra te responder.
++§132 | unverified_size | O maior que a gente tem é o XGG mesmo.
+diff --git a/tests/persona-2026-10-24-conduct.test.ts b/tests/persona-2026-10-24-conduct.test.ts
+index 984e047..90a7bf2 100644
+--- a/tests/persona-2026-10-24-conduct.test.ts
++++ b/tests/persona-2026-10-24-conduct.test.ts
+@@ -9,7 +9,7 @@ import { readFileSync } from "node:fs";
+ import { describe, expect, it } from "vitest";
+ import type { BusinessConfig } from "@/config/business.js";
+ import { gateBriefing, runGates } from "@/agent/guardrails.js";
+-import { changesAddress, declinesInBurst, hesitates, isBareAck, isBareThanks, statesPastPurchase } from "@/agent/interpret.js";
++import { changesAddress, declinesInBurst, hesitates, isBareAck, isBareThanks, reportsOrderTrouble, statesPastPurchase } from "@/agent/interpret.js";
+ import { acceptsOffers, suspendsMarketingOptIn } from "@/agent/opt-in.js";
+ import { countTriggerUses, honestyBriefing, systemPrompt } from "@/agent/prompt.js";
+ import { OFFERS_YES_EXAMPLE, VAGUE_OBJECTION_QUESTION, VAGUE_PRICE_QUESTION, vagueObjectionSituation } from "@/agent/retry.js";
+@@ -157,7 +157,7 @@ describe("5. o áudio 4 (\"agendar pra amanhã mesmo\") só quando a primeira da
+ });
+ 
+ describe("6. quem chega depois da compra não recebe a abertura de venda", () => {
+-  const afterSale = (s: string) => statesPastPurchase(s) || (changesAddress(s) && /\bmudei\b/i.test(s));
++  const afterSale = (s: string) => statesPastPurchase(s, false) || (statesPastPurchase(s) && reportsOrderTrouble(s)) || (changesAddress(s) && /\bmudei\b/i.test(s));
+   it("as primeiras mensagens reais das personas", () => {
+     for (const s of [
+       "oi comprei um colete com vcs e chegou aqui mas ficou grande\n\ncomo que faço pra trocar?",
+diff --git a/tests/persona-2026-10-24-flow.test.ts b/tests/persona-2026-10-24-flow.test.ts
+index 1698eca..0c2407f 100644
+--- a/tests/persona-2026-10-24-flow.test.ts
++++ b/tests/persona-2026-10-24-flow.test.ts
+@@ -135,8 +135,9 @@ describe("A3 — sem tamanho, a entrega não é prometida", () => {
+ 
+   it("o turno segura a oferta da entrega até o tamanho, e não repete a pergunta logo depois dela", () => {
+     expect(turn).toContain('} else if (region !== null && offerNow === "cod" && !sizeKnown) {');
+-    expect(turn).toContain("if (lastOutbound !== SIZE_ASK) {");
+-    expect(turn).toContain('const sent = await sendFunnelTurn(sizeFirstBubbles(), "roteiro v3: CEP antes do tamanho, a oferta espera o tamanho");');
++    // Once a conversation, her question answered after it (Opus review, grafo §132).
++    expect(turn).toContain("if (!recentOutbound.includes(SIZE_BEFORE_OFFER)) {");
++    expect(turn).toContain('const sent = await sendFunnelTurn(sizeFirstBubbles(), "roteiro v3: CEP antes do tamanho, a oferta espera o tamanho", {}, answerAfterOffer);');
+   });
+ 
+   it("negação: com o tamanho, a consulta é pelo tamanho e a oferta segue (a pergunta fica depois do ramo do 'No M…')", () => {
+diff --git a/tests/persona-2026-10-24-gates.test.ts b/tests/persona-2026-10-24-gates.test.ts
+index a288584..1baa01e 100644
+--- a/tests/persona-2026-10-24-gates.test.ts
++++ b/tests/persona-2026-10-24-gates.test.ts
+@@ -188,7 +188,8 @@ describe("6. invented_testimonial: prova e original são pedido de depoimento",
+ 
+ describe("7. cep_insist: avisar que o CEP não existe não é insistir", () => {
+   const asked = { ...COD, cepAsks: 1 };
+-  passes("cep_insist", ["Esse CEP não encontrei, me confirma depois? Qual calça você veste?", "Não achei o seu CEP. Qual calça você veste?"], asked);
++  // Only in the turn her CEP was not found (Opus review, grafo §132).
++  passes("cep_insist", ["Esse CEP não encontrei, me confirma depois? Qual calça você veste?", "Não achei o seu CEP. Qual calça você veste?"], { ...asked, cepNotFound: true });
+   vetoes("cep_insist", ["Me passa seu CEP?", "Esse CEP não encontrei. Me passa seu CEP de novo?", "Qual o seu CEP?"], asked);
+ });
+ 
+diff --git a/tests/persona-2026-10-24-review-fixes.test.ts b/tests/persona-2026-10-24-review-fixes.test.ts
+new file mode 100644
+index 0000000..53bf110
+--- /dev/null
++++ b/tests/persona-2026-10-24-review-fixes.test.ts
+@@ -0,0 +1,192 @@
++/**
++ * The Opus review of the three correction waves of the 2026-10-24 persona review (grafo §129–§131 → §132). Each phrase the review
++ * showed slipping through, or read wrong, is reproduced here; each has the negation that the wave fixed — the persona's own phrase
++ * still reads the way the wave made it read. The closure of `handleTurn` does not run in a unit test: its wiring is read from the source.
++ */
++import { readFileSync } from "node:fs";
++import { describe, expect, it } from "vitest";
++import { runGates, TABLE_TOP_PANTS, type GateContext } from "@/agent/guardrails.js";
++import type { BusinessConfig } from "@/config/business.js";
++import { extractName } from "@/agent/identity.js";
++import {
++  asksForLink,
++  foreignCheckoutUrl,
++  hesitates,
++  NEUTRAL_INTERPRETATION,
++  quantityOf,
++  reportsOrderTrouble,
++  statesPastPurchase,
++  changesAddress,
++} from "@/agent/interpret.js";
++import { TABLE_TOP_DRESS } from "@/agent/sizing.js";
++import { ctx } from "./fixtures.js";
++
++const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
++const config = JSON.parse(readFileSync(new URL("../config/business.example.json", import.meta.url), "utf8")) as BusinessConfig;
++const gates = (text: string, over: Partial<GateContext> = {}) =>
++  runGates(text, ctx({ config, ...over })).traces.filter((t) => t.verdict === "block").map((t) => t.gate);
++const COD = { paymentPath: "cod" as const };
++const passes = (gate: string, cases: readonly string[], over: Partial<GateContext> = COD) =>
++  it.each(cases)(`${gate} passa: %s`, (text) => expect(gates(text, over)).not.toContain(gate));
++const vetoes = (gate: string, cases: readonly string[], over: Partial<GateContext> = COD) =>
++  it.each(cases)(`${gate} veta: %s`, (text) => expect(gates(text, over)).toContain(gate));
++
++const FREE = "Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber.";
++const CHARGED = "No antecipado o frete é calculado por região no checkout.";
++
++describe("1. quantityOf: dúvida, pergunta e passado não são kit", () => {
++  it.each([
++    "Fica um M ou um G pra mim? uso 42",
++    "Será que um M ou um G fica melhor?",
++    "um G ou um GG?",
++    "Era um M, mas troquei por um G",
++    "Comprei um G e um M mês passado, quero mais um G",
++    "um G ou um GG",
++    "um G não, quero um M",
++    "Comprei um G e um M mês passado",
++    "Será que um G e um M servem?",
++  ])("%s → nenhuma peça", (s) => expect(quantityOf(s, NEUTRAL_INTERPRETATION)).toBeNull());
++
++  it("negação: as peças ligadas por 'e', no presente, contam (cob-recompra)", () => {
++    expect(quantityOf("quero mais um G pra mim e um M pra minha cunhada", NEUTRAL_INTERPRETATION)).toEqual({ units: 2, sizes: ["G", "M"] });
++    expect(quantityOf("vou querer um G pra mim e um M pra minha mãe", NEUTRAL_INTERPRETATION)).toEqual({ units: 2, sizes: ["G", "M"] });
++  });
++});
++
++describe("2. shipping_promise: o valor do antecipado ou o 'tudo incluso' ao lado da frase do frete calculado", () => {
++  vetoes("shipping_promise", [
++    `${FREE}\n\n${CHARGED} E no pix fica R$ 116,91 com tudo incluso.`,
++    `${FREE}\n\n${CHARGED} No pix sai por R$ 116,91, sem nada a mais.`,
++    `${FREE}\n\n${CHARGED} No pix você paga só R$ 116,91 e pronto.`,
++    `${FREE}\n\n${CHARGED} No pix fica tudo incluso.`,
++    `${FREE}\n\n${CHARGED} E no pix fica R$ 116,91.`,
++  ]);
++  passes("shipping_promise", [
++    `Na lotérica também não consigo, tá? A loja não tem boleto em nenhum caminho, só Pix ou cartão no antecipado.\n\n${FREE}\n\nNo antecipado o frete é calculado por região no checkout, e você ganha 10% de desconto: R$ 116,91.`,
++    `Entendo que você sempre paga assim, mas boleto não tem mesmo, nem na lotérica, só pix ou cartão no antecipado.\n\n${FREE}\n\n${CHARGED}`,
++    `${FREE}\n\n${CHARGED} O antecipado é só no pix ou no cartão.`,
++  ]);
++});
++
++describe("3. size_claim: só o teto real da tabela não é medida dela", () => {
++  const before = { ...COD, knownSize: null, herWords: "uso 58 de calça" };
++  it("o teto do gate é o da tabela", () => expect(TABLE_TOP_PANTS).toBe(TABLE_TOP_DRESS));
++  vetoes("size_claim", ["O XGG veste até o 60 de calça.", "A tabela vai até o 56 de calça, então o XGG te serve."], before);
++  passes("size_claim", [
++    "A tabela para no 52 de calça, então com 58 ele ia ficar apertado.",
++    "O maior que a gente tem é o XGG, que veste cintura de 92 a 100 cm, vai até o 52 de calça mais ou menos.",
++  ], before);
++});
++
++describe("4. unverified_size: a grade seguida de estoque no resto da frase", () => {
++  const before = { ...COD, knownSize: null, herWords: "uso 42 de calça" };
++  vetoes("unverified_size", ["Temos do P ao XGG, todos disponíveis aí.", "Temos do P ao XGG, e o seu M tem sim."], before);
++  passes("unverified_size", [
++    "O tamanho segue a calça que você veste, a gente tem do P ao XGG pra cobrir bem todos os corpos.",
++    "A maior que a gente tem é o XGG, que veste cintura até 100 cm 😊",
++  ], before);
++});
++
++describe("5. cep_insist: o aviso de CEP não encontrado só vale no turno em que ele não foi encontrado", () => {
++  vetoes("cep_insist", ["Não achei o seu CEP aqui na conversa, me passa?", "O seu CEP não consta aqui, me passa ele?"], { ...COD, cepForgotten: true });
++  vetoes("cep_insist", ["Esse CEP não encontrei, me passa o CEP de novo?"], { ...COD, cepAsks: 1 });
++  vetoes("cep_insist", ["Esse CEP não encontrei, me passa o CEP de novo?", "Não achei o seu CEP aqui na conversa, me passa?"], { ...COD, cepAsks: 1 });
++  passes("cep_insist", ["Esse CEP não encontrei, me confirma depois? Qual calça você veste?"], { ...COD, cepAsks: 1, cepNotFound: true });
++  passes("cep_insist", ["Tudo bem, sem pressa! Qual calça você veste?"], { ...COD, cepForgotten: true });
++  it("a fiação: o cepNotFound do turno chega ao gate", () => expect(turn).toMatch(/cepNotFound,\n\s+\/\/ R26\.1: after her "não lembro o CEP"/));
++});
++
++describe("7. extractName: cidade, UF, endereço e pagamento na linha própria não são nome", () => {
++  it.each([
++    "Recife PE\n50000000",
++    "Belo Horizonte\nrua x 10",
++    "Santa Maria\nRS",
++    "São Paulo capital\nCEP 01000000",
++    "Cartão de crédito\nem 12x",
++    "Recife PE\nquero saber o frete",
++    "Cartão de crédito\nou pix",
++  ])(
++    "%j → nenhum nome",
++    (s) => expect(extractName(s, true)).toBeNull(),
++  );
++  it.each([
++    ["Vilma Torres\n\no da minha mae é 63.010.000", "Vilma Torres"],
++    ["aline prado\n\nmas queria na entrega mesmo", "aline prado"],
++  ])("negação: %j → %s", (s, name) => expect(extractName(s, true)).toBe(name));
++});
++
++describe("8. foreignCheckoutUrl: o nosso domínio, o site e uma palavra só como segmento", () => {
++  const ours = ["entrega.logzz.com.br", "app.coinzz.com.br", "encorpa-fashion.com.br"];
++  it.each(["https://encorpa-fashion.com.br/cart", "https://pay.coinzz.com.br/abc", "https://logzz.com.br/pedido/123", "https://maps.app.goo.gl/Pixa12"])(
++    "%s não é de terceiro",
++    (s) => expect(foreignCheckoutUrl(s, ours)).toBeNull(),
++  );
++  it("negação: o link colado na venda-decidida continua de terceiro", () => {
++    expect(foreignCheckoutUrl("https://encorpa.pay/checkout?size=G", ours)).toBe("https://encorpa.pay/checkout?size=G");
++    expect(foreignCheckoutUrl("paguei nesse aqui www.lojaxyz.com/pagamento/123", ours)).toBe("www.lojaxyz.com/pagamento/123");
++  });
++  it("a fiação: o site entra entre os nossos", () => expect(turn).toContain("foreignCheckoutUrl(p, [...CHECKOUT_HOSTS, ...(CONFIG.site ? [CONFIG.site] : [])])"));
++});
++
++describe("9. afterSale: 'comprei' de outra coisa não pula a abertura", () => {
++  const afterSale = (s: string) => statesPastPurchase(s, false) || (statesPastPurchase(s) && reportsOrderTrouble(s)) || (changesAddress(s) && /\bmudei\b/i.test(s));
++  it("comprei outra coisa e pergunto do colete", () => {
++    expect(afterSale("comprei um vestido pra formatura, esse colete serve?")).toBe(false);
++    expect(afterSale("comprei uma calça nova, qual tamanho eu uso?")).toBe(false);
++  });
++  it("negação: as primeiras mensagens reais depois da compra", () => {
++    for (const s of [
++      "oi comprei um colete com vcs e chegou aqui mas ficou grande\n\ncomo que faço pra trocar?",
++      "oi tudo bem\n\ncomprei o colete com vcs e chegou, mas ficou grande queria trocar por um menor",
++      "oi comprei faz 10 dias e nao chegou nada ate agora viu\n\nto achando isso uma palhaçada",
++      "oi mudei de casa\n\ncom quem eu falo pra mudar o endereço?",
++      "fiz o pedido semana passada, já saiu?",
++    ]) expect(afterSale(s), s).toBe(true);
++  });
++  it("a fiação", () => {
++    expect(turn).toContain(
++      'const afterSale = statesPastPurchase(spoken(inbound.body ?? ""), false) ||\n    (statesPastPurchase(spoken(inbound.body ?? "")) && reportsOrderTrouble(spoken(inbound.body ?? ""))) ||',
++    );
++  });
++});
++
++describe("10. o CEP antes do tamanho: o fixo uma vez, e a pergunta dela respondida depois", () => {
++  it("a fiação", () => {
++    expect(turn).toContain("if (!recentOutbound.includes(SIZE_BEFORE_OFFER)) {");
++    expect(turn).toContain('sizeFirstBubbles(), "roteiro v3: CEP antes do tamanho, a oferta espera o tamanho", {}, answerAfterOffer);');
++    expect(turn).toContain('"endereço novo sem entrega: pergunta do antecipado", {}, cepMoved && askedBeside && !isResume)');
++  });
++});
++
++describe("11. hesitates: adiar e não ter dinheiro agora são hesitação", () => {
++  it.each([
++    "deixa eu ver",
++    "vou dar uma olhada",
++    "depois eu compro",
++    "depois te chamo",
++    "hoje não",
++    "agora não posso",
++    "não tenho dinheiro agora",
++    "to sem grana",
++    "vou consultar meu marido",
++  ])("%s", (s) => expect(hesitates(s)).toBe(true));
++  it.each([
++    "[áudio da cliente, transcrito automaticamente — pode ter erro de transcrição] obrigada meu anjo que Deus te abençoe a neta ta aqui vendo desenho eu vou descansar a vista agora",
++    "entendi, obrigada viu, vou falar com ela pra ver se ela fica em casa e te chamo depois",
++    "no almoço eu vejo o cep e te chamo ai",
++    "pode me mandar as promocoes sim",
++    "agora to no servico",
++  ])("negação: %s", (s) => expect(hesitates(s)).toBe(false));
++});
++
++describe("menores", () => {
++  it("asksForLink: o dia adiado e a agenda dela não são pedido", () => {
++    for (const s of ["ta, manda o link mas so no dia 5", "agenda", "pode agendar o meu horario no dentista"]) expect(asksForLink(s), s).toBe(false);
++    for (const s of ["pode agendar pra mim", "manda o link ai", "sim, agenda", "pode agendar o meu pedido"]) expect(asksForLink(s), s).toBe(true);
++  });
++  const agent = { ...COD, layer: "agent" as const };
++  passes("order_action_claim", ["Fica tranquila, eu reservo um tempinho pra te responder."], agent);
++  vetoes("order_action_claim", ["Fechado, Jessica, o seu M já fica reservado pra você conferir lá.", "Já reservei o seu M.", "Reservei pra você o kit de 2."], agent);
++  vetoes("size_claim", ["O maior é o XGG, que é o seu tamanho."], { ...COD, knownSize: "G" });
++  passes("size_claim", ["O maior que a gente tem é o XGG mesmo.", "O seu é o G."], { ...COD, knownSize: "G" });
++});
