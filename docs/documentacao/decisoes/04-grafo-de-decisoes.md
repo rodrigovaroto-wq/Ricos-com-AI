@@ -4277,6 +4277,54 @@ do `askedBeside`. O "escrito como nome" sobre o trecho inteiro barrava "Patríci
 **Guarda.** `tests/persona-2026-10-24-flow.test.ts` (47 casos, com negação); 22 mutações `G130-*`; os `from` de `G66-link-fixo`,
 `G120-cep-novo-sem-link` e `R23-link-pedido-nove-vezes` atualizados.
 
+## 131. Conduta e texto da revisão de personas de 2026-10-24 (onda 2)
+
+**Sintoma.**
+- "Claro! Você tem 7 dias…" saía para despedida, recado, "te chamo depois", aceite de ofertas e recusa.
+- "Não temos cupom" com o SUPER20 ativo.
+- "Na maioria das regiões".
+- A formatura era citada 5 vezes.
+- O áudio 4 dizia "amanhã" quando a oferta marcava "segunda (26/10)".
+- Quem já tinha comprado recebia a abertura de venda.
+- O espanhol e o pedido de áudio eram ignorados.
+- "Dá pra pagar depois", dito antes do CEP.
+- Reserva inventada e "apaguei seus dados".
+- Uma resposta paga a cada "obrigada".
+
+**Causa.**
+- `vagueObjection` confiava no `wants_to_think` do interpretador, e `vagueObjectionSituation` sempre oferecia a garantia.
+- O briefing do `coupon_exists` era montado com o cupom escondido pelo `conversationCoupon` (R17.4) e ensinava "não temos cupom no momento".
+- O prompt ensinava "na maioria das regiões".
+- `citesTold` pedia dois termos da ocasião.
+- `offerBubbles` mandava o áudio 4 em toda oferta da entrega.
+- `skipsOpening` não via compra passada.
+- A regra do "ok sozinho" não via agradecimento.
+
+**Caminhos descartados.**
+- Gravar o consentimento de ofertas pelo texto dela: viola a regra raiz do `opt-in.ts` (só o botão concede).
+- Responder em espanhol: os gates só leem português.
+- Preço por peça do kit na objeção de preço: não é preço da loja, e o `price_promise` veta.
+
+**Correção.**
+- `vagueObjection`: entram `hesitates`, a exclusão de CEP e `acceptsOffers`. A garantia só aparece com objeção `tamanho` ou `confianca`, e a
+  reclamação de preço recebe o kit do caminho dela.
+- `PREFERS_TRYING` na recusa.
+- O briefing do `coupon_exists` e o `honestyBriefing` cobrem cupom nunca negado, reserva, dados (que vão ao `support.email`), espanhol e
+  áudio. Entra também "pagar na entrega não é pagar depois", e o prompt diz "dependendo da sua cidade e do tamanho".
+- `citesTold` conta a ocasião por um termo.
+- O áudio 4 só sai quando a primeira data é amanhã.
+- `afterSale` manda o recibo no lugar da abertura.
+- `isBareThanks` fica sem resposta paga.
+
+**Resíduos.**
+- A dor de vários termos ainda exige dois termos.
+- O gancho dito com outra palavra não conta como uso.
+- O áudio 4 diz "frete grátis" mesmo com `codFreeShipping:false`.
+- O aceite por escrito suspende o consentimento e a varredura pergunta de novo com os botões.
+
+**Guarda.** `tests/persona-2026-10-24-conduct.test.ts` (30 testes, cada um com negação); 18 mutações `G131-*`; os `from` de
+`recusa-desisti-nao` e `R28-audio-4-sem-entrega` atualizados.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
