@@ -17,7 +17,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 >
 > **Em produção (nada mudou hoje):**
 >
-> - `turn` **v43** (função v158, commit `7a8e01c`+R30.12, desde 23/10 17h11 UTC), modelo `muse-spark-1.3-contributor`;
+> - `turn` **v43** (função v158, desde 23/10 17h11 UTC), modelo `muse-spark-1.3-contributor`;
 >   `BUSINESS_CONFIG` = `docs/operacao/business-config-2026-10-23.min.json` (cupom SUPER20 ativo, `askMarketingOptIn`, `lowStock` 20,
 >   experimentos A e B ligados); migrações até 0032.
 > - Sonda de saúde da `turn` local com esse config, 24/10: `healthy`.
