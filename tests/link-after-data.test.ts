@@ -67,10 +67,10 @@ describe("recusas: o pedido é a frase que pede o campo (achado 3)", () => {
 describe("o link no turno espera os dados (index.ts lido como fonte)", () => {
   it("as condições entram no link e no 'vou pensar' (e-mail só no antecipado desde 2026-10-08)", () => {
     expect(source).toContain('const cpfRefusals = refusedAsks(recent, "document");');
-    expect(source).toContain("cepKnown: Boolean(addressDraft.cep) && !cepNotFound,");
+    expect(source).toContain("cepKnown: (Boolean(addressDraft.cep) && !cepNotFound) || (linkAsked && paymentChoice === \"prepay\" && linkPath === \"prepay\"),");
     // R28: the region settles the path; only the full name is asked.
     expect(source).toContain("pathSettled: paymentChoice !== null || knownRegion !== null,");
-    expect(source).toContain("nameKnown: Boolean(identityDraft.name) || nameRefused || pressed,");
+    expect(source).toContain("nameKnown: Boolean(identityDraft.name) || nameRefused || pressed || linkAsked || linkWentBefore,");
     // L2 (2026-10-08): the e-mail is waited for on the prepaid path only, refused once is enough.
     expect(source).toContain("emailDone: true,");
     expect(source).toContain("cpfDone: true,");

@@ -409,6 +409,10 @@ const STREET_TITLE: Record<string, string> = {
   gen: "general", mal: "marechal", sen: "senador", dep: "deputado", eng: "engenheiro", sto: "santo", sta: "santa", cap: "capitão",
   ten: "tenente", maj: "major", pe: "padre",
 };
+/** The cities she names by nickname, with their state. */
+const CITY_NICKNAMES: Record<string, readonly [string, State]> = {
+  bh: ["Belo Horizonte", "MG"], bsb: ["Brasília", "DF"], poa: ["Porto Alegre", "RS"], sampa: ["São Paulo", "SP"], floripa: ["Florianópolis", "SC"],
+};
 const expandTitles = (s: string): string => s.replace(/(?<![\p{L}\d])([a-z]{2,4})\.?(?=\s|$)/giu, (w, t: string) => STREET_TITLE[t.toLowerCase()] ?? w);
 
 /**
@@ -430,6 +434,14 @@ export const streetQueries = (text: string): StreetQuery[] => {
   const HOUSE = /(?:\bn[º°o.]?\s*)?\b(\d{1,5})\b(?!\s+de\b)/gi;
   const number = [...rest.matchAll(HOUSE)][0]?.[1] ?? null;
   let state: State | null = null;
+  // The city by its nickname, last ("av afonso pena 1500 centro bh", persona cob-rua-sem-cep, 2026-10-24: "centro bh" was searched as
+  // the city, and the street was never found): the city and its state, and the words before it (her neighbourhood) are not the city.
+  const nick = rest.match(/\s+(bh|bsb|poa|sampa|floripa)\s*[.!]*\s*$/i);
+  if (nick) {
+    const [city, uf] = CITY_NICKNAMES[nick[1]!.toLowerCase()]!;
+    const street = clean(rest.slice(0, nick.index).split(new RegExp(String.raw`\s*,\s*|\s+-\s+|${HOUSE.source}`, "i"))[0] ?? "");
+    return street.length > 1 ? [{ street: `${kind} ${expandTitles(street)}`, city, number, state: uf }] : [];
+  }
   // The state after a separator, or after a word ("cruz alta rs") — never after a number ("100 ap" is the flat, review).
   const uf = rest.match(/(?:\s*[,/\-–]\s*|(?<=[A-Za-zÀ-ſ])\s+)([A-Za-z]{2})\s*[.!]*\s*$/);
   if (uf && (STATES as readonly string[]).includes(uf[1]!.toUpperCase())) {

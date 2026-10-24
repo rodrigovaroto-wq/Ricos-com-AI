@@ -62,7 +62,7 @@ describe("não sei meu CEP: a rua e a cidade, uma vez", () => {
 
 describe("CEP novo depois do link", () => {
   it("o link vai de novo com o endereço novo, nunca 'usa lá no mesmo link'", () => {
-    expect(turn).toContain("const linkJustSent = !cepMoved && linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? \"\"));");
+    expect(turn).toContain("const linkJustSent = !cepMoved && foreignUrl === null && linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? \"\"));");
     expect(turn).toContain('storedAddress.cep!.replace(/\\D/g, "") !== addressDraft.cep!.replace(/\\D/g, "")');
   });
 });

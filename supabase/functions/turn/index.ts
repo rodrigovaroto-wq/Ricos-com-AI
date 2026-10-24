@@ -207,6 +207,8 @@ import {
   type FunnelMedia,
   offerAsk,
   offerBubbles,
+  noCodReasonLine,
+  sizeFirstBubbles,
   openingBubbles,
   sizeTableBubbles,
   stripMediaLabels,
@@ -236,6 +238,7 @@ import {
   agreesWithoutChoosing,
   namesOwnPrice,
   asksForLink,
+  foreignCheckoutUrl,
   pathChoiceToStore,
   kitWasOffered,
   closesConversation,
@@ -1050,6 +1053,10 @@ const checkoutDirectiveFor = (
 const ORDER_UNREADABLE_REASON = "a cliente fala de um pedido que o sistema não lê";
 // Before the order, a new address is looked up again (operator, 2026-10-20): it may be outside the delivery network.
 const CEP_MOVED_COD = "Conferi o endereço novo: aí também chega com pagamento na entrega 😊\n\nÉ só usar esse endereço no checkout.";
+/** A6 (personas of 2026-10-24): the new CEP looked up, and the delivery does not reach it: the prepaid link with the new address. */
+const CEP_MOVED_PREPAY = "Conferi o endereço novo: aí vai pelos Correios, com o pagamento antecipado 😊\n\nÉ só usar esse endereço no checkout.";
+/** A9 (persona venda-decidida, 2026-10-24): a payment link she pasted that is not ours, said before ours. */
+const foreignLinkLine = (brand: string): string => `Esse link que você mandou não é da ${brand}, não paga por ele não 🙏\n\nO seu link oficial é este aqui:`;
 const NEW_ADDRESS_ASK = "Claro! Só preciso consultar de novo, porque o endereço novo pode estar fora da nossa rede de entrega.\n\nMe passa o CEP novo ou a rua e a cidade?";
 
 const notification = (
@@ -3924,7 +3931,8 @@ const handleTurn = async (
     // A size without delivery, or one the lookup could not answer, makes the kit prepaid: a delivery link with a size the Logzz may
     // not schedule never goes, and a failure never turns a known answer into the two links (review: the offers flip-flopped).
     const missing = answers.find(({ r }) => !(r.kind === "found" && r.region.cod));
-    if (missing) region = { ...region, cod: false, dates: [], sameDay: false, size: missing.s };
+    // Her own size has it there: the reason said before the prepaid box is the other piece's size, not her region (A4).
+    if (missing) region = { ...region, cod: false, dates: [], sameDay: false, size: missing.s, otherSizesInStock: regionSize ? [regionSize] : [] };
   }
   // Plan 16 §4.7: where the delivery does not reach her, the prepaid box says the freight the checkout charges at her CEP for what she
   // is buying — one piece of her size, or the kit with the size of each piece, asked in one query like the kit checkout does
@@ -4222,13 +4230,21 @@ const handleTurn = async (
   // nine requests, no link): what is left of name, CPF and e-mail is asked at the checkout, and the flow goes on.
   const pressed = recent.filter((m: { direction: string }) => m.direction === "inbound").slice(-5).filter((m: { body: string }) => asksForLink(spoken(m.body ?? "")) && /\b(?:link|checkout|pagamento)\b/i.test(spoken(m.body ?? ""))).length >= 2
     && !recentOutbound.slice(-3).some((m: string) => CHECKOUT_BASES.some((b) => m.includes(b)));
+  // A payment link in her message that is not ours (A9, persona venda-decidida, 2026-10-24): never endorsed — ours goes, told apart.
+  const foreignUrl = parts.map((p: string) => foreignCheckoutUrl(p, CHECKOUT_HOSTS)).find((u: string | null) => u !== null) ?? null;
+  // Her own request for the link sends it (A1, personas of 2026-10-24: "manda o link ai" got "lá no checkout você escolhe o G" for up
+  // to six turns): with size and path known, her name is the checkout's to ask — and so is it after any link went (A6: "aline prado",
+  // never read, held the link to her new CEP). On the prepaid path she chose, the checkout asks the address too (A8: a kit of three
+  // lost to "o link sai atrelado ao CEP"). The delivery still waits for the CEP: it is what says the door reaches her.
+  const linkAsked = parts.some(asksForLink) || foreignUrl !== null;
+  const linkWentBefore = recentOutbound.some((m: string) => CHECKOUT_BASES.some((b) => m.includes(b)));
   const linkData = {
     sizeKnown,
-    cepKnown: Boolean(addressDraft.cep) && !cepNotFound,
+    cepKnown: (Boolean(addressDraft.cep) && !cepNotFound) || (linkAsked && paymentChoice === "prepay" && linkPath === "prepay"),
     // Script v3 (R28): her region settles the path — the delivery where it reaches her, the prepaid elsewhere — and only
     // her full name is asked; the e-mail, the CPF and the address are the checkout's. No A/B arm any more.
     pathSettled: paymentChoice !== null || knownRegion !== null,
-    nameKnown: Boolean(identityDraft.name) || nameRefused || pressed,
+    nameKnown: Boolean(identityDraft.name) || nameRefused || pressed || linkAsked || linkWentBefore,
     cpfDone: true,
     emailDone: true,
     identityAtCheckout: false,
@@ -4266,7 +4282,7 @@ const handleTurn = async (
   const cepMoved = region !== null && Boolean(storedAddress.cep && addressDraft.cep) && storedAddress.cep!.replace(/\D/g, "") !== addressDraft.cep!.replace(/\D/g, "") &&
     !["pedido_criado", "em_rota", "entregue_pago", "recusado"].includes(storedStage) && lastLinkBase(linkHistory, CHECKOUT_BASES) !== null &&
     ((await herOrderRows()) ?? [null]).length === 0;
-  const linkJustSent = !cepMoved && linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? ""));
+  const linkJustSent = !cepMoved && foreignUrl === null && linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? ""));
   // She takes it back in the turn the data close ("desisti", "não quero mais"): no link (grafo §65).
   const withdrew = withdrawsInBurst(parts);
   // The kit, offered once after she chooses how to pay and before the data (operator, 2026-10-06:
@@ -4522,6 +4538,15 @@ const handleTurn = async (
   // venda-dificil, 19/10) gets its answer after the offer too.
   const saidBeside = parts.some(remarkBesideCep);
   const answerAfterOffer = (askedBeside || saidBeside) && !isResume;
+  // A9: her pasted link, when ours cannot go in a fixed message this turn (a datum still missing, or her question beside it).
+  if (foreignUrl !== null && (checkoutUrl === null || askedBeside)) {
+    guide(
+      `Ela colou um link de pagamento que não é nosso (${foreignUrl}): diga com clareza que esse link não é da ${CONFIG.brand} e que ela não pague` +
+        ` por ele. Nunca diga que serve, que fica no nome dela nem que está certo.`,
+      `Esse link não é nosso, não paga por ele não 🙏 O seu link oficial sou eu que te mando aqui.`,
+      "link de terceiro colado pela cliente",
+    );
+  }
   // Copy v4, section 4: after the delivery link of the two checkouts, her "não apareceu" gets the prepaid one, once.
   if (guides.length === 0 && offerBefore === "both" && openNow && !farewell && !withdrew && parts.some((p: string) => saysNoDeliveryDay(spoken(p))) &&
     !recentOutbound.some((m: string) => m.startsWith(BOTH_PREPAY_HEADLINE) || m.startsWith("🔵 2) PAGAR AGORA"))) {
@@ -4588,11 +4613,27 @@ const handleTurn = async (
       // prepaid box goes on her answer, the next turn.
       const sent = await sendFunnelTurn([{ text: sizeNoCodAsk(region.size) }], `roteiro v3: o ${region.size} sem entrega aí, pergunta do antecipado`);
       if (sent) return sent;
+    } else if (region !== null && offerNow === "cod" && !sizeKnown) {
+      // A3 (personas of 2026-10-24): the delivery is the stock of her SIZE in her city — the offer promised "Chegará já segunda… Não
+      // Paga Nada Agora" on any size's answer, and the next turn took it back for her M. Her size first, once; the offer goes on it.
+      if (lastOutbound !== SIZE_ASK) {
+        const sent = await sendFunnelTurn(sizeFirstBubbles(), "roteiro v3: CEP antes do tamanho, a oferta espera o tamanho");
+        if (sent) return sent;
+      } else {
+        guide(
+          "O CEP dela chegou e o tamanho ainda não: a entrega depende do estoque do tamanho dela na cidade. Não prometa entrega, data nem" +
+            " pagamento na entrega antes do tamanho; pergunte o número da calça que ela veste.",
+          "Pra eu ver a entrega aí, me fala o número da calça que você veste? 😉",
+          "CEP antes do tamanho: a oferta espera o tamanho",
+        );
+      }
     } else if (region !== null) {
       const cod = offerNow === "cod";
+      // A4 (personas of 2026-10-24): why the prepaid, before its box — her size where another one has the delivery in her city.
+      const noCodReason = cod ? null : noCodReasonLine(region.size ?? null, (region.otherSizesInStock?.length ?? 0) > 0);
       const sent = await sendFunnelTurn(
         await withHook([
-          ...offerBubbles(CONFIG, { cod, dates: region.dates, prepayFreightBrl: units === 1 ? prepayFreightBrl : null }, new Date(), checkoutUrl ? null : offerAsk(cod, sizeKnown)),
+          ...offerBubbles(CONFIG, { cod, dates: region.dates, prepayFreightBrl: units === 1 ? prepayFreightBrl : null }, new Date(), checkoutUrl ? null : offerAsk(cod, sizeKnown), noCodReason),
           ...(checkoutUrl ? [{ text: v3Link(checkoutUrl) }] : []),
         ]),
         checkoutUrl ? `roteiro v3: oferta e link — ${linkFact ?? ""}` : "roteiro v3: oferta",
@@ -4605,7 +4646,10 @@ const handleTurn = async (
 
   // The link goes the operator's way, fixed (2026-10-07, grafo §66; script v3 text since R28) — unless she
   // asked something beside it, and then the model answers with the link in its directive.
-  if (guides.length === 0 && checkoutUrl !== null && openNow && !farewell && !askedBeside) {
+  // A new CEP after the link goes fixed with her question beside it too (A6, persona cob-cep-novo-depois-link, 2026-10-24: "posso usar o
+  // mesmo link com o endereço de Manaus?" left the link to the model, which answered "usa o mesmo link" and sent none); her question
+  // is answered after it, by n8n's resume.
+  if (guides.length === 0 && checkoutUrl !== null && openNow && !farewell && (!askedBeside || cepMoved)) {
     // A delivery link went before and the new address has no delivery (operator's test, 2026-10-20): the reason before the new link.
     const codBefore = linkPath === "prepay" && codUnavailable && [CONFIG.checkout?.codUrl, ...kits.filter((k) => k.path === "cod").map((k) => k.checkoutUrl)]
       .filter((u): u is string => typeof u === "string" && u.length > 0).some((u) => recentOutbound.some((m: string) => m.includes(u.split("?")[0]!)));
@@ -4619,10 +4663,15 @@ const handleTurn = async (
           // The new CEP checked before the link goes again (operator's test, 2026-10-21): said, so the same link is no puzzle.
           // Only with the new CEP's delivery answered yes (review of §120: a failed lookup kept the stored "cod" path).
           ...(cepMoved && linkPath === "cod" && region?.cod === true ? [{ text: opening(CEP_MOVED_COD) }] : []),
-          { text: cepMoved && linkPath === "cod" && region?.cod === true ? v3Link(checkoutUrl) : opening(v3Link(checkoutUrl)) },
+          // A6: the prepaid link to the new CEP, its lookup said too — the same checkout, with the new address in it.
+          ...(cepMoved && linkPath === "prepay" && region?.cod === false ? [{ text: opening(CEP_MOVED_PREPAY) }] : []),
+          // A9: her pasted link is not ours, said before ours.
+          ...(foreignUrl !== null ? [{ text: opening(foreignLinkLine(CONFIG.brand)) }] : []),
+          { text: (cepMoved && region?.cod === (linkPath === "cod")) || foreignUrl !== null ? v3Link(checkoutUrl) : opening(v3Link(checkoutUrl)) },
         ],
         linkFact ? `link — ${linkFact}` : "link",
         { checkoutUrl, linkFact },
+        cepMoved && askedBeside && !isResume,
       );
     if (sent) return sent;
   }

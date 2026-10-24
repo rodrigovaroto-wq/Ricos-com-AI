@@ -183,7 +183,7 @@ describe("persona venda-decidida (14/10): pediu o link nove vezes, nunca recebeu
   });
   it("pedir o link duas vezes nas últimas cinco mensagens, sem link no chat, solta o que falta de nome, CPF e e-mail", () => {
     expect(turn).toContain(".slice(-5).filter((m: { body: string }) => asksForLink(spoken(m.body ?? \"\")) && ");
-    expect(turn).toContain("nameKnown: Boolean(identityDraft.name) || nameRefused || pressed,");
+    expect(turn).toContain("nameKnown: Boolean(identityDraft.name) || nameRefused || pressed || linkAsked || linkWentBefore,");
     // R28: CPF and e-mail are never waited for — only the name is, and `pressed` still releases it.
     expect(turn).toContain("cpfDone: true,");
     expect(turn).toContain("emailDone: true,");

@@ -334,6 +334,12 @@ export const quantityOf = (
     " ",
   );
   const units = i.units !== null && i.units > 1 && !QUANTITY_CUE.test(text) && !namesCount(text, i.units) ? null : i.units;
+  // "um G pra mim e um M pra minha cunhada" (persona cob-recompra, 2026-10-24): each piece's size, read here when the interpreter
+  // read none — she was asked the sizes again. The letter as she typed it, capital; a denied one ("não quero um M") is out.
+  const pieces = i.unit_sizes.length > 0 ? [] : [...message.matchAll(/\bum(?:as?)?\s+(PP|P|M|GG|G|XGG)\b/g)]
+    .filter((m) => !/\b(?:nao|nem|sem)\b[^,;.!?\n]*$/.test(norm(message.slice(0, m.index ?? 0))))
+    .map((m) => (m[1] === "PP" ? "P" : m[1]) as SizeLetter);
+  if (pieces.length >= 2) return { units: units !== null && units > pieces.length ? units : pieces.length, sizes: pieces };
   if (units === null && i.unit_sizes.length === 0) return null;
   return { units, sizes: [...i.unit_sizes] };
 };
@@ -1215,6 +1221,24 @@ export const linkHeldBack = (
 ): boolean => pathBase !== undefined && !asksForLink(message) && lastLinkBase(outbound, checkoutBases) === pathBase;
 
 /**
+ * A payment link in her message that is not ours (persona venda-decidida, 2026-10-24: "https://encorpa.pay/checkout?size=G" was
+ * answered "Combinado, fica no seu nome assim"): never endorsed, ours goes instead. A checkout, payment or cart word in it, on a
+ * host that is none of `ourHosts` nor under one of them. Our own link pasted back, a site or an Instagram post is not one.
+ */
+export const foreignCheckoutUrl = (message: string, ourHosts: readonly string[]): string | null => {
+  for (const m of message.matchAll(/\b(?:https?:\/\/|www\.)[^\s<>"']+|\b[a-z0-9-]+(?:\.[a-z0-9-]+)+\/[^\s<>"']*/gi)) {
+    const raw = m[0].replace(/[.,;!?)]+$/, "");
+    const href = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    const url = URL.canParse(href) ? new URL(href) : null;
+    if (!url || !/\./.test(url.hostname)) continue;
+    const host = url.hostname.toLowerCase();
+    if (ourHosts.some((h) => host === h.toLowerCase() || host.endsWith(`.${h.toLowerCase()}`))) continue;
+    if (/checkout|pay|pagamento|pagar|pix|boleto|carrinho|cart|compra|order|pedido/i.test(`${host}${url.pathname}${url.search}`)) return raw;
+  }
+  return null;
+};
+
+/**
  * She asks for the link herself ("manda o link de novo", "não achei o link") — the M-03
  * window does not hold it back (code review, 2026-09-24). Only the request form counts:
  * "você já mandou o link", "mandei o link pra minha irmã" and "não precisa mandar o link"
@@ -1241,15 +1265,28 @@ export const asksForLink = (message: string): boolean => {
   )
     return true;
   if (/^\s*(?:(?:entao|sim|ok|ta|pode|ah)[\s,]+)*(?:(?:me\s+)?(?:manda|mande|envia|envie)\s+(?:logo|agora|ja|ai|aqui)|pode\s+(?:me\s+)?(?:mandar|enviar))\s*[!.]*\s*$/.test(t)) return true;
+  // "sim, manda" as the whole message, after a yes (persona venda-compra-forte, 2026-10-24); a bare "manda" stays out.
+  if (/^\s*(?:(?:entao|sim|ok|ta|pode|isso|blz|beleza)[\s,]+)+(?:manda|mande|envia|envie)\s*[!.]*\s*$/.test(t)) return true;
+  // "cadê o link" is the cobrança itself (persona venda-curiosa, 2026-10-24).
+  if (/\bcade\s+(?:o\s+)?(?:meu\s+)?link\b/.test(t)) return true;
+  // "pode agendar pra mim" (persona cob-gatilho-formatura, 2026-10-24): the delivery offer's own "Vamos agendar seu pedido?" answered
+  // yes — the checkout is where it is scheduled. Never denied, put off or about a day ("agenda pra sexta").
+  for (const m of t.matchAll(/(?:^|[,;.!?\n]\s*|\b(?:sim|ok|entao|ta|blz)\s+)(?:(?:ah|sim|entao|ok|ta|por\s+favor)\s+)*(?:pode\s+(?:me\s+)?agendar|agenda|agende)(?:\s+(?:pra|para)\s+mim)?\b/g)) {
+    const after = t.slice((m.index ?? 0) + m[0].length);
+    if (/\b(?:nao|se|quando|depois|amanha|mais\s+tarde|noite|semana|segunda|terca|quarta|quinta|sexta|sabado|domingo|dia|cheia|lotada)\b/.test(after)) continue;
+    return true;
+  }
   // An allowlist, not a blocklist (second review, three rounds): the imperative opens the
   // clause, after at most a filler ("ah", "sim", "pode", "me"…), and no condition follows.
   for (const m of t.matchAll(
-    /(?:^|[,;.!?\n]\s*)(?:(?:ah|sim|entao|ok|por\s+favor)\s+)*(?:(?:me\s+)?(?:manda|mande|envia|envie|passa|passe|reenvia|reenvie)|pode\s+(?:me\s+)?(?:mandar|enviar|passar|reenviar))\s+(?:(?:o|um|esse|aquele)\s+)?(?:link|checkout)\b/g,
+    // "só manda o link aí", "tá então me manda o link" (persona cob-pago-na-entrega-sim and gatilho-formatura, 2026-10-24).
+    /(?:^|[,;.!?\n]\s*)(?:(?:ah|sim|entao|ok|por\s+favor|so|ta|blz)\s+)*(?:(?:me\s+)?(?:manda|mande|envia|envie|passa|passe|reenvia|reenvie)|pode\s+(?:me\s+)?(?:mandar|enviar|passar|reenviar))\s+(?:(?:o|um|esse|aquele)\s+)?(?:link|checkout)\b/g,
   )) {
     // The whole rest of the message: "manda o link, mas só amanhã" and "passa o link, não!"
     // are not a request for now (second review, 5th round).
+    // "Só" puts it off only before a time ("só às 18h", "só a partir de"): "manda o link só aí eu vejo" asks for it now (2026-10-24).
     const after = t.slice((m.index ?? 0) + m[0].length);
-    if (/\b(?:nao|se|quando|depois|amanha|mais\s+tarde|noite|semana|segunda|terca|quarta|quinta|sexta|sabado|domingo|so)\b/.test(after)) continue;
+    if (/\b(?:nao|se|quando|depois|amanha|mais\s+tarde|noite|semana|segunda|terca|quarta|quinta|sexta|sabado|domingo|so\s+(?:as|a\s+partir|la\s+pr?a|de\s+tarde|mais))\b/.test(after)) continue;
     return true;
   }
   return false;

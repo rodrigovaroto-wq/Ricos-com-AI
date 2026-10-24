@@ -83,7 +83,15 @@ const SHOE_CUE = /\b(cal[c\u00e7]o|sapato|t[e\u00ea]nis|sand[a\u00e1]lia|chinelo
  * it. What they say is "uso 42 de calça", and every shape of that is a cue.
  */
 const SIZE_CUE =
-  /(tamanho|veste|visto|vestia|uso|usa|usava|cal[c\u00e7]a|blusa|vestido|saia|short|numero|n\u00famero|sou|entre)\D{0,14}$/i;
+  // "vesto 44": the typo of "visto" (persona cob-recife-g, 2026-10-24).
+  /(tamanho|veste|visto|vesto|vestia|uso|usa|usava|cal[c\u00e7]a|blusa|vestido|saia|short|numero|n\u00famero|sou|entre)\D{0,14}$/i;
+
+/**
+ * The cue after the number (personas of 2026-10-24): "40 eu uso", "36\nvisto", "42 de cal\u00e7a" \u2014 her size said the other way round,
+ * and asked again turn after turn. First person only: "44 usa a minha irm\u00e3" is not hers.
+ */
+const SIZE_CUE_AFTER =
+  /^\s*(?:eu\s+)?(?:uso|visto|vesto|vestia|usava)\b(?!\s+(?:de|no|em)\s+(?:sapato|t[e\u00ea]nis|sand[a\u00e1]lia|chinelo|bota|p[e\u00e9])\b)|^\s*(?:de|da)\s+cal[c\u00e7]a\b/i;
 
 /**
  * M-02 (operator, 2026-09-24): "manequim" never sets the size. Marcinha's "meu manequim é
@@ -144,7 +152,7 @@ export const extractDressSize = (text: string): number | null => {
     if (NEGATED_CUE.test(before) || SHOE_CUE.test(before) || OTHER_GARMENT.test(before) || WEIGHT_CUE.test(before)) continue;
     if (OTHER_GARMENT_AFTER.test(text.slice(at + match[0]!.length))) continue;
     plausible.push(Number(match[1]));
-    if (SIZE_CUE.test(before)) cued.push(Number(match[1]));
+    if (SIZE_CUE.test(before) || SIZE_CUE_AFTER.test(text.slice(at + match[0]!.length))) cued.push(Number(match[1]));
   }
   if (cued.length === 0) return null;
 
@@ -247,8 +255,16 @@ export const statedSizeOf = (
     .join("");
   const dress = extractDressSize(statements);
   const fast = larger(dress === null ? null : sizeFromDressSize(dress), extractSizeLetter(statements));
-  return fast ?? (interpreted === null ? null : sizeFromInterpreted(interpreted));
+  // A question that still states her own number (personas of 2026-10-24): "tem calça 48 em estoque?", "36 visto tamanho M ???". Only
+  // the pants number named as such or said in the first person — never "pra quem usa 50?" nor "o M serve em quem usa 44?".
+  const asked = fast === null
+    ? message.split(/(?<=[,;.!?\n])/).filter((c) => c.trim().endsWith("?") || QUESTION_CLAUSE.test(c))
+      .map((c) => OWN_NUMBER_IN_QUESTION.exec(c)).find((m) => m !== null && !NEGATED_CUE.test(m.input.slice(0, m.index)))
+    : undefined;
+  const own = asked ? Number(asked[1] ?? asked[2]) : NaN;
+  return fast ?? (own >= 34 && own <= 56 ? sizeFromDressSize(own) : null) ?? (interpreted === null ? null : sizeFromInterpreted(interpreted));
 };
+const OWN_NUMBER_IN_QUESTION = /\bcal[cç]a\s+(\d{2})\b(?!\s*(?:anos?|kg|reais?|cm|%))|\b(\d{2})\s+(?:eu\s+)?(?:uso|visto|vesto)\b/i;
 
 /**
  * Whether the agent's message asked for her size — the condition for the "answer her

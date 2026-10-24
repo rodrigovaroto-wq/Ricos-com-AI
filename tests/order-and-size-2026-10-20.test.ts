@@ -44,7 +44,7 @@ describe("kit: a entrega só com todos os tamanhos dela", () => {
     expect(turn).toContain("const others = [...new Set(unitSizes)].filter((x): x is Size => (SIZES as readonly string[]).includes(x) && x !== regionSize);");
     expect(turn).toContain("const answers = await Promise.all(others.map((s) =>");
     expect(turn).toContain('const missing = answers.find(({ r }) => !(r.kind === "found" && r.region.cod));');
-    expect(turn).toContain("if (missing) region = { ...region, cod: false, dates: [], sameDay: false, size: missing.s };");
+    expect(turn).toContain("if (missing) region = { ...region, cod: false, dates: [], sameDay: false, size: missing.s, otherSizesInStock: regionSize ? [regionSize] : [] };");
   });
   it("a oferta da entrega que já foi pergunta se pode ir pelos Correios antes do antecipado (copy v4, 2.5)", () => {
     expect(turn).toContain('} else if (region !== null && offerBefore === "cod" && offerNow === "prepay" && region.size && lastOutbound !== sizeNoCodAsk(region.size)) {');
