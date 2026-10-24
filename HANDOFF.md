@@ -13,6 +13,56 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-24 (noite) — EXECUÇÃO PARADA A PEDIDO DO OPERADOR. Registro completo.**
+>
+> **Em produção (nada mudou hoje):**
+>
+> - `turn` **v43** (função v158, commit `7a8e01c`+R30.12, desde 23/10 17h11 UTC), modelo `muse-spark-1.3-contributor`;
+>   `BUSINESS_CONFIG` = `docs/operacao/business-config-2026-10-23.min.json` (cupom SUPER20 ativo, `askMarketingOptIn`, `lowStock` 20,
+>   experimentos A e B ligados); migrações até 0032.
+> - Sonda de saúde da `turn` local com esse config, 24/10: `healthy`.
+> - Banco: 42 leads reais (o último em 21/10), 0 pedidos em toda a história.
+> - Meta Ads: uma campanha, PAUSADA ("Encorpa — WhatsApp — 5 vídeos (v6) 48h"), R$ 77,38 gastos, 4.206 impressões, 96 cliques.
+> - A função `whatsapp` do PR #81 (id da imagem em `messages.media`) foi mesclada; **não conferi** se foi publicada.
+>
+> **Feito hoje, na branch `claude/focused-cannon-lk2wim` (empurrada; NÃO publicada; sem PR aberto):**
+>
+> 1. R31.1 (grafo §127): A5 (`shippedCancelReply`: "Quando ele chegar, você pode cancelar…") e A4 (`personAskExample` com o
+>    `support.email`). Testes, mutações `G127-*`, revisão Opus (2 bloqueantes corrigidos).
+> 2. R31.2: gate `operational_claim` (boleto, horário, carteiro/Correios no pagamento na entrega) e novas `LIES` do calibrador do
+>    Hermes (a medição de 16% precisa ser refeita).
+>    Validação: 8.824 testes, `typecheck`, `lint`, `typecheck:function`, `dev:conversas` 1655/1655, `dev:gates` sem afrouxamento,
+>    mutações 762/762.
+> 3. Revisão final com personas (grafo §128): 132 leads, R$ 4,03; 16 fichas novas (O1–O11); relatório em
+>    `docs/agente-ia/10-auditoria/personas-2026-10-24-revisao-final.md`. Sintéticos apagados.
+>
+> **Começado e parado no meio (NÃO está no código; patches em `docs/agente-ia/10-auditoria/wip-2026-10-24/`, com o README do que
+> cada um tem e do que falta):**
+>
+> - onda 1A: os falsos vetos;
+> - onda 1B: link, nome, oferta, CEP.
+>
+> **Falta, nesta ordem:**
+>
+> 1. **Operador — estoque/anúncio:** P só tem pagamento na entrega no Rio, M só em BH, Recife nenhum tamanho. Repor estoque na Logzz ou
+>    mirar o anúncio nas cidades e tamanhos que têm (§1 do relatório).
+> 2. Terminar a onda 1A e a onda 1B a partir dos patches; testes, mutações, revisão Opus, grafo §129–§130.
+> 3. Onda 2 (diagnosticada, não começada):
+>    - a resposta pronta da objeção vaga ("Claro! Você tem 7 dias…") disparando para despedida, aceite de ofertas e "te chamo
+>      depois" (`vagueObjection` em `index.ts` e o motivo da garantia em `vagueObjectionSituation`);
+>    - "não temos cupom" com o SUPER20 ativo (briefing do `coupon_exists`);
+>    - "na maioria das regiões" (`prompt.ts`, perto da linha 912);
+>    - o gatilho pessoal citado mais de 3 vezes;
+>    - o áudio 4 ("agendar pra amanhã mesmo") saindo quando a primeira data não é amanhã (`funnel.ts:229`);
+>    - abertura de venda para quem chega com troca ou mudança de endereço;
+>    - espanhol, pedido de áudio, "pagar depois do dia 5" antes do CEP, aceite espontâneo de ofertas;
+>    - a despedida em laço (uma resposta paga a cada "obrigada").
+> 4. **Decisões do operador:**
+>    - calça 56 lida como XGG com "serve sim" (o prompt diz que a tabela vai até 52);
+>    - o colete serve para homem?
+> 5. Depois de 2 e 3: uma rodada curta de personas para provar (com o OK de custo do operador); PR para a `main`; `pnpm deploy:turn`
+>    (v44) e `job:"health"`; smoke test.
+
 > **2026-10-24 (tarde) — revisão final com personas (grafo §128): 132 leads, R$ 4,03. NÃO SUBIR antes de ler
 > [`personas-2026-10-24-revisao-final.md`](docs/agente-ia/10-auditoria/personas-2026-10-24-revisao-final.md).**
 >

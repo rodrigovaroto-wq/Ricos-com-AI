@@ -1,0 +1,903 @@
+diff --git a/src/agent/address.ts b/src/agent/address.ts
+index e75a087..b2e6cb4 100644
+--- a/src/agent/address.ts
++++ b/src/agent/address.ts
+@@ -409,6 +409,10 @@ const STREET_TITLE: Record<string, string> = {
+   gen: "general", mal: "marechal", sen: "senador", dep: "deputado", eng: "engenheiro", sto: "santo", sta: "santa", cap: "capitão",
+   ten: "tenente", maj: "major", pe: "padre",
+ };
++/** The cities she names by nickname, with their state. */
++const CITY_NICKNAMES: Record<string, readonly [string, State]> = {
++  bh: ["Belo Horizonte", "MG"], bsb: ["Brasília", "DF"], poa: ["Porto Alegre", "RS"], sampa: ["São Paulo", "SP"], floripa: ["Florianópolis", "SC"],
++};
+ const expandTitles = (s: string): string => s.replace(/(?<![\p{L}\d])([a-z]{2,4})\.?(?=\s|$)/giu, (w, t: string) => STREET_TITLE[t.toLowerCase()] ?? w);
+ 
+ /**
+@@ -430,6 +434,14 @@ export const streetQueries = (text: string): StreetQuery[] => {
+   const HOUSE = /(?:\bn[º°o.]?\s*)?\b(\d{1,5})\b(?!\s+de\b)/gi;
+   const number = [...rest.matchAll(HOUSE)][0]?.[1] ?? null;
+   let state: State | null = null;
++  // The city by its nickname, last ("av afonso pena 1500 centro bh", persona cob-rua-sem-cep, 2026-10-24: "centro bh" was searched as
++  // the city, and the street was never found): the city and its state, and the words before it (her neighbourhood) are not the city.
++  const nick = rest.match(/\s+(bh|bsb|poa|sampa|floripa)\s*[.!]*\s*$/i);
++  if (nick) {
++    const [city, uf] = CITY_NICKNAMES[nick[1]!.toLowerCase()]!;
++    const street = clean(rest.slice(0, nick.index).split(new RegExp(String.raw`\s*,\s*|\s+-\s+|${HOUSE.source}`, "i"))[0] ?? "");
++    return street.length > 1 ? [{ street: `${kind} ${expandTitles(street)}`, city, number, state: uf }] : [];
++  }
+   // The state after a separator, or after a word ("cruz alta rs") — never after a number ("100 ap" is the flat, review).
+   const uf = rest.match(/(?:\s*[,/\-–]\s*|(?<=[A-Za-zÀ-ſ])\s+)([A-Za-z]{2})\s*[.!]*\s*$/);
+   if (uf && (STATES as readonly string[]).includes(uf[1]!.toUpperCase())) {
+diff --git a/src/agent/availability.ts b/src/agent/availability.ts
+index 9c7fa03..9475858 100644
+--- a/src/agent/availability.ts
++++ b/src/agent/availability.ts
+@@ -286,6 +286,11 @@ export interface Region {
+    * `lookupLogzz` asks the days of), for scarcity (4.6). Absent or null: unknown. Never from the Coinzz `stock`, which is "1" always.
+    */
+   readonly stockQty?: number | null;
++  /**
++   * Her size has no stock where she lives, and these sizes have (A4, personas of 2026-10-24): the reason the delivery does not
++   * reach her is the size, not her region. Absent: not read (a cache from before, the Coinzz fallback, the region's own "no").
++   */
++  readonly otherSizesInStock?: readonly Size[];
+ }
+ 
+ /**
+@@ -490,7 +495,13 @@ const lookupLogzzUnsafe = async (
+   // unknown, the size with the most local stock stands for the region.
+   const asked: Size | null = size ?? (Object.keys(stock.bySize) as Size[]).sort((a, b) => (stock.seen.get(b) ?? 0) - (stock.seen.get(a) ?? 0))[0] ?? null;
+   const ops = [...new Set(asked !== null ? stock.bySize[asked] ?? [] : [])];
+-  if (ops.length === 0) return size !== null ? (stock.seen.has(size) && !stock.unreadable ? { kind: "found", region: none } : { kind: "failed", place }) : stock.unreadable ? { kind: "failed", place } : { kind: "found", region: none };
++  if (ops.length === 0) {
++    return size !== null
++      ? stock.seen.has(size) && !stock.unreadable
++        ? { kind: "found", region: { ...none, otherSizesInStock: (Object.keys(stock.bySize) as Size[]).filter((s) => s !== size) } }
++        : { kind: "failed", place }
++      : stock.unreadable ? { kind: "failed", place } : { kind: "found", region: none };
++  }
+   const product = asked !== null ? stock.productOf[asked] : undefined;
+   if (product === undefined) return { kind: "failed", place };
+   const q = new URLSearchParams(where);
+diff --git a/src/agent/funnel.ts b/src/agent/funnel.ts
+index ab99182..0604cbb 100644
+--- a/src/agent/funnel.ts
++++ b/src/agent/funnel.ts
+@@ -213,7 +213,26 @@ export const prepayOfferText = (config: FunnelConfig, freightBrl: number | null
+ 
+ /** The question after the offer: the size if it is still missing, else her full name (2.2 and 2.4 of the copy v4). */
+ export const NAME_ASK = "Vamos agendar seu pedido e aproveitar essa mega oferta?! 😊\n\nSó preciso do seu nome completo pra deixar tudo prontinho pra você.";
+-export const offerAsk = (_cod: boolean, sizeKnown: boolean): string => (!sizeKnown ? SIZE_ASK : NAME_ASK);
++/** The prepaid offer's name ask: nothing is scheduled on that path, it goes by the Correios (personas of 2026-10-24, A4). */
++export const PREPAY_NAME_ASK = "Só preciso do seu nome completo pra deixar tudo prontinho pra você 😊";
++export const offerAsk = (cod: boolean, sizeKnown: boolean): string => (!sizeKnown ? SIZE_ASK : cod ? NAME_ASK : PREPAY_NAME_ASK);
++
++/**
++ * Why the prepaid offer, said before it (personas of 2026-10-24, A4: 13 of 14 prepaid boxes went to women who asked to pay at the
++ * door, with no reason). The delivery is the stock of her SIZE in her city: where the lookup read another size in stock there, the
++ * size is the reason; where it read none, or her size is unknown, the region is.
++ */
++export const noCodReasonLine = (size: string | null, otherSizeHasIt: boolean): string =>
++  size && otherSizeHasIt
++    ? `No ${size}, aí na sua cidade o pagamento na entrega não está disponível agora`
++    : "Aí na sua região o pagamento na entrega ainda não chega";
++
++/**
++ * Her CEP came before her size, and the delivery reaches it (A3, personas of 2026-10-24): whether it reaches HER is the stock of her
++ * size, so nothing is promised before it — the delivery offer went, and the next turn took it back ("No M, … não está disponível").
++ */
++export const SIZE_BEFORE_OFFER = "Anotei seu CEP 😊 A entrega aí depende do tamanho, então antes eu preciso saber:";
++export const sizeFirstBubbles = (): FunnelBubble[] => [{ text: SIZE_BEFORE_OFFER }, { text: SIZE_ASK }];
+ 
+ /** The whole offer: the price image, the box, the recorded audio 4 on the delivery path only, and the ask. */
+ export const offerBubbles = (
+@@ -221,9 +240,12 @@ export const offerBubbles = (
+   region: { cod: boolean; dates: readonly string[]; prepayFreightBrl?: number | null },
+   now: Date,
+   ask: string | null,
++  /** `noCodReasonLine`, before the prepaid box (A4). Ignored on the delivery path. */
++  noCodReason: string | null = null,
+ ): FunnelBubble[] => {
+   const m = config.funnel?.media ?? {};
+   return [
++    ...(!region.cod && noCodReason ? [{ text: noCodReason }] : []),
+     ...media(m.price, "image", priceLabel(config)),
+     { text: region.cod ? codOfferText(config, region.dates[0], now) : prepayOfferText(config, region.prepayFreightBrl ?? null) },
+     ...(region.cod ? media(m.audio4, "audio", FUNNEL_LABELS.audio4) : []),
+@@ -292,8 +314,9 @@ export const funnelLinkMessage = (
+ };
+ 
+ /** 2.5 of the copy v4: her size has no delivery there after the delivery offer went. A question: the prepaid box goes on her yes. */
++// The size is the reason, not her region (A4, personas of 2026-10-24): the same CEP has the delivery in another size.
+ export const sizeNoCodAsk = (size: string): string =>
+-  `No ${size}, o pagamento na entrega infelizmente não está disponível na sua região agora... posso te enviar via correios? 💛`;
++  `No ${size}, aí na sua cidade o pagamento na entrega não está disponível agora... posso te enviar via correios? 💛`;
+ /** 3.3 of the copy v4: a delivery link went and the new address has none. The prepaid link goes on her yes. */
+ export const ADDRESS_NO_COD_ASK = "Nesse endereço infelizmente não tem entrega com pagamento na hora... posso te enviar por correios? 💛";
+ 
+diff --git a/src/agent/identity.ts b/src/agent/identity.ts
+index 98af3fc..d6d8e11 100644
+--- a/src/agent/identity.ts
++++ b/src/agent/identity.ts
+@@ -221,7 +221,7 @@ const COMMON_WORDS =
+ /** Words a name never starts with — what follows "nome dela" when it is not a name. */
+ const NOT_A_FIRST_NAME =
+   // "prefiro não passar", "pode ser sem", "sem nome" after the name ask are refusals, not names (review of round 2).
+-  /^(eu|te|ta|esta|e|eh|igual|mesmo|mesma|passo|vou|vai|ja|nao|sei|depois|o|a|no|na|do|da|de|um|uma|ele|ela|meu|minha|seu|sua|que|com|pra|para|mae|filha|irma|esposa|amiga|tia|avo|sogra|prefiro|prefere|pode|sem|manda|deixa|precisa|obrigada|obrigado)$/;
++  /^(eu|te|ta|esta|e|eh|igual|mesmo|mesma|passo|vou|vai|ja|nao|sei|depois|o|a|no|na|do|da|de|um|uma|ele|ela|meu|minha|seu|sua|que|com|pra|para|mae|filha|irma|esposa|amiga|tia|avo|sogra|prefiro|prefere|pode|sem|manda|deixa|precisa|obrigada|obrigado|nossa|vixe|pera|perai|antes|calma|eita|gente|ah|ai|ui|oxe|oxi|uai|poxa|puxa|caramba|deus|gracas|aff|hum|hmm|tipo|parque|vila|jardim|bairro|centro|condominio|residencial|conjunto|segue|endereco)$/;
+ 
+ export const extractName = (text: string, askedName = false): string | null => {
+   // Line breaks survive: WhatsApp messages arrive several lines at once, and a name must
+@@ -240,14 +240,23 @@ export const extractName = (text: string, askedName = false): string | null => {
+   // pegar o documento" and "Nossa senhora, que demora" opened with no name in them).
+   // And written like a name — every word capitalised but the particles (third Opus review: "Antes disso, me manda o link", "Pera ai,
+   // cadê o link?", "Vixe maria, esqueci o cpf" kept passing every word list).
+-  const [head = "", ...tail] = cleaned.split(/[,\n]/);
++  // A sentence's full stop splits too ("Gisele Rocha. resto eu passo no link", persona venda-ajuda-tamanho, 2026-10-24).
++  const [head = "", ...tail] = cleaned.split(/[,\n]|[.;](?=\s)/);
+   const podeSer = /^pode\s+ser\s+/i.test(cleaned) && tail.length === 0;
+   const written = (t: string): boolean => t.split(" ").filter(Boolean).every((w) => /^(?:da|de|do|das|dos|e)$/.test(w) || /^[A-ZÀ-Ý]/.test(w));
++  // Personas of 2026-10-24, right after the ask: the name on a line of its own above the rest ("Vilma Torres\n\no da minha mae é …",
++  // "aline prado\n\nmas queria na entrega mesmo"), and the name before an emoji ("Patrícia Souza pode agendar pra mim 🙏 …"). Each
++  // goes through every check below, the line's first word through the interjections too ("Pera ai\nvou pegar o documento").
++  // "é Carla Menezes", "sou patricia souza": the "it is / I am" before it is not the name.
++  const bare = (t: string): string => t.replace(/^(?:[eé]h?|sou(?:\s+a)?)\s+/i, "").trim();
++  const firstLine = bare(cleaned.split("\n")[0] ?? "");
++  const ownLine = askedName && cleaned.includes("\n") && lettersOnly(firstLine);
++  const leadRun = cleaned.match(/^[A-Za-zÀ-ÿ'´` ]{2,60}(?=[^A-Za-zÀ-ÿ'´` ,.;\n])/)?.[0].trim() ?? "";
+   const opening = !askedName ? ""
+     : podeSer ? cleaned.replace(/^pode\s+ser\s+/i, "").trim()
+-    : tail.length > 0 && /\b(?:resto|restante|link|checkout|cpf|e-?mail)\b/i.test(tail.join(" ")) ? head.trim()
+-    : "";
+-  if (introduced === null && opening !== "" && !written(opening) && !lettersOnly(cleaned)) return null;
++    : tail.length > 0 && /\b(?:resto|restante|link|checkout|cpf|e-?mail)\b/i.test(tail.join(" ")) ? bare(head)
++    : ownLine ? firstLine
++    : bare(leadRun);
+   const candidate = introduced?.[1] ?? (askedName && lettersOnly(opening) ? opening : lettersOnly(cleaned) ? cleaned : null);
+   if (candidate === null) return null;
+ 
+@@ -258,12 +267,19 @@ export const extractName = (text: string, askedName = false): string | null => {
+     // "me chamo Rosa moro em Ponte Nova MG como faço…" went into the checkout link as "Rosa Moro Em Ponte Nova" (real lead,
+     // 2026-10-20): nor where she lives or what she asks next. Never "de/da/do", the particles of a name.
+     .replace(/(?:\s+e)?\s+(?:moro|mora|sou|tenho|estou|t[oô]|quero|queria|gostaria|preciso|vi|vim|como|qual|quanto|quais|pra|para|em|no|na|aqui|daqui)(?=\s|$).*$/i, "")
++    // Nor what she says after it, when she gives it on asking or introducing herself (personas of 2026-10-24: "Fernanda Lima ok manda o
++    // link" was dropped, "Daiane Santos o resto passo" and "Fernanda Lima Souza o resto" went into the link). Only then: on its own,
++    // "Achei caro mas ok" with the words cut would read as a name.
++    .replace(askedName || introduced !== null ? /\s+(?:ok|okay|blz|beleza|sim|mas|pode|manda|mande|me|passo|j[aá]|[eé]|eh|o\s+rest\w*|rest\w*|k{2,}|segue)(?=\s|$).*$/i : /$^/, "")
+     .trim()
+     .split(" ")
+     .filter((w) => w.length > 0)
+     .slice(0, 5)
+     .join(" ");
+ 
++  // Opening a longer message, it is written like a name — checked on the name once cut (2026-10-24: "Patrícia Souza pode agendar pra
++  // mim 🙏"). The name on a line of its own may be lowercase ("aline prado"): the line is the whole answer to the ask.
++  if (introduced === null && opening !== "" && !lettersOnly(cleaned) && !ownLine && !written(name)) return null;
+   if (name.length < 2 || NOT_A_NAME.test(name)) return null;
+   // Even after "nome dela", what follows has to start like a name (code review,
+   // 2026-09-24): "o nome dela eu te passo depois", "é igual ao meu", "tá no pedido".
+@@ -415,11 +431,13 @@ const NAME_ASK = String.raw`(?<!\b(?:n[oa]|em|d[oa]|com|pr[oa]|para|pel[oa])\s+(
+  * seu nome completo, por favor." and "Pra finalizar: nome completo, CPF e e-mail." are asks too).
+  * Read per sentence; the name as the reason is no ask.
+  */
++// "Só preciso do seu nome completo pra deixar tudo prontinho" — the offer's own ask (`NAME_ASK` of the funnel) — read as the reason
++// ("do seu nome"), so her name right after it was read as if nobody had asked (personas of 2026-10-24).
+ export const asksForName = (text: string): boolean =>
+   text
+     .split(/(?<=[.!?\n])\s*/)
+     .map((q) => q.trim())
+-    .some((q) => new RegExp(String.raw`\b(?:${NAME_ASK})\b`, "i").test(q) && (q.endsWith("?") || REQUEST.test(q) || /\bpor\s+favor\b|:/i.test(q)));
++    .some((q) => new RegExp(String.raw`\b(?:${NAME_ASK}|(?<=\bpreciso\s+d[oa]\s+)seu\s+nome)\b`, "i").test(q) && (q.endsWith("?") || REQUEST.test(q) || /\bpor\s+favor\b|:/i.test(q)));
+ 
+ /**
+  * Whether one message asks for the field (review of f657faa, finding 3): read per sentence, as
+diff --git a/src/agent/interpret.ts b/src/agent/interpret.ts
+index d97cdfb..8bb3af6 100644
+--- a/src/agent/interpret.ts
++++ b/src/agent/interpret.ts
+@@ -334,6 +334,12 @@ export const quantityOf = (
+     " ",
+   );
+   const units = i.units !== null && i.units > 1 && !QUANTITY_CUE.test(text) && !namesCount(text, i.units) ? null : i.units;
++  // "um G pra mim e um M pra minha cunhada" (persona cob-recompra, 2026-10-24): each piece's size, read here when the interpreter
++  // read none — she was asked the sizes again. The letter as she typed it, capital; a denied one ("não quero um M") is out.
++  const pieces = i.unit_sizes.length > 0 ? [] : [...message.matchAll(/\bum(?:as?)?\s+(PP|P|M|GG|G|XGG)\b/g)]
++    .filter((m) => !/\b(?:nao|nem|sem)\b[^,;.!?\n]*$/.test(norm(message.slice(0, m.index ?? 0))))
++    .map((m) => (m[1] === "PP" ? "P" : m[1]) as SizeLetter);
++  if (pieces.length >= 2) return { units: units !== null && units > pieces.length ? units : pieces.length, sizes: pieces };
+   if (units === null && i.unit_sizes.length === 0) return null;
+   return { units, sizes: [...i.unit_sizes] };
+ };
+@@ -1214,6 +1220,24 @@ export const linkHeldBack = (
+   message: string,
+ ): boolean => pathBase !== undefined && !asksForLink(message) && lastLinkBase(outbound, checkoutBases) === pathBase;
+ 
++/**
++ * A payment link in her message that is not ours (persona venda-decidida, 2026-10-24: "https://encorpa.pay/checkout?size=G" was
++ * answered "Combinado, fica no seu nome assim"): never endorsed, ours goes instead. A checkout, payment or cart word in it, on a
++ * host that is none of `ourHosts` nor under one of them. Our own link pasted back, a site or an Instagram post is not one.
++ */
++export const foreignCheckoutUrl = (message: string, ourHosts: readonly string[]): string | null => {
++  for (const m of message.matchAll(/\b(?:https?:\/\/|www\.)[^\s<>"']+|\b[a-z0-9-]+(?:\.[a-z0-9-]+)+\/[^\s<>"']*/gi)) {
++    const raw = m[0].replace(/[.,;!?)]+$/, "");
++    const href = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
++    const url = URL.canParse(href) ? new URL(href) : null;
++    if (!url || !/\./.test(url.hostname)) continue;
++    const host = url.hostname.toLowerCase();
++    if (ourHosts.some((h) => host === h.toLowerCase() || host.endsWith(`.${h.toLowerCase()}`))) continue;
++    if (/checkout|pay|pagamento|pagar|pix|boleto|carrinho|cart|compra|order|pedido/i.test(`${host}${url.pathname}${url.search}`)) return raw;
++  }
++  return null;
++};
++
+ /**
+  * She asks for the link herself ("manda o link de novo", "não achei o link") — the M-03
+  * window does not hold it back (code review, 2026-09-24). Only the request form counts:
+@@ -1241,15 +1265,28 @@ export const asksForLink = (message: string): boolean => {
+   )
+     return true;
+   if (/^\s*(?:(?:entao|sim|ok|ta|pode|ah)[\s,]+)*(?:(?:me\s+)?(?:manda|mande|envia|envie)\s+(?:logo|agora|ja|ai|aqui)|pode\s+(?:me\s+)?(?:mandar|enviar))\s*[!.]*\s*$/.test(t)) return true;
++  // "sim, manda" as the whole message, after a yes (persona venda-compra-forte, 2026-10-24); a bare "manda" stays out.
++  if (/^\s*(?:(?:entao|sim|ok|ta|pode|isso|blz|beleza)[\s,]+)+(?:manda|mande|envia|envie)\s*[!.]*\s*$/.test(t)) return true;
++  // "cadê o link" is the cobrança itself (persona venda-curiosa, 2026-10-24).
++  if (/\bcade\s+(?:o\s+)?(?:meu\s+)?link\b/.test(t)) return true;
++  // "pode agendar pra mim" (persona cob-gatilho-formatura, 2026-10-24): the delivery offer's own "Vamos agendar seu pedido?" answered
++  // yes — the checkout is where it is scheduled. Never denied, put off or about a day ("agenda pra sexta").
++  for (const m of t.matchAll(/(?:^|[,;.!?\n]\s*|\b(?:sim|ok|entao|ta|blz)\s+)(?:(?:ah|sim|entao|ok|ta|por\s+favor)\s+)*(?:pode\s+(?:me\s+)?agendar|agenda|agende)(?:\s+(?:pra|para)\s+mim)?\b/g)) {
++    const after = t.slice((m.index ?? 0) + m[0].length);
++    if (/\b(?:nao|se|quando|depois|amanha|mais\s+tarde|noite|semana|segunda|terca|quarta|quinta|sexta|sabado|domingo|dia|cheia|lotada)\b/.test(after)) continue;
++    return true;
++  }
+   // An allowlist, not a blocklist (second review, three rounds): the imperative opens the
+   // clause, after at most a filler ("ah", "sim", "pode", "me"…), and no condition follows.
+   for (const m of t.matchAll(
+-    /(?:^|[,;.!?\n]\s*)(?:(?:ah|sim|entao|ok|por\s+favor)\s+)*(?:(?:me\s+)?(?:manda|mande|envia|envie|passa|passe|reenvia|reenvie)|pode\s+(?:me\s+)?(?:mandar|enviar|passar|reenviar))\s+(?:(?:o|um|esse|aquele)\s+)?(?:link|checkout)\b/g,
++    // "só manda o link aí", "tá então me manda o link" (persona cob-pago-na-entrega-sim and gatilho-formatura, 2026-10-24).
++    /(?:^|[,;.!?\n]\s*)(?:(?:ah|sim|entao|ok|por\s+favor|so|ta|blz)\s+)*(?:(?:me\s+)?(?:manda|mande|envia|envie|passa|passe|reenvia|reenvie)|pode\s+(?:me\s+)?(?:mandar|enviar|passar|reenviar))\s+(?:(?:o|um|esse|aquele)\s+)?(?:link|checkout)\b/g,
+   )) {
+     // The whole rest of the message: "manda o link, mas só amanhã" and "passa o link, não!"
+     // are not a request for now (second review, 5th round).
++    // "Só" puts it off only before a time ("só às 18h", "só a partir de"): "manda o link só aí eu vejo" asks for it now (2026-10-24).
+     const after = t.slice((m.index ?? 0) + m[0].length);
+-    if (/\b(?:nao|se|quando|depois|amanha|mais\s+tarde|noite|semana|segunda|terca|quarta|quinta|sexta|sabado|domingo|so)\b/.test(after)) continue;
++    if (/\b(?:nao|se|quando|depois|amanha|mais\s+tarde|noite|semana|segunda|terca|quarta|quinta|sexta|sabado|domingo|so\s+(?:as|a\s+partir|la\s+pr?a|de\s+tarde|mais))\b/.test(after)) continue;
+     return true;
+   }
+   return false;
+diff --git a/src/agent/sizing.ts b/src/agent/sizing.ts
+index 2bdb770..4480d60 100644
+--- a/src/agent/sizing.ts
++++ b/src/agent/sizing.ts
+@@ -83,7 +83,15 @@ const SHOE_CUE = /\b(cal[c\u00e7]o|sapato|t[e\u00ea]nis|sand[a\u00e1]lia|chinelo
+  * it. What they say is "uso 42 de calça", and every shape of that is a cue.
+  */
+ const SIZE_CUE =
+-  /(tamanho|veste|visto|vestia|uso|usa|usava|cal[c\u00e7]a|blusa|vestido|saia|short|numero|n\u00famero|sou|entre)\D{0,14}$/i;
++  // "vesto 44": the typo of "visto" (persona cob-recife-g, 2026-10-24).
++  /(tamanho|veste|visto|vesto|vestia|uso|usa|usava|cal[c\u00e7]a|blusa|vestido|saia|short|numero|n\u00famero|sou|entre)\D{0,14}$/i;
++
++/**
++ * The cue after the number (personas of 2026-10-24): "40 eu uso", "36\nvisto", "42 de cal\u00e7a" \u2014 her size said the other way round,
++ * and asked again turn after turn. First person only: "44 usa a minha irm\u00e3" is not hers.
++ */
++const SIZE_CUE_AFTER =
++  /^\s*(?:eu\s+)?(?:uso|visto|vesto|vestia|usava)\b(?!\s+(?:de|no|em)\s+(?:sapato|t[e\u00ea]nis|sand[a\u00e1]lia|chinelo|bota|p[e\u00e9])\b)|^\s*(?:de|da)\s+cal[c\u00e7]a\b/i;
+ 
+ /**
+  * M-02 (operator, 2026-09-24): "manequim" never sets the size. Marcinha's "meu manequim é
+@@ -144,7 +152,7 @@ export const extractDressSize = (text: string): number | null => {
+     if (NEGATED_CUE.test(before) || SHOE_CUE.test(before) || OTHER_GARMENT.test(before) || WEIGHT_CUE.test(before)) continue;
+     if (OTHER_GARMENT_AFTER.test(text.slice(at + match[0]!.length))) continue;
+     plausible.push(Number(match[1]));
+-    if (SIZE_CUE.test(before)) cued.push(Number(match[1]));
++    if (SIZE_CUE.test(before) || SIZE_CUE_AFTER.test(text.slice(at + match[0]!.length))) cued.push(Number(match[1]));
+   }
+   if (cued.length === 0) return null;
+ 
+@@ -247,8 +255,16 @@ export const statedSizeOf = (
+     .join("");
+   const dress = extractDressSize(statements);
+   const fast = larger(dress === null ? null : sizeFromDressSize(dress), extractSizeLetter(statements));
+-  return fast ?? (interpreted === null ? null : sizeFromInterpreted(interpreted));
++  // A question that still states her own number (personas of 2026-10-24): "tem calça 48 em estoque?", "36 visto tamanho M ???". Only
++  // the pants number named as such or said in the first person — never "pra quem usa 50?" nor "o M serve em quem usa 44?".
++  const asked = fast === null
++    ? message.split(/(?<=[,;.!?\n])/).filter((c) => c.trim().endsWith("?") || QUESTION_CLAUSE.test(c))
++      .map((c) => OWN_NUMBER_IN_QUESTION.exec(c)).find((m) => m !== null && !NEGATED_CUE.test(m.input.slice(0, m.index)))
++    : undefined;
++  const own = asked ? Number(asked[1] ?? asked[2]) : NaN;
++  return fast ?? (own >= 34 && own <= 56 ? sizeFromDressSize(own) : null) ?? (interpreted === null ? null : sizeFromInterpreted(interpreted));
+ };
++const OWN_NUMBER_IN_QUESTION = /\bcal[cç]a\s+(\d{2})\b(?!\s*(?:anos?|kg|reais?|cm|%))|\b(\d{2})\s+(?:eu\s+)?(?:uso|visto|vesto)\b/i;
+ 
+ /**
+  * Whether the agent's message asked for her size — the condition for the "answer her
+diff --git a/supabase/functions/turn/address.ts b/supabase/functions/turn/address.ts
+index e75a087..b2e6cb4 100644
+--- a/supabase/functions/turn/address.ts
++++ b/supabase/functions/turn/address.ts
+@@ -409,6 +409,10 @@ const STREET_TITLE: Record<string, string> = {
+   gen: "general", mal: "marechal", sen: "senador", dep: "deputado", eng: "engenheiro", sto: "santo", sta: "santa", cap: "capitão",
+   ten: "tenente", maj: "major", pe: "padre",
+ };
++/** The cities she names by nickname, with their state. */
++const CITY_NICKNAMES: Record<string, readonly [string, State]> = {
++  bh: ["Belo Horizonte", "MG"], bsb: ["Brasília", "DF"], poa: ["Porto Alegre", "RS"], sampa: ["São Paulo", "SP"], floripa: ["Florianópolis", "SC"],
++};
+ const expandTitles = (s: string): string => s.replace(/(?<![\p{L}\d])([a-z]{2,4})\.?(?=\s|$)/giu, (w, t: string) => STREET_TITLE[t.toLowerCase()] ?? w);
+ 
+ /**
+@@ -430,6 +434,14 @@ export const streetQueries = (text: string): StreetQuery[] => {
+   const HOUSE = /(?:\bn[º°o.]?\s*)?\b(\d{1,5})\b(?!\s+de\b)/gi;
+   const number = [...rest.matchAll(HOUSE)][0]?.[1] ?? null;
+   let state: State | null = null;
++  // The city by its nickname, last ("av afonso pena 1500 centro bh", persona cob-rua-sem-cep, 2026-10-24: "centro bh" was searched as
++  // the city, and the street was never found): the city and its state, and the words before it (her neighbourhood) are not the city.
++  const nick = rest.match(/\s+(bh|bsb|poa|sampa|floripa)\s*[.!]*\s*$/i);
++  if (nick) {
++    const [city, uf] = CITY_NICKNAMES[nick[1]!.toLowerCase()]!;
++    const street = clean(rest.slice(0, nick.index).split(new RegExp(String.raw`\s*,\s*|\s+-\s+|${HOUSE.source}`, "i"))[0] ?? "");
++    return street.length > 1 ? [{ street: `${kind} ${expandTitles(street)}`, city, number, state: uf }] : [];
++  }
+   // The state after a separator, or after a word ("cruz alta rs") — never after a number ("100 ap" is the flat, review).
+   const uf = rest.match(/(?:\s*[,/\-–]\s*|(?<=[A-Za-zÀ-ſ])\s+)([A-Za-z]{2})\s*[.!]*\s*$/);
+   if (uf && (STATES as readonly string[]).includes(uf[1]!.toUpperCase())) {
+diff --git a/supabase/functions/turn/availability.ts b/supabase/functions/turn/availability.ts
+index 9c7fa03..9475858 100644
+--- a/supabase/functions/turn/availability.ts
++++ b/supabase/functions/turn/availability.ts
+@@ -286,6 +286,11 @@ export interface Region {
+    * `lookupLogzz` asks the days of), for scarcity (4.6). Absent or null: unknown. Never from the Coinzz `stock`, which is "1" always.
+    */
+   readonly stockQty?: number | null;
++  /**
++   * Her size has no stock where she lives, and these sizes have (A4, personas of 2026-10-24): the reason the delivery does not
++   * reach her is the size, not her region. Absent: not read (a cache from before, the Coinzz fallback, the region's own "no").
++   */
++  readonly otherSizesInStock?: readonly Size[];
+ }
+ 
+ /**
+@@ -490,7 +495,13 @@ const lookupLogzzUnsafe = async (
+   // unknown, the size with the most local stock stands for the region.
+   const asked: Size | null = size ?? (Object.keys(stock.bySize) as Size[]).sort((a, b) => (stock.seen.get(b) ?? 0) - (stock.seen.get(a) ?? 0))[0] ?? null;
+   const ops = [...new Set(asked !== null ? stock.bySize[asked] ?? [] : [])];
+-  if (ops.length === 0) return size !== null ? (stock.seen.has(size) && !stock.unreadable ? { kind: "found", region: none } : { kind: "failed", place }) : stock.unreadable ? { kind: "failed", place } : { kind: "found", region: none };
++  if (ops.length === 0) {
++    return size !== null
++      ? stock.seen.has(size) && !stock.unreadable
++        ? { kind: "found", region: { ...none, otherSizesInStock: (Object.keys(stock.bySize) as Size[]).filter((s) => s !== size) } }
++        : { kind: "failed", place }
++      : stock.unreadable ? { kind: "failed", place } : { kind: "found", region: none };
++  }
+   const product = asked !== null ? stock.productOf[asked] : undefined;
+   if (product === undefined) return { kind: "failed", place };
+   const q = new URLSearchParams(where);
+diff --git a/supabase/functions/turn/funnel.ts b/supabase/functions/turn/funnel.ts
+index ab99182..0604cbb 100644
+--- a/supabase/functions/turn/funnel.ts
++++ b/supabase/functions/turn/funnel.ts
+@@ -213,7 +213,26 @@ export const prepayOfferText = (config: FunnelConfig, freightBrl: number | null
+ 
+ /** The question after the offer: the size if it is still missing, else her full name (2.2 and 2.4 of the copy v4). */
+ export const NAME_ASK = "Vamos agendar seu pedido e aproveitar essa mega oferta?! 😊\n\nSó preciso do seu nome completo pra deixar tudo prontinho pra você.";
+-export const offerAsk = (_cod: boolean, sizeKnown: boolean): string => (!sizeKnown ? SIZE_ASK : NAME_ASK);
++/** The prepaid offer's name ask: nothing is scheduled on that path, it goes by the Correios (personas of 2026-10-24, A4). */
++export const PREPAY_NAME_ASK = "Só preciso do seu nome completo pra deixar tudo prontinho pra você 😊";
++export const offerAsk = (cod: boolean, sizeKnown: boolean): string => (!sizeKnown ? SIZE_ASK : cod ? NAME_ASK : PREPAY_NAME_ASK);
++
++/**
++ * Why the prepaid offer, said before it (personas of 2026-10-24, A4: 13 of 14 prepaid boxes went to women who asked to pay at the
++ * door, with no reason). The delivery is the stock of her SIZE in her city: where the lookup read another size in stock there, the
++ * size is the reason; where it read none, or her size is unknown, the region is.
++ */
++export const noCodReasonLine = (size: string | null, otherSizeHasIt: boolean): string =>
++  size && otherSizeHasIt
++    ? `No ${size}, aí na sua cidade o pagamento na entrega não está disponível agora`
++    : "Aí na sua região o pagamento na entrega ainda não chega";
++
++/**
++ * Her CEP came before her size, and the delivery reaches it (A3, personas of 2026-10-24): whether it reaches HER is the stock of her
++ * size, so nothing is promised before it — the delivery offer went, and the next turn took it back ("No M, … não está disponível").
++ */
++export const SIZE_BEFORE_OFFER = "Anotei seu CEP 😊 A entrega aí depende do tamanho, então antes eu preciso saber:";
++export const sizeFirstBubbles = (): FunnelBubble[] => [{ text: SIZE_BEFORE_OFFER }, { text: SIZE_ASK }];
+ 
+ /** The whole offer: the price image, the box, the recorded audio 4 on the delivery path only, and the ask. */
+ export const offerBubbles = (
+@@ -221,9 +240,12 @@ export const offerBubbles = (
+   region: { cod: boolean; dates: readonly string[]; prepayFreightBrl?: number | null },
+   now: Date,
+   ask: string | null,
++  /** `noCodReasonLine`, before the prepaid box (A4). Ignored on the delivery path. */
++  noCodReason: string | null = null,
+ ): FunnelBubble[] => {
+   const m = config.funnel?.media ?? {};
+   return [
++    ...(!region.cod && noCodReason ? [{ text: noCodReason }] : []),
+     ...media(m.price, "image", priceLabel(config)),
+     { text: region.cod ? codOfferText(config, region.dates[0], now) : prepayOfferText(config, region.prepayFreightBrl ?? null) },
+     ...(region.cod ? media(m.audio4, "audio", FUNNEL_LABELS.audio4) : []),
+@@ -292,8 +314,9 @@ export const funnelLinkMessage = (
+ };
+ 
+ /** 2.5 of the copy v4: her size has no delivery there after the delivery offer went. A question: the prepaid box goes on her yes. */
++// The size is the reason, not her region (A4, personas of 2026-10-24): the same CEP has the delivery in another size.
+ export const sizeNoCodAsk = (size: string): string =>
+-  `No ${size}, o pagamento na entrega infelizmente não está disponível na sua região agora... posso te enviar via correios? 💛`;
++  `No ${size}, aí na sua cidade o pagamento na entrega não está disponível agora... posso te enviar via correios? 💛`;
+ /** 3.3 of the copy v4: a delivery link went and the new address has none. The prepaid link goes on her yes. */
+ export const ADDRESS_NO_COD_ASK = "Nesse endereço infelizmente não tem entrega com pagamento na hora... posso te enviar por correios? 💛";
+ 
+diff --git a/supabase/functions/turn/identity.ts b/supabase/functions/turn/identity.ts
+index 98af3fc..d6d8e11 100644
+--- a/supabase/functions/turn/identity.ts
++++ b/supabase/functions/turn/identity.ts
+@@ -221,7 +221,7 @@ const COMMON_WORDS =
+ /** Words a name never starts with — what follows "nome dela" when it is not a name. */
+ const NOT_A_FIRST_NAME =
+   // "prefiro não passar", "pode ser sem", "sem nome" after the name ask are refusals, not names (review of round 2).
+-  /^(eu|te|ta|esta|e|eh|igual|mesmo|mesma|passo|vou|vai|ja|nao|sei|depois|o|a|no|na|do|da|de|um|uma|ele|ela|meu|minha|seu|sua|que|com|pra|para|mae|filha|irma|esposa|amiga|tia|avo|sogra|prefiro|prefere|pode|sem|manda|deixa|precisa|obrigada|obrigado)$/;
++  /^(eu|te|ta|esta|e|eh|igual|mesmo|mesma|passo|vou|vai|ja|nao|sei|depois|o|a|no|na|do|da|de|um|uma|ele|ela|meu|minha|seu|sua|que|com|pra|para|mae|filha|irma|esposa|amiga|tia|avo|sogra|prefiro|prefere|pode|sem|manda|deixa|precisa|obrigada|obrigado|nossa|vixe|pera|perai|antes|calma|eita|gente|ah|ai|ui|oxe|oxi|uai|poxa|puxa|caramba|deus|gracas|aff|hum|hmm|tipo|parque|vila|jardim|bairro|centro|condominio|residencial|conjunto|segue|endereco)$/;
+ 
+ export const extractName = (text: string, askedName = false): string | null => {
+   // Line breaks survive: WhatsApp messages arrive several lines at once, and a name must
+@@ -240,14 +240,23 @@ export const extractName = (text: string, askedName = false): string | null => {
+   // pegar o documento" and "Nossa senhora, que demora" opened with no name in them).
+   // And written like a name — every word capitalised but the particles (third Opus review: "Antes disso, me manda o link", "Pera ai,
+   // cadê o link?", "Vixe maria, esqueci o cpf" kept passing every word list).
+-  const [head = "", ...tail] = cleaned.split(/[,\n]/);
++  // A sentence's full stop splits too ("Gisele Rocha. resto eu passo no link", persona venda-ajuda-tamanho, 2026-10-24).
++  const [head = "", ...tail] = cleaned.split(/[,\n]|[.;](?=\s)/);
+   const podeSer = /^pode\s+ser\s+/i.test(cleaned) && tail.length === 0;
+   const written = (t: string): boolean => t.split(" ").filter(Boolean).every((w) => /^(?:da|de|do|das|dos|e)$/.test(w) || /^[A-ZÀ-Ý]/.test(w));
++  // Personas of 2026-10-24, right after the ask: the name on a line of its own above the rest ("Vilma Torres\n\no da minha mae é …",
++  // "aline prado\n\nmas queria na entrega mesmo"), and the name before an emoji ("Patrícia Souza pode agendar pra mim 🙏 …"). Each
++  // goes through every check below, the line's first word through the interjections too ("Pera ai\nvou pegar o documento").
++  // "é Carla Menezes", "sou patricia souza": the "it is / I am" before it is not the name.
++  const bare = (t: string): string => t.replace(/^(?:[eé]h?|sou(?:\s+a)?)\s+/i, "").trim();
++  const firstLine = bare(cleaned.split("\n")[0] ?? "");
++  const ownLine = askedName && cleaned.includes("\n") && lettersOnly(firstLine);
++  const leadRun = cleaned.match(/^[A-Za-zÀ-ÿ'´` ]{2,60}(?=[^A-Za-zÀ-ÿ'´` ,.;\n])/)?.[0].trim() ?? "";
+   const opening = !askedName ? ""
+     : podeSer ? cleaned.replace(/^pode\s+ser\s+/i, "").trim()
+-    : tail.length > 0 && /\b(?:resto|restante|link|checkout|cpf|e-?mail)\b/i.test(tail.join(" ")) ? head.trim()
+-    : "";
+-  if (introduced === null && opening !== "" && !written(opening) && !lettersOnly(cleaned)) return null;
++    : tail.length > 0 && /\b(?:resto|restante|link|checkout|cpf|e-?mail)\b/i.test(tail.join(" ")) ? bare(head)
++    : ownLine ? firstLine
++    : bare(leadRun);
+   const candidate = introduced?.[1] ?? (askedName && lettersOnly(opening) ? opening : lettersOnly(cleaned) ? cleaned : null);
+   if (candidate === null) return null;
+ 
+@@ -258,12 +267,19 @@ export const extractName = (text: string, askedName = false): string | null => {
+     // "me chamo Rosa moro em Ponte Nova MG como faço…" went into the checkout link as "Rosa Moro Em Ponte Nova" (real lead,
+     // 2026-10-20): nor where she lives or what she asks next. Never "de/da/do", the particles of a name.
+     .replace(/(?:\s+e)?\s+(?:moro|mora|sou|tenho|estou|t[oô]|quero|queria|gostaria|preciso|vi|vim|como|qual|quanto|quais|pra|para|em|no|na|aqui|daqui)(?=\s|$).*$/i, "")
++    // Nor what she says after it, when she gives it on asking or introducing herself (personas of 2026-10-24: "Fernanda Lima ok manda o
++    // link" was dropped, "Daiane Santos o resto passo" and "Fernanda Lima Souza o resto" went into the link). Only then: on its own,
++    // "Achei caro mas ok" with the words cut would read as a name.
++    .replace(askedName || introduced !== null ? /\s+(?:ok|okay|blz|beleza|sim|mas|pode|manda|mande|me|passo|j[aá]|[eé]|eh|o\s+rest\w*|rest\w*|k{2,}|segue)(?=\s|$).*$/i : /$^/, "")
+     .trim()
+     .split(" ")
+     .filter((w) => w.length > 0)
+     .slice(0, 5)
+     .join(" ");
+ 
++  // Opening a longer message, it is written like a name — checked on the name once cut (2026-10-24: "Patrícia Souza pode agendar pra
++  // mim 🙏"). The name on a line of its own may be lowercase ("aline prado"): the line is the whole answer to the ask.
++  if (introduced === null && opening !== "" && !lettersOnly(cleaned) && !ownLine && !written(name)) return null;
+   if (name.length < 2 || NOT_A_NAME.test(name)) return null;
+   // Even after "nome dela", what follows has to start like a name (code review,
+   // 2026-09-24): "o nome dela eu te passo depois", "é igual ao meu", "tá no pedido".
+@@ -415,11 +431,13 @@ const NAME_ASK = String.raw`(?<!\b(?:n[oa]|em|d[oa]|com|pr[oa]|para|pel[oa])\s+(
+  * seu nome completo, por favor." and "Pra finalizar: nome completo, CPF e e-mail." are asks too).
+  * Read per sentence; the name as the reason is no ask.
+  */
++// "Só preciso do seu nome completo pra deixar tudo prontinho" — the offer's own ask (`NAME_ASK` of the funnel) — read as the reason
++// ("do seu nome"), so her name right after it was read as if nobody had asked (personas of 2026-10-24).
+ export const asksForName = (text: string): boolean =>
+   text
+     .split(/(?<=[.!?\n])\s*/)
+     .map((q) => q.trim())
+-    .some((q) => new RegExp(String.raw`\b(?:${NAME_ASK})\b`, "i").test(q) && (q.endsWith("?") || REQUEST.test(q) || /\bpor\s+favor\b|:/i.test(q)));
++    .some((q) => new RegExp(String.raw`\b(?:${NAME_ASK}|(?<=\bpreciso\s+d[oa]\s+)seu\s+nome)\b`, "i").test(q) && (q.endsWith("?") || REQUEST.test(q) || /\bpor\s+favor\b|:/i.test(q)));
+ 
+ /**
+  * Whether one message asks for the field (review of f657faa, finding 3): read per sentence, as
+diff --git a/supabase/functions/turn/index.ts b/supabase/functions/turn/index.ts
+index bce92d5..b42493d 100644
+--- a/supabase/functions/turn/index.ts
++++ b/supabase/functions/turn/index.ts
+@@ -207,6 +207,8 @@ import {
+   type FunnelMedia,
+   offerAsk,
+   offerBubbles,
++  noCodReasonLine,
++  sizeFirstBubbles,
+   openingBubbles,
+   sizeTableBubbles,
+   stripMediaLabels,
+@@ -236,6 +238,7 @@ import {
+   agreesWithoutChoosing,
+   namesOwnPrice,
+   asksForLink,
++  foreignCheckoutUrl,
+   pathChoiceToStore,
+   kitWasOffered,
+   closesConversation,
+@@ -1050,6 +1053,10 @@ const checkoutDirectiveFor = (
+ const ORDER_UNREADABLE_REASON = "a cliente fala de um pedido que o sistema não lê";
+ // Before the order, a new address is looked up again (operator, 2026-10-20): it may be outside the delivery network.
+ const CEP_MOVED_COD = "Conferi o endereço novo: aí também chega com pagamento na entrega 😊\n\nÉ só usar esse endereço no checkout.";
++/** A6 (personas of 2026-10-24): the new CEP looked up, and the delivery does not reach it: the prepaid link with the new address. */
++const CEP_MOVED_PREPAY = "Conferi o endereço novo: aí vai pelos Correios, com o pagamento antecipado 😊\n\nÉ só usar esse endereço no checkout.";
++/** A9 (persona venda-decidida, 2026-10-24): a payment link she pasted that is not ours, said before ours. */
++const foreignLinkLine = (brand: string): string => `Esse link que você mandou não é da ${brand}, não paga por ele não 🙏\n\nO seu link oficial é este aqui:`;
+ const NEW_ADDRESS_ASK = "Claro! Só preciso consultar de novo, porque o endereço novo pode estar fora da nossa rede de entrega.\n\nMe passa o CEP novo ou a rua e a cidade?";
+ 
+ const notification = (
+@@ -3924,7 +3931,8 @@ const handleTurn = async (
+     // A size without delivery, or one the lookup could not answer, makes the kit prepaid: a delivery link with a size the Logzz may
+     // not schedule never goes, and a failure never turns a known answer into the two links (review: the offers flip-flopped).
+     const missing = answers.find(({ r }) => !(r.kind === "found" && r.region.cod));
+-    if (missing) region = { ...region, cod: false, dates: [], sameDay: false, size: missing.s };
++    // Her own size has it there: the reason said before the prepaid box is the other piece's size, not her region (A4).
++    if (missing) region = { ...region, cod: false, dates: [], sameDay: false, size: missing.s, otherSizesInStock: regionSize ? [regionSize] : [] };
+   }
+   // Plan 16 §4.7: where the delivery does not reach her, the prepaid box says the freight the checkout charges at her CEP for what she
+   // is buying — one piece of her size, or the kit with the size of each piece, asked in one query like the kit checkout does
+@@ -4222,13 +4230,21 @@ const handleTurn = async (
+   // nine requests, no link): what is left of name, CPF and e-mail is asked at the checkout, and the flow goes on.
+   const pressed = recent.filter((m: { direction: string }) => m.direction === "inbound").slice(-5).filter((m: { body: string }) => asksForLink(spoken(m.body ?? "")) && /\b(?:link|checkout|pagamento)\b/i.test(spoken(m.body ?? ""))).length >= 2
+     && !recentOutbound.slice(-3).some((m: string) => CHECKOUT_BASES.some((b) => m.includes(b)));
++  // A payment link in her message that is not ours (A9, persona venda-decidida, 2026-10-24): never endorsed — ours goes, told apart.
++  const foreignUrl = parts.map((p: string) => foreignCheckoutUrl(p, CHECKOUT_HOSTS)).find((u: string | null) => u !== null) ?? null;
++  // Her own request for the link sends it (A1, personas of 2026-10-24: "manda o link ai" got "lá no checkout você escolhe o G" for up
++  // to six turns): with size and path known, her name is the checkout's to ask — and so is it after any link went (A6: "aline prado",
++  // never read, held the link to her new CEP). On the prepaid path she chose, the checkout asks the address too (A8: a kit of three
++  // lost to "o link sai atrelado ao CEP"). The delivery still waits for the CEP: it is what says the door reaches her.
++  const linkAsked = parts.some(asksForLink) || foreignUrl !== null;
++  const linkWentBefore = recentOutbound.some((m: string) => CHECKOUT_BASES.some((b) => m.includes(b)));
+   const linkData = {
+     sizeKnown,
+-    cepKnown: Boolean(addressDraft.cep) && !cepNotFound,
++    cepKnown: (Boolean(addressDraft.cep) && !cepNotFound) || (linkAsked && paymentChoice === "prepay" && linkPath === "prepay"),
+     // Script v3 (R28): her region settles the path — the delivery where it reaches her, the prepaid elsewhere — and only
+     // her full name is asked; the e-mail, the CPF and the address are the checkout's. No A/B arm any more.
+     pathSettled: paymentChoice !== null || knownRegion !== null,
+-    nameKnown: Boolean(identityDraft.name) || nameRefused || pressed,
++    nameKnown: Boolean(identityDraft.name) || nameRefused || pressed || linkAsked || linkWentBefore,
+     cpfDone: true,
+     emailDone: true,
+     identityAtCheckout: false,
+@@ -4266,7 +4282,7 @@ const handleTurn = async (
+   const cepMoved = region !== null && Boolean(storedAddress.cep && addressDraft.cep) && storedAddress.cep!.replace(/\D/g, "") !== addressDraft.cep!.replace(/\D/g, "") &&
+     !["pedido_criado", "em_rota", "entregue_pago", "recusado"].includes(storedStage) && lastLinkBase(linkHistory, CHECKOUT_BASES) !== null &&
+     ((await herOrderRows()) ?? [null]).length === 0;
+-  const linkJustSent = !cepMoved && linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? ""));
++  const linkJustSent = !cepMoved && foreignUrl === null && linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? ""));
+   // She takes it back in the turn the data close ("desisti", "não quero mais"): no link (grafo §65).
+   const withdrew = withdrawsInBurst(parts);
+   // The kit, offered once after she chooses how to pay and before the data (operator, 2026-10-06:
+@@ -4522,6 +4538,15 @@ const handleTurn = async (
+   // venda-dificil, 19/10) gets its answer after the offer too.
+   const saidBeside = parts.some(remarkBesideCep);
+   const answerAfterOffer = (askedBeside || saidBeside) && !isResume;
++  // A9: her pasted link, when ours cannot go in a fixed message this turn (a datum still missing, or her question beside it).
++  if (foreignUrl !== null && (checkoutUrl === null || askedBeside)) {
++    guide(
++      `Ela colou um link de pagamento que não é nosso (${foreignUrl}): diga com clareza que esse link não é da ${CONFIG.brand} e que ela não pague` +
++        ` por ele. Nunca diga que serve, que fica no nome dela nem que está certo.`,
++      `Esse link não é nosso, não paga por ele não 🙏 O seu link oficial sou eu que te mando aqui.`,
++      "link de terceiro colado pela cliente",
++    );
++  }
+   // Copy v4, section 4: after the delivery link of the two checkouts, her "não apareceu" gets the prepaid one, once.
+   if (guides.length === 0 && offerBefore === "both" && openNow && !farewell && !withdrew && parts.some((p: string) => saysNoDeliveryDay(spoken(p))) &&
+     !recentOutbound.some((m: string) => m.startsWith(BOTH_PREPAY_HEADLINE) || m.startsWith("🔵 2) PAGAR AGORA"))) {
+@@ -4588,11 +4613,27 @@ const handleTurn = async (
+       // prepaid box goes on her answer, the next turn.
+       const sent = await sendFunnelTurn([{ text: sizeNoCodAsk(region.size) }], `roteiro v3: o ${region.size} sem entrega aí, pergunta do antecipado`);
+       if (sent) return sent;
++    } else if (region !== null && offerNow === "cod" && !sizeKnown) {
++      // A3 (personas of 2026-10-24): the delivery is the stock of her SIZE in her city — the offer promised "Chegará já segunda… Não
++      // Paga Nada Agora" on any size's answer, and the next turn took it back for her M. Her size first, once; the offer goes on it.
++      if (lastOutbound !== SIZE_ASK) {
++        const sent = await sendFunnelTurn(sizeFirstBubbles(), "roteiro v3: CEP antes do tamanho, a oferta espera o tamanho");
++        if (sent) return sent;
++      } else {
++        guide(
++          "O CEP dela chegou e o tamanho ainda não: a entrega depende do estoque do tamanho dela na cidade. Não prometa entrega, data nem" +
++            " pagamento na entrega antes do tamanho; pergunte o número da calça que ela veste.",
++          "Pra eu ver a entrega aí, me fala o número da calça que você veste? 😉",
++          "CEP antes do tamanho: a oferta espera o tamanho",
++        );
++      }
+     } else if (region !== null) {
+       const cod = offerNow === "cod";
++      // A4 (personas of 2026-10-24): why the prepaid, before its box — her size where another one has the delivery in her city.
++      const noCodReason = cod ? null : noCodReasonLine(region.size ?? null, (region.otherSizesInStock?.length ?? 0) > 0);
+       const sent = await sendFunnelTurn(
+         await withHook([
+-          ...offerBubbles(CONFIG, { cod, dates: region.dates, prepayFreightBrl: units === 1 ? prepayFreightBrl : null }, new Date(), checkoutUrl ? null : offerAsk(cod, sizeKnown)),
++          ...offerBubbles(CONFIG, { cod, dates: region.dates, prepayFreightBrl: units === 1 ? prepayFreightBrl : null }, new Date(), checkoutUrl ? null : offerAsk(cod, sizeKnown), noCodReason),
+           ...(checkoutUrl ? [{ text: v3Link(checkoutUrl) }] : []),
+         ]),
+         checkoutUrl ? `roteiro v3: oferta e link — ${linkFact ?? ""}` : "roteiro v3: oferta",
+@@ -4605,7 +4646,10 @@ const handleTurn = async (
+ 
+   // The link goes the operator's way, fixed (2026-10-07, grafo §66; script v3 text since R28) — unless she
+   // asked something beside it, and then the model answers with the link in its directive.
+-  if (guides.length === 0 && checkoutUrl !== null && openNow && !farewell && !askedBeside) {
++  // A new CEP after the link goes fixed with her question beside it too (A6, persona cob-cep-novo-depois-link, 2026-10-24: "posso usar o
++  // mesmo link com o endereço de Manaus?" left the link to the model, which answered "usa o mesmo link" and sent none); her question
++  // is answered after it, by n8n's resume.
++  if (guides.length === 0 && checkoutUrl !== null && openNow && !farewell && (!askedBeside || cepMoved)) {
+     // A delivery link went before and the new address has no delivery (operator's test, 2026-10-20): the reason before the new link.
+     const codBefore = linkPath === "prepay" && codUnavailable && [CONFIG.checkout?.codUrl, ...kits.filter((k) => k.path === "cod").map((k) => k.checkoutUrl)]
+       .filter((u): u is string => typeof u === "string" && u.length > 0).some((u) => recentOutbound.some((m: string) => m.includes(u.split("?")[0]!)));
+@@ -4619,10 +4663,15 @@ const handleTurn = async (
+           // The new CEP checked before the link goes again (operator's test, 2026-10-21): said, so the same link is no puzzle.
+           // Only with the new CEP's delivery answered yes (review of §120: a failed lookup kept the stored "cod" path).
+           ...(cepMoved && linkPath === "cod" && region?.cod === true ? [{ text: opening(CEP_MOVED_COD) }] : []),
+-          { text: cepMoved && linkPath === "cod" && region?.cod === true ? v3Link(checkoutUrl) : opening(v3Link(checkoutUrl)) },
++          // A6: the prepaid link to the new CEP, its lookup said too — the same checkout, with the new address in it.
++          ...(cepMoved && linkPath === "prepay" && region?.cod === false ? [{ text: opening(CEP_MOVED_PREPAY) }] : []),
++          // A9: her pasted link is not ours, said before ours.
++          ...(foreignUrl !== null ? [{ text: opening(foreignLinkLine(CONFIG.brand)) }] : []),
++          { text: (cepMoved && region?.cod === (linkPath === "cod")) || foreignUrl !== null ? v3Link(checkoutUrl) : opening(v3Link(checkoutUrl)) },
+         ],
+         linkFact ? `link — ${linkFact}` : "link",
+         { checkoutUrl, linkFact },
++        cepMoved && askedBeside && !isResume,
+       );
+     if (sent) return sent;
+   }
+diff --git a/supabase/functions/turn/interpret.ts b/supabase/functions/turn/interpret.ts
+index d97cdfb..8bb3af6 100644
+--- a/supabase/functions/turn/interpret.ts
++++ b/supabase/functions/turn/interpret.ts
+@@ -334,6 +334,12 @@ export const quantityOf = (
+     " ",
+   );
+   const units = i.units !== null && i.units > 1 && !QUANTITY_CUE.test(text) && !namesCount(text, i.units) ? null : i.units;
++  // "um G pra mim e um M pra minha cunhada" (persona cob-recompra, 2026-10-24): each piece's size, read here when the interpreter
++  // read none — she was asked the sizes again. The letter as she typed it, capital; a denied one ("não quero um M") is out.
++  const pieces = i.unit_sizes.length > 0 ? [] : [...message.matchAll(/\bum(?:as?)?\s+(PP|P|M|GG|G|XGG)\b/g)]
++    .filter((m) => !/\b(?:nao|nem|sem)\b[^,;.!?\n]*$/.test(norm(message.slice(0, m.index ?? 0))))
++    .map((m) => (m[1] === "PP" ? "P" : m[1]) as SizeLetter);
++  if (pieces.length >= 2) return { units: units !== null && units > pieces.length ? units : pieces.length, sizes: pieces };
+   if (units === null && i.unit_sizes.length === 0) return null;
+   return { units, sizes: [...i.unit_sizes] };
+ };
+@@ -1214,6 +1220,24 @@ export const linkHeldBack = (
+   message: string,
+ ): boolean => pathBase !== undefined && !asksForLink(message) && lastLinkBase(outbound, checkoutBases) === pathBase;
+ 
++/**
++ * A payment link in her message that is not ours (persona venda-decidida, 2026-10-24: "https://encorpa.pay/checkout?size=G" was
++ * answered "Combinado, fica no seu nome assim"): never endorsed, ours goes instead. A checkout, payment or cart word in it, on a
++ * host that is none of `ourHosts` nor under one of them. Our own link pasted back, a site or an Instagram post is not one.
++ */
++export const foreignCheckoutUrl = (message: string, ourHosts: readonly string[]): string | null => {
++  for (const m of message.matchAll(/\b(?:https?:\/\/|www\.)[^\s<>"']+|\b[a-z0-9-]+(?:\.[a-z0-9-]+)+\/[^\s<>"']*/gi)) {
++    const raw = m[0].replace(/[.,;!?)]+$/, "");
++    const href = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
++    const url = URL.canParse(href) ? new URL(href) : null;
++    if (!url || !/\./.test(url.hostname)) continue;
++    const host = url.hostname.toLowerCase();
++    if (ourHosts.some((h) => host === h.toLowerCase() || host.endsWith(`.${h.toLowerCase()}`))) continue;
++    if (/checkout|pay|pagamento|pagar|pix|boleto|carrinho|cart|compra|order|pedido/i.test(`${host}${url.pathname}${url.search}`)) return raw;
++  }
++  return null;
++};
++
+ /**
+  * She asks for the link herself ("manda o link de novo", "não achei o link") — the M-03
+  * window does not hold it back (code review, 2026-09-24). Only the request form counts:
+@@ -1241,15 +1265,28 @@ export const asksForLink = (message: string): boolean => {
+   )
+     return true;
+   if (/^\s*(?:(?:entao|sim|ok|ta|pode|ah)[\s,]+)*(?:(?:me\s+)?(?:manda|mande|envia|envie)\s+(?:logo|agora|ja|ai|aqui)|pode\s+(?:me\s+)?(?:mandar|enviar))\s*[!.]*\s*$/.test(t)) return true;
++  // "sim, manda" as the whole message, after a yes (persona venda-compra-forte, 2026-10-24); a bare "manda" stays out.
++  if (/^\s*(?:(?:entao|sim|ok|ta|pode|isso|blz|beleza)[\s,]+)+(?:manda|mande|envia|envie)\s*[!.]*\s*$/.test(t)) return true;
++  // "cadê o link" is the cobrança itself (persona venda-curiosa, 2026-10-24).
++  if (/\bcade\s+(?:o\s+)?(?:meu\s+)?link\b/.test(t)) return true;
++  // "pode agendar pra mim" (persona cob-gatilho-formatura, 2026-10-24): the delivery offer's own "Vamos agendar seu pedido?" answered
++  // yes — the checkout is where it is scheduled. Never denied, put off or about a day ("agenda pra sexta").
++  for (const m of t.matchAll(/(?:^|[,;.!?\n]\s*|\b(?:sim|ok|entao|ta|blz)\s+)(?:(?:ah|sim|entao|ok|ta|por\s+favor)\s+)*(?:pode\s+(?:me\s+)?agendar|agenda|agende)(?:\s+(?:pra|para)\s+mim)?\b/g)) {
++    const after = t.slice((m.index ?? 0) + m[0].length);
++    if (/\b(?:nao|se|quando|depois|amanha|mais\s+tarde|noite|semana|segunda|terca|quarta|quinta|sexta|sabado|domingo|dia|cheia|lotada)\b/.test(after)) continue;
++    return true;
++  }
+   // An allowlist, not a blocklist (second review, three rounds): the imperative opens the
+   // clause, after at most a filler ("ah", "sim", "pode", "me"…), and no condition follows.
+   for (const m of t.matchAll(
+-    /(?:^|[,;.!?\n]\s*)(?:(?:ah|sim|entao|ok|por\s+favor)\s+)*(?:(?:me\s+)?(?:manda|mande|envia|envie|passa|passe|reenvia|reenvie)|pode\s+(?:me\s+)?(?:mandar|enviar|passar|reenviar))\s+(?:(?:o|um|esse|aquele)\s+)?(?:link|checkout)\b/g,
++    // "só manda o link aí", "tá então me manda o link" (persona cob-pago-na-entrega-sim and gatilho-formatura, 2026-10-24).
++    /(?:^|[,;.!?\n]\s*)(?:(?:ah|sim|entao|ok|por\s+favor|so|ta|blz)\s+)*(?:(?:me\s+)?(?:manda|mande|envia|envie|passa|passe|reenvia|reenvie)|pode\s+(?:me\s+)?(?:mandar|enviar|passar|reenviar))\s+(?:(?:o|um|esse|aquele)\s+)?(?:link|checkout)\b/g,
+   )) {
+     // The whole rest of the message: "manda o link, mas só amanhã" and "passa o link, não!"
+     // are not a request for now (second review, 5th round).
++    // "Só" puts it off only before a time ("só às 18h", "só a partir de"): "manda o link só aí eu vejo" asks for it now (2026-10-24).
+     const after = t.slice((m.index ?? 0) + m[0].length);
+-    if (/\b(?:nao|se|quando|depois|amanha|mais\s+tarde|noite|semana|segunda|terca|quarta|quinta|sexta|sabado|domingo|so)\b/.test(after)) continue;
++    if (/\b(?:nao|se|quando|depois|amanha|mais\s+tarde|noite|semana|segunda|terca|quarta|quinta|sexta|sabado|domingo|so\s+(?:as|a\s+partir|la\s+pr?a|de\s+tarde|mais))\b/.test(after)) continue;
+     return true;
+   }
+   return false;
+diff --git a/supabase/functions/turn/sizing.ts b/supabase/functions/turn/sizing.ts
+index 2bdb770..4480d60 100644
+--- a/supabase/functions/turn/sizing.ts
++++ b/supabase/functions/turn/sizing.ts
+@@ -83,7 +83,15 @@ const SHOE_CUE = /\b(cal[c\u00e7]o|sapato|t[e\u00ea]nis|sand[a\u00e1]lia|chinelo
+  * it. What they say is "uso 42 de calça", and every shape of that is a cue.
+  */
+ const SIZE_CUE =
+-  /(tamanho|veste|visto|vestia|uso|usa|usava|cal[c\u00e7]a|blusa|vestido|saia|short|numero|n\u00famero|sou|entre)\D{0,14}$/i;
++  // "vesto 44": the typo of "visto" (persona cob-recife-g, 2026-10-24).
++  /(tamanho|veste|visto|vesto|vestia|uso|usa|usava|cal[c\u00e7]a|blusa|vestido|saia|short|numero|n\u00famero|sou|entre)\D{0,14}$/i;
++
++/**
++ * The cue after the number (personas of 2026-10-24): "40 eu uso", "36\nvisto", "42 de cal\u00e7a" \u2014 her size said the other way round,
++ * and asked again turn after turn. First person only: "44 usa a minha irm\u00e3" is not hers.
++ */
++const SIZE_CUE_AFTER =
++  /^\s*(?:eu\s+)?(?:uso|visto|vesto|vestia|usava)\b(?!\s+(?:de|no|em)\s+(?:sapato|t[e\u00ea]nis|sand[a\u00e1]lia|chinelo|bota|p[e\u00e9])\b)|^\s*(?:de|da)\s+cal[c\u00e7]a\b/i;
+ 
+ /**
+  * M-02 (operator, 2026-09-24): "manequim" never sets the size. Marcinha's "meu manequim é
+@@ -144,7 +152,7 @@ export const extractDressSize = (text: string): number | null => {
+     if (NEGATED_CUE.test(before) || SHOE_CUE.test(before) || OTHER_GARMENT.test(before) || WEIGHT_CUE.test(before)) continue;
+     if (OTHER_GARMENT_AFTER.test(text.slice(at + match[0]!.length))) continue;
+     plausible.push(Number(match[1]));
+-    if (SIZE_CUE.test(before)) cued.push(Number(match[1]));
++    if (SIZE_CUE.test(before) || SIZE_CUE_AFTER.test(text.slice(at + match[0]!.length))) cued.push(Number(match[1]));
+   }
+   if (cued.length === 0) return null;
+ 
+@@ -247,8 +255,16 @@ export const statedSizeOf = (
+     .join("");
+   const dress = extractDressSize(statements);
+   const fast = larger(dress === null ? null : sizeFromDressSize(dress), extractSizeLetter(statements));
+-  return fast ?? (interpreted === null ? null : sizeFromInterpreted(interpreted));
++  // A question that still states her own number (personas of 2026-10-24): "tem calça 48 em estoque?", "36 visto tamanho M ???". Only
++  // the pants number named as such or said in the first person — never "pra quem usa 50?" nor "o M serve em quem usa 44?".
++  const asked = fast === null
++    ? message.split(/(?<=[,;.!?\n])/).filter((c) => c.trim().endsWith("?") || QUESTION_CLAUSE.test(c))
++      .map((c) => OWN_NUMBER_IN_QUESTION.exec(c)).find((m) => m !== null && !NEGATED_CUE.test(m.input.slice(0, m.index)))
++    : undefined;
++  const own = asked ? Number(asked[1] ?? asked[2]) : NaN;
++  return fast ?? (own >= 34 && own <= 56 ? sizeFromDressSize(own) : null) ?? (interpreted === null ? null : sizeFromInterpreted(interpreted));
+ };
++const OWN_NUMBER_IN_QUESTION = /\bcal[cç]a\s+(\d{2})\b(?!\s*(?:anos?|kg|reais?|cm|%))|\b(\d{2})\s+(?:eu\s+)?(?:uso|visto|vesto)\b/i;
+ 
+ /**
+  * Whether the agent's message asked for her size — the condition for the "answer her
+diff --git a/tests/function-drift.test.ts b/tests/function-drift.test.ts
+index 9d0d8bd..603fb78 100644
+--- a/tests/function-drift.test.ts
++++ b/tests/function-drift.test.ts
+@@ -409,7 +409,7 @@ describe("M-03 na Edge Function", () => {
+     // Só o checkout deste caminho conta, e o pedido explícito do link passa (code review, 2026-09-24).
+     expect(source).toContain('const pathBase = kitUrl ?? (linkPath === "cod" ? CONFIG.checkout?.codUrl : CONFIG.checkout?.prepayUrl);');
+     // Grafo §65: the newest link anywhere in the conversation, not the last three messages.
+-    expect(source).toContain('const linkJustSent = !cepMoved && linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? ""));');
++    expect(source).toContain('const linkJustSent = !cepMoved && foreignUrl === null && linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? ""));');
+     expect(source).toContain("const linkUnheld = !linkJustSent && linkReady && !withdrew;");
+     expect(source).toContain("const linkNow = linkUnheld && !kitFirst;");
+     expect(source).toContain("thinkLink = linkUnheld && !(linkInChat && closesConversation(spoken(inbound.body ?? \"\")))");
+diff --git a/tests/l2-round2.test.ts b/tests/l2-round2.test.ts
+index 323ac7b..69f70fa 100644
+--- a/tests/l2-round2.test.ts
++++ b/tests/l2-round2.test.ts
+@@ -40,7 +40,7 @@ describe("CEP que não existe", () => {
+     const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
+     expect(turn).toContain('lookup.kind === "not_found"');
+     expect(turn).toContain("não conseguiu consultar porque parece que esse CEP não existe");
+-    expect(turn).toContain("cepKnown: Boolean(addressDraft.cep) && !cepNotFound,");
++    expect(turn).toContain("cepKnown: (Boolean(addressDraft.cep) && !cepNotFound) || (linkAsked && paymentChoice === \"prepay\" && linkPath === \"prepay\"),");
+   });
+ });
+ 
+diff --git a/tests/link-after-data.test.ts b/tests/link-after-data.test.ts
+index 2cb7f5e..a18886a 100644
+--- a/tests/link-after-data.test.ts
++++ b/tests/link-after-data.test.ts
+@@ -67,10 +67,10 @@ describe("recusas: o pedido é a frase que pede o campo (achado 3)", () => {
+ describe("o link no turno espera os dados (index.ts lido como fonte)", () => {
+   it("as condições entram no link e no 'vou pensar' (e-mail só no antecipado desde 2026-10-08)", () => {
+     expect(source).toContain('const cpfRefusals = refusedAsks(recent, "document");');
+-    expect(source).toContain("cepKnown: Boolean(addressDraft.cep) && !cepNotFound,");
++    expect(source).toContain("cepKnown: (Boolean(addressDraft.cep) && !cepNotFound) || (linkAsked && paymentChoice === \"prepay\" && linkPath === \"prepay\"),");
+     // R28: the region settles the path; only the full name is asked.
+     expect(source).toContain("pathSettled: paymentChoice !== null || knownRegion !== null,");
+-    expect(source).toContain("nameKnown: Boolean(identityDraft.name) || nameRefused || pressed,");
++    expect(source).toContain("nameKnown: Boolean(identityDraft.name) || nameRefused || pressed || linkAsked || linkWentBefore,");
+     // L2 (2026-10-08): the e-mail is waited for on the prepaid path only, refused once is enough.
+     expect(source).toContain("emailDone: true,");
+     expect(source).toContain("cpfDone: true,");
+diff --git a/tests/operator-test-2026-10-21.test.ts b/tests/operator-test-2026-10-21.test.ts
+index 7f9a98e..13cd4fa 100644
+--- a/tests/operator-test-2026-10-21.test.ts
++++ b/tests/operator-test-2026-10-21.test.ts
+@@ -62,7 +62,7 @@ describe("não sei meu CEP: a rua e a cidade, uma vez", () => {
+ 
+ describe("CEP novo depois do link", () => {
+   it("o link vai de novo com o endereço novo, nunca 'usa lá no mesmo link'", () => {
+-    expect(turn).toContain("const linkJustSent = !cepMoved && linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? \"\"));");
++    expect(turn).toContain("const linkJustSent = !cepMoved && foreignUrl === null && linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? \"\"));");
+     expect(turn).toContain('storedAddress.cep!.replace(/\\D/g, "") !== addressDraft.cep!.replace(/\\D/g, "")');
+   });
+ });
+diff --git a/tests/order-and-size-2026-10-20.test.ts b/tests/order-and-size-2026-10-20.test.ts
+index 8e5c64d..1f1b4ed 100644
+--- a/tests/order-and-size-2026-10-20.test.ts
++++ b/tests/order-and-size-2026-10-20.test.ts
+@@ -44,7 +44,7 @@ describe("kit: a entrega só com todos os tamanhos dela", () => {
+     expect(turn).toContain("const others = [...new Set(unitSizes)].filter((x): x is Size => (SIZES as readonly string[]).includes(x) && x !== regionSize);");
+     expect(turn).toContain("const answers = await Promise.all(others.map((s) =>");
+     expect(turn).toContain('const missing = answers.find(({ r }) => !(r.kind === "found" && r.region.cod));');
+-    expect(turn).toContain("if (missing) region = { ...region, cod: false, dates: [], sameDay: false, size: missing.s };");
++    expect(turn).toContain("if (missing) region = { ...region, cod: false, dates: [], sameDay: false, size: missing.s, otherSizesInStock: regionSize ? [regionSize] : [] };");
+   });
+   it("a oferta da entrega que já foi pergunta se pode ir pelos Correios antes do antecipado (copy v4, 2.5)", () => {
+     expect(turn).toContain('} else if (region !== null && offerBefore === "cod" && offerNow === "prepay" && region.size && lastOutbound !== sizeNoCodAsk(region.size)) {');
+diff --git a/tests/r23-round2-fixes.test.ts b/tests/r23-round2-fixes.test.ts
+index 8d4bb64..6a40857 100644
+--- a/tests/r23-round2-fixes.test.ts
++++ b/tests/r23-round2-fixes.test.ts
+@@ -183,7 +183,7 @@ describe("persona venda-decidida (14/10): pediu o link nove vezes, nunca recebeu
+   });
+   it("pedir o link duas vezes nas últimas cinco mensagens, sem link no chat, solta o que falta de nome, CPF e e-mail", () => {
+     expect(turn).toContain(".slice(-5).filter((m: { body: string }) => asksForLink(spoken(m.body ?? \"\")) && ");
+-    expect(turn).toContain("nameKnown: Boolean(identityDraft.name) || nameRefused || pressed,");
++    expect(turn).toContain("nameKnown: Boolean(identityDraft.name) || nameRefused || pressed || linkAsked || linkWentBefore,");
+     // R28: CPF and e-mail are never waited for — only the name is, and `pressed` still releases it.
+     expect(turn).toContain("cpfDone: true,");
+     expect(turn).toContain("emailDone: true,");
+diff --git a/tests/r26-operator-decisions.test.ts b/tests/r26-operator-decisions.test.ts
+index 339bcd4..72f2402 100644
+--- a/tests/r26-operator-decisions.test.ts
++++ b/tests/r26-operator-decisions.test.ts
+@@ -73,7 +73,7 @@ describe("R26.1 — CEP depois do 'não lembro' (persona Marcinha, 15/10)", () =
+   it("a falta do CEP esquecido só segura o link: a oferta do kit segue", () => {
+     // R28: no kit offer before the link at all; the link waits for the CEP she forgot.
+     expect(turn).toContain("const kitOfferNow = false;");
+-    expect(turn).toContain("cepKnown: Boolean(addressDraft.cep) && !cepNotFound,");
++    expect(turn).toContain("cepKnown: (Boolean(addressDraft.cep) && !cepNotFound) || (linkAsked && paymentChoice === \"prepay\" && linkPath === \"prepay\"),");
+   });
+ });
+ 
+diff --git a/tests/second-real-test.test.ts b/tests/second-real-test.test.ts
+index 437f1ae..23a8f2d 100644
+--- a/tests/second-real-test.test.ts
++++ b/tests/second-real-test.test.ts
+@@ -457,10 +457,11 @@ describe("T3 — o link sai do jeito do operador, sem pedir permissão", () => {
+   });
+   it("o turno manda a mensagem fixa quando o link sai e ela não perguntou outra coisa", () => {
+     expect(turn).toContain("const askedBeside = clauses.some((q: string) => asksSomething(q) && !buyerAsk(q));");
+-    expect(turn).toContain("if (guides.length === 0 && checkoutUrl !== null && openNow && !farewell && !askedBeside) {");
++    // 2026-10-24 (A6): a new CEP after the link sends it fixed even with her question beside it, answered after by the resume.
++    expect(turn).toContain("if (guides.length === 0 && checkoutUrl !== null && openNow && !farewell && (!askedBeside || cepMoved)) {");
+     // R28: the script v3 link message (`funnelLinkMessage`), fixed.
+     expect(turn).toContain("funnelLinkMessage(CONFIG, url, linkPath,");
+-    expect(turn).toContain("{ text: cepMoved && linkPath === \"cod\" && region?.cod === true ? v3Link(checkoutUrl) : opening(v3Link(checkoutUrl)) },");
++    expect(turn).toContain("{ text: (cepMoved && region?.cod === (linkPath === \"cod\")) || foreignUrl !== null ? v3Link(checkoutUrl) : opening(v3Link(checkoutUrl)) },");
+   });
+ });
+ 
+diff --git a/tests/v10-defects.test.ts b/tests/v10-defects.test.ts
+index 336ee62..ea8f582 100644
+--- a/tests/v10-defects.test.ts
++++ b/tests/v10-defects.test.ts
+@@ -55,7 +55,7 @@ describe("1. o link não sai de novo depois de três perguntas (linkHeldBack)",
+   });
+ 
+   it("fiação: a conversa inteira é lida pelo host do checkout, só quando a janela não tem link, e falha aberta", () => {
+-    expect(source).toContain("const linkJustSent = !cepMoved && linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? \"\"));");
++    expect(source).toContain("const linkJustSent = !cepMoved && foreignUrl === null && linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? \"\"));");
+     expect(source).toContain("linkReady && CHECKOUT_HOSTS.length > 0 && lastLinkBase(recentOutbound, CHECKOUT_BASES) === null");
+     expect(source).toContain("&direction=eq.outbound&or=(${CHECKOUT_HOSTS.map((h) => `body.like.*${h}*`).join(\",\")})&select=body&order=created_at.desc&limit=1");
+     expect(source).toContain(".catch(() => null))?.map((m: { body: string | null }) => m.body ?? \"\") ?? recentOutbound");
