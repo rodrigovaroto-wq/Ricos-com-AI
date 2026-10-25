@@ -18,7 +18,8 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > - Os defeitos corrigidos sumiram ou caíram muito, as reescritas caíram 75% e as compradoras fecharam mais rápido.
 > - **Achado novo: o custo por turno subiu 45%** (o cache do prompt parece não bater na maioria dos turnos). Diagnóstico parcial no §8.
 > - **Falta, nesta ordem:**
->   1. Achar e consertar a quebra do cache: o que muda por turno vai para o fim do prompt; medir em `llm_calls`.
+>   1. ~~Achar e consertar a quebra do cache~~ ✅ medido em 25/10 (§8.1, R$ 0,07): não é regressão. O cache da Meta acerta ao acaso,
+>      e o prefixo estático já está no lugar. Custo real: ~R$ 0,0085 por turno com o modelo, sem cache. Total da revisão: R$ 5,25.
 >   2. PR para a `main`.
 >   3. `pnpm deploy:turn` (v44), com o "pode subir" do operador.
 >   4. Smoke test.

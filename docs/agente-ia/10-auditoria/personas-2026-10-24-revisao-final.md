@@ -175,3 +175,22 @@ R$ 0,87 para R$ 1,04.
 - **Conserto proposto:** mover tudo que muda por turno para o fim do prompt de sistema, para o prefixo estático continuar no cache.
   Medir com uma conversa antes e outra depois, lendo `llm_calls`.
 - Isso precisa ser resolvido antes de escalar: a conversa longa está em R$ 0,07–0,08 só de Malu, contra a premissa de R$ 0,05 por lead.
+
+### 8.1 Medição do cache (2026-10-25, R$ 0,07, autorizada pelo operador)
+
+Duas conversas guardadas no banco (objecao-vaga e gatilho-formatura), lidas em `llm_calls` e apagadas em seguida. Conclusão: **não é
+regressão do código.**
+
+- **O prefixo estático já está no lugar certo.** Quando o cache bate, ficam em cache 11.633 dos ~12.500 tokens da resposta.
+- **O cache da Meta acerta ou erra ao acaso, mesmo com segundos entre as chamadas.**
+  - Nas 11 respostas e reescritas da medição, 6 acertaram (uma delas parcial). Uma resposta com cache custa ~R$ 0,001; sem cache,
+    ~R$ 0,007.
+  - Em produção o acerto é menor: 46 de 548 chamadas no histórico inteiro, porque a cliente real demora minutos entre as mensagens.
+- **Por que a rodada de verificação ficou mais cara por turno:** os turnos baratos da rodada 1 (R$ 0,0004 a R$ 0,001) eram respostas
+  fixas ou cache acertado. Com as correções, mais turnos vão ao modelo em vez de cair num texto fixo ou num fallback.
+
+**Custo real para planejar:** cada turno com o modelo custa ~R$ 0,0085 sem cache (intérprete R$ 0,0015 + resposta R$ 0,007). A premissa
+de R$ 0,05 por lead vale até ~6 turnos de modelo; uma conversa de 10 a 12 turnos custa R$ 0,08 a R$ 0,10. O lugar para baixar isso é
+o tamanho do prompt (~12,5 mil tokens por resposta), não a ordem das partes.
+
+Gasto total da revisão: **R$ 5,25.**
