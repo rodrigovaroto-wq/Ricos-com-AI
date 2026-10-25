@@ -13,6 +13,13 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-25 — `turn` v44 NO AR** (função v160, `agent_versions` 44, commit `88a8d6d`, 03:50 UTC, `pnpm deploy:turn`).
+>
+> - Antes do deploy, sem desvio: a v43 no ar era o mesmo código da `main`.
+> - Prova: o "Alarme de cobertura" do n8n das 04:00 UTC deu `healthy` (3 CEPs de SP `cod`), e o "Relógio da régua" segue `success`.
+> - PR [#82](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/82) aberto para a `main`, sem merge.
+> - **Não provado pela porta do WhatsApp:** a primeira conversa real na v44 é a prova. Conferir `turn_outcomes.agent_version = 44`.
+
 > **2026-10-25 (madrugada) — rodada de verificação feita (relatório §8). Gasto total da revisão: R$ 5,18 (R$ 0,18 acima do teto).**
 >
 > - Os defeitos corrigidos sumiram ou caíram muito, as reescritas caíram 75% e as compradoras fecharam mais rápido.
