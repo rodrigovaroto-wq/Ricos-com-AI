@@ -165,7 +165,7 @@ describe("as respostas que o sistema precisa sempre conseguir mandar", () => {
 describe("o briefing que vai no prompt", () => {
   it("todo gate de reescrita tem uma linha, e nenhuma vem vazia", () => {
     const linhas = gateBriefing(config);
-    expect(linhas.length).toBe(27);
+    expect(linhas.length).toBe(28);
     for (const linha of linhas) expect(linha.trim().length).toBeGreaterThan(20);
   });
 
@@ -183,7 +183,7 @@ describe("o briefing que vai no prompt", () => {
   it("muda quando a loja muda: o cupom ligado aparece no briefing", () => {
     const ligado = gateBriefing({ ...config, coupon: { ...config.coupon, active: true } }).join(" ");
     expect(ligado).toContain("20% está ativo");
-    expect(gateBriefing(config).join(" ")).toContain("Não existe cupom");
+    expect(gateBriefing(config).join(" ")).toContain("Nesta conversa você não cita cupom nem código");
   });
 });
 

@@ -627,14 +627,16 @@ const triggerTerms = (phrase: string): string[] =>
 
 /**
  * Whether a sent reply cites what she told: every key term of a one-term phrase ("casamento", "pós-parto"), two of a
- * longer one ("barriga marca no vestido" needs "marca" and "vestido": "barriga" is in every reply). A phrase with no
- * key term ("dia a dia") counts when it is said whole.
+ * longer pain ("barriga marca no vestido" needs "marca" and "vestido": "barriga" is in every reply). An occasion is cited by
+ * any of its key terms (personas of 2026-10-24: "formatura da filha" needed both words, so "o vestido da formatura" and "pra
+ * formatura?" went uncounted and the formatura was said five times). Counting too much only stops the trigger early. A
+ * phrase with no key term ("dia a dia") counts when it is said whole.
  */
-const citesTold = (reply: string, phrase: string): boolean => {
+const citesTold = (reply: string, phrase: string, occasion = false): boolean => {
   const terms = triggerTerms(phrase);
   if (terms.length === 0) return ` ${triggerWords(reply).join(" ")} `.includes(` ${triggerWords(phrase).join(" ")} `);
   const said = new Set(triggerWords(reply).map(triggerStem));
-  return terms.filter((t) => said.has(t)).length >= Math.min(2, terms.length);
+  return terms.filter((t) => said.has(t)).length >= (occasion ? 1 : Math.min(2, terms.length));
 };
 
 /** The told occasion and pain, as data: no quote or line break of hers reaches the directive. */
@@ -645,8 +647,9 @@ export const countTriggerUses = (
   outboundTexts: readonly string[],
   profile: { occasion?: string | null; pain?: string | null },
 ): number => {
-  const told = [toldText(profile.occasion), toldText(profile.pain)].filter(Boolean);
-  return told.length === 0 ? 0 : outboundTexts.filter((m) => told.some((p) => citesTold(m, p))).length;
+  const occasion = toldText(profile.occasion);
+  const pain = toldText(profile.pain);
+  return !occasion && !pain ? 0 : outboundTexts.filter((m) => (occasion !== "" && citesTold(m, occasion, true)) || (pain !== "" && citesTold(m, pain))).length;
 };
 
 /**
@@ -703,6 +706,31 @@ const valueAdds = (config: PromptConfig): string =>
     `pagar só quando o colete chegar, onde o pagamento na entrega chega no CEP dela`,
     `os ${config.delivery.warrantyDays} dias após o recebimento pra devolver`,
   ].join(", ");
+
+/**
+ * What does not exist, said honestly (personas of 2026-10-24): the coupon is never denied while the ruler may still send one
+ * (R17.4: the conversation never offers it, and "não temos cupom" contradicts the `silence_3` that comes later); no size is
+ * reserved ("o M já fica reservado"); Malu deletes no data ("apaguei tudo que você informou"); she writes only Portuguese, the
+ * language the gates read; and she records no audio. Every quoted sentence passes the chain (`tests/persona-2026-10-24-conduct.test.ts`).
+ */
+export const honestyBriefing = (config: PromptConfig): string[] => {
+  const pct = config.prices.prepayDiscountPercent;
+  const email = config.support?.email;
+  return [
+    `O QUE NÃO EXISTE, DITO COM VERDADE.`,
+    `— **Cupom.** Se a verificação da loja não te der um código pra citar, não cite cupom, e se ela perguntar, nunca diga que não`,
+    `  existe nem que não temos cupom: diga o melhor valor de hoje${pct > 0 ? `, assim: "O melhor valor de hoje é no antecipado, com ${pct}% de desconto: ${money(config.prices.prepayBrl)}."` : `, o da oferta.`}`,
+    `  Nunca prometa mandar cupom depois.`,
+    `— **Reserva.** Nenhum tamanho fica reservado, separado ou guardado pra ela: o pedido só existe quando ela finaliza no checkout.`,
+    `  Nunca diga que o tamanho dela "fica reservado" ou "fica te esperando".`,
+    `— **Dados dela.** Você não apaga dado nenhum: nunca diga que apagou, excluiu ou esqueceu o que ela informou.`,
+    ...(email ? [`  Se ela pedir pra apagar os dados dela, diga assim: "O pedido pra apagar os seus dados é pelo e-mail ${email}."`] : []),
+    `— **Espanhol.** Você escreve só em português. Se ela pedir pra falar em espanhol, diga uma vez, assim: "Perdón, solo puedo`,
+    `  escribir en portugués, pero te escribo bien simple." Depois siga em português, com frases curtas e palavras simples.`,
+    `— **Áudio.** Se ela pedir áudio, diga uma vez, assim: "Por aqui eu não consigo gravar áudio pra te responder, mas escrevo bem`,
+    `  curtinho pra você." Se ela disser que não enxerga bem, escreva curto e sugira com carinho que alguém de confiança leia com ela.`,
+  ];
+};
 
 /**
  * E3.1 (H1): her first real reply is the model's, with no fixed greeting before it. Said once, on that
@@ -909,7 +937,8 @@ export const systemPrompt = (
     `PAGAMENTO. Depois do CEP, quem manda a oferta é o sistema: o quadro do preço da região dela (na entrega, ou`,
     `pelos Correios no antecipado) — você nunca apresenta "as duas opções" nem pergunta qual ela prefere; siga no`,
     `caminho que a instrução da região disser. Antes do CEP você não sabe se o pagamento na entrega chega nela: quando explicar como ele`,
-    `funciona antes do CEP, diga "dependendo da sua região" ou "na maioria das regiões", nunca como certo pra ela. Peça o CEP com`,
+    `funciona antes do CEP, diga "dependendo da sua cidade e do tamanho", nunca como certo pra ela, e nunca "na maioria das regiões".`,
+    `Peça o CEP com`,
     `o motivo, e quem consulta a região é o sistema — a instrução aqui embaixo diz o resultado. Se a sua última mensagem já`,
     `pediu o CEP e ela não mandou, esta resposta não pede de novo: responda o que ela disse e siga a conversa (2026-10-19).`,
     `Se ela perguntou o preço antes do CEP, responda primeiro, com estes números: "${priceBeforeCepMessage(config)}"`,
@@ -926,6 +955,13 @@ export const systemPrompt = (
     `  e nunca diga que ela paga na entrega, ao entregador ou quando receber.`,
     `— **Ela já escolheu** ("quero pagar no pix"): não reabra a comparação, siga no caminho dela.`,
     `  ${prepayDiscountRule(config)}`,
+    // Personas of 2026-10-24 (venda-sem-dinheiro): "Sobre pagar depois, dá sim dependendo da sua região" and "dá pra deixar pra
+    // depois do dia 5", before the CEP.
+    `— **Pagar na entrega não é pagar depois.** Ela paga quando o colete chega, em ${config.delivery.codDaysMin} a ${config.delivery.codDaysMax} dias, e só onde a entrega`,
+    `  chega. Se ela pedir pra pagar numa data dela ("só no dia 5", "quando o salário cair"), nunca diga que dá: diga como funciona,`,
+    `  sem prometer a data, e que ela pode voltar a falar com você quando for a hora.`,
+    ``,
+    ...honestyBriefing(config),
     ``,
     `COMO VOCÊ ESCREVE. O tom é o de uma vendedora brasileira conversando no WhatsApp com uma`,
     `cliente de quem ela gosta, de perto e de verdade — o tom, não a identidade: você nunca diz`,

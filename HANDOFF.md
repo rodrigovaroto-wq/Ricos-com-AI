@@ -13,6 +13,121 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-25 — `turn` v44 NO AR** (função v160, `agent_versions` 44, commit `88a8d6d`, 03:50 UTC, `pnpm deploy:turn`).
+>
+> - Antes do deploy, sem desvio: a v43 no ar era o mesmo código da `main`.
+> - Prova: o "Alarme de cobertura" do n8n das 04:00 UTC deu `healthy` (3 CEPs de SP `cod`), e o "Relógio da régua" segue `success`.
+> - PR [#82](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/82) aberto para a `main`, sem merge.
+> - **Não provado pela porta do WhatsApp:** a primeira conversa real na v44 é a prova. Conferir `turn_outcomes.agent_version = 44`.
+
+> **2026-10-25 (madrugada) — rodada de verificação feita (relatório §8). Gasto total da revisão: R$ 5,18 (R$ 0,18 acima do teto).**
+>
+> - Os defeitos corrigidos sumiram ou caíram muito, as reescritas caíram 75% e as compradoras fecharam mais rápido.
+> - **Achado novo: o custo por turno subiu 45%** (o cache do prompt parece não bater na maioria dos turnos). Diagnóstico parcial no §8.
+> - **Falta, nesta ordem:**
+>   1. ~~Achar e consertar a quebra do cache~~ ✅ medido em 25/10 (§8.1, R$ 0,07): não é regressão. O cache da Meta acerta ao acaso,
+>      e o prefixo estático já está no lugar. Custo real: ~R$ 0,0085 por turno com o modelo, sem cache. Total da revisão: R$ 5,25.
+>   2. PR para a `main`.
+>   3. `pnpm deploy:turn` (v44), com o "pode subir" do operador.
+>   4. Smoke test.
+
+> **2026-10-25 — correções da revisão Opus FEITAS (grafo §132, commit `b6f6850`). Branch pronta para PR e deploy (v44), NÃO publicada.**
+>
+> - **Validação no HEAD:** 9.099 testes, `typecheck`, `lint`, `typecheck:function`, espelho, `dev:conversas` 1655/1655,
+>   `dev:gates --fail-on-loosen` ok; mutações 858/858 (849 na rodada completa + 9 atualizadas ao código novo e reconferidas).
+> - **Falta, nesta ordem:**
+>   1. Rodada curta de personas nos casos que falharam. Sobram ~R$ 0,95 do teto de R$ 5; precisa do OK do operador.
+>   2. PR para a `main`.
+>   3. `pnpm deploy:turn` (v44) e `job:"health"`.
+>   4. Smoke test.
+>   5. Operador: estoque por tamanho e cidade na Logzz; decisões da calça 56, do colete para homem e da "postura" (R16.6).
+> - Os patches de `wip-2026-10-24/` foram aplicados e a pasta saiu.
+
+> **2026-10-24 (madrugada) — ondas 1A, 1B e 2 NA BRANCH (`dd478e0`), não publicadas; correções da revisão Opus PARADAS pelo operador.**
+>
+> - **Na branch (validadas):** 9.023 testes, `dev:conversas` 1655/1655, `dev:gates` ok, `typecheck:function` ok.
+>   - Onda 1A, gates: grafo §129, mutações `G129-*`.
+>   - Onda 1B, fluxo (link a pedido, nome, oferta por tamanho, motivo do antecipado, CEP novo, rua, link de terceiro): §130, `G130-*`.
+>   - Onda 2, conduta e texto: §131, `G131-*`.
+>   - **Mutações completas NÃO rodadas** no HEAD final.
+> - **Revisão Opus do conjunto: REPROVADA.**
+>   - Bloqueantes: "um M ou um G?" lido como kit de 2 (`quantityOf`), e frete grátis no antecipado passando ao lado de uma frase honesta
+>     (`chargedElsewhere` no `shipping_promise`).
+>   - Importantes: teto da tabela qualquer número (`size_claim`); "do P ao XGG, todos disponíveis" (`unverified_size`); `cep_insist` com
+>     `cepForgotten`; cidade lida como nome (`extractName`); `foreignCheckoutUrl` marcando o próprio site e subdomínios da Coinzz/Logzz;
+>     `afterSale` pulando a abertura de quem comprou um vestido; o pedido de tamanho antes da oferta repetindo; `hesitates` estreito demais.
+> - **A correção desses achados foi parada pelo operador no meio.** O que existia está em
+>   `docs/agente-ia/10-auditoria/wip-2026-10-24/correcoes-revisao-opus.patch` (não testado). A árvore de trabalho ficou com essas mudanças
+>   não commitadas.
+> - **NÃO publicar a branch antes de corrigir os dois bloqueantes acima.**
+
+> **2026-10-24 (noite) — EXECUÇÃO PARADA A PEDIDO DO OPERADOR. Registro completo.**
+>
+> **Em produção (nada mudou hoje):**
+>
+> - `turn` **v43** (função v158, desde 23/10 17h11 UTC), modelo `muse-spark-1.3-contributor`;
+>   `BUSINESS_CONFIG` = `docs/operacao/business-config-2026-10-23.min.json` (cupom SUPER20 ativo, `askMarketingOptIn`, `lowStock` 20,
+>   experimentos A e B ligados); migrações até 0032.
+> - Sonda de saúde da `turn` local com esse config, 24/10: `healthy`.
+> - Banco: 42 leads reais (o último em 21/10), 0 pedidos em toda a história.
+> - Meta Ads: uma campanha, PAUSADA ("Encorpa — WhatsApp — 5 vídeos (v6) 48h"), R$ 77,38 gastos, 4.206 impressões, 96 cliques.
+> - A função `whatsapp` do PR #81 (id da imagem em `messages.media`) foi mesclada; **não conferi** se foi publicada.
+>
+> **Feito hoje, na branch `claude/focused-cannon-lk2wim` (empurrada; NÃO publicada; sem PR aberto):**
+>
+> 1. R31.1 (grafo §127): A5 (`shippedCancelReply`: "Quando ele chegar, você pode cancelar…") e A4 (`personAskExample` com o
+>    `support.email`). Testes, mutações `G127-*`, revisão Opus (2 bloqueantes corrigidos).
+> 2. R31.2: gate `operational_claim` (boleto, horário, carteiro/Correios no pagamento na entrega) e novas `LIES` do calibrador do
+>    Hermes (a medição de 16% precisa ser refeita).
+>    Validação: 8.824 testes, `typecheck`, `lint`, `typecheck:function`, `dev:conversas` 1655/1655, `dev:gates` sem afrouxamento,
+>    mutações 762/762.
+> 3. Revisão final com personas (grafo §128): 132 leads, R$ 4,03; 16 fichas novas (O1–O11); relatório em
+>    `docs/agente-ia/10-auditoria/personas-2026-10-24-revisao-final.md`. Sintéticos apagados.
+>
+> **Começado e parado no meio (NÃO está no código; patches em `docs/agente-ia/10-auditoria/wip-2026-10-24/`, com o README do que
+> cada um tem e do que falta):**
+>
+> - onda 1A: os falsos vetos;
+> - onda 1B: link, nome, oferta, CEP.
+>
+> **Falta, nesta ordem:**
+>
+> 1. **Operador — estoque/anúncio:** P só tem pagamento na entrega no Rio, M só em BH, Recife nenhum tamanho. Repor estoque na Logzz ou
+>    mirar o anúncio nas cidades e tamanhos que têm (§1 do relatório).
+> 2. Terminar a onda 1A e a onda 1B a partir dos patches; testes, mutações, revisão Opus, grafo §129–§130.
+> 3. Onda 2 (diagnosticada, não começada):
+>    - a resposta pronta da objeção vaga ("Claro! Você tem 7 dias…") disparando para despedida, aceite de ofertas e "te chamo
+>      depois" (`vagueObjection` em `index.ts` e o motivo da garantia em `vagueObjectionSituation`);
+>    - "não temos cupom" com o SUPER20 ativo (briefing do `coupon_exists`);
+>    - "na maioria das regiões" (`prompt.ts`, perto da linha 912);
+>    - o gatilho pessoal citado mais de 3 vezes;
+>    - o áudio 4 ("agendar pra amanhã mesmo") saindo quando a primeira data não é amanhã (`funnel.ts:229`);
+>    - abertura de venda para quem chega com troca ou mudança de endereço;
+>    - espanhol, pedido de áudio, "pagar depois do dia 5" antes do CEP, aceite espontâneo de ofertas;
+>    - a despedida em laço (uma resposta paga a cada "obrigada").
+> 4. **Decisões do operador:**
+>    - calça 56 lida como XGG com "serve sim" (o prompt diz que a tabela vai até 52);
+>    - o colete serve para homem?
+> 5. Depois de 2 e 3: uma rodada curta de personas para provar (com o OK de custo do operador); PR para a `main`; `pnpm deploy:turn`
+>    (v44) e `job:"health"`; smoke test.
+
+> **2026-10-24 (tarde) — revisão final com personas (grafo §128): 132 leads, R$ 4,03. NÃO SUBIR antes de ler
+> [`personas-2026-10-24-revisao-final.md`](docs/agente-ia/10-auditoria/personas-2026-10-24-revisao-final.md).**
+>
+> - Estoque da Logzz por tamanho e cidade: P só no Rio, M só em BH, Recife nenhum tamanho — a maior parte das clientes do anúncio cai no antecipado.
+> - Altos: link retido quando ela pede (9), nome quebrado, oferta que promete a entrega antes do tamanho, cartão do antecipado sem o motivo,
+>   falsos vetos (`shipping_promise` 11, `charge_promise` 8, `installment_promise` 7, `delivery_promise` 6, `size_claim` 4), CEP novo e rua não
+>   consultados, "apaguei seus dados" (LGPD), link de terceiro endossado. Nenhum consertado ainda.
+
+> **2026-10-24 — A4/A5 do parecer e três mentiras operacionais com gate (R31, grafo §127). NA BRANCH, NÃO PUBLICADO (no ar segue a v43).**
+>
+> - **A5:** `shippedCancelReply` diz que o pedido já saiu e que ela pode cancelar quando ele chegar (pedindo a devolução), nunca "não dá mais pra cancelar".
+> - **A4:** `personAskExample` põe o `support.email` (já no config de 23/10) no exemplo do pedido de pessoa.
+> - **Gate `operational_claim` (33 gates):** veta boleto, "ela escolhe o horário" e carteiro/Correios no pagamento na entrega. As `LIES` do calibrador do
+>   Hermes mudaram (as antigas agora são vetadas): **a medição de 16% da classe mentira vale para as lies velhas, refazer.**
+> - **Validação:** `pnpm test` 8823+, `typecheck`, `lint`, `typecheck:function` (Deno), `dev:conversas` 1655/1655, `dev:gates` só endurece o gate novo; mutações 762/762 (`G127-*` 3/3); revisão Opus: 2 bloqueantes (falso veto na oferta dos Correios sem cobertura e na negação de boleto) corrigidos.
+> - **Para publicar:** `pnpm deploy:turn` (v44) e `job:"health"`. Operador: o suporte é "o atendimento ao cliente" +55 11 98819-4261 (a Gizele saiu).
+
 > **2026-10-23 (tarde) — `turn` v43 NO AR (função v158, 17h11 UTC; alarme de cobertura das 17h15 `healthy`). Config de 23/10 colado pelo operador. JEV: 17 de 19 perguntas aprovadas (versão 5, R30.13).**
 >
 > - **R30.12 (no ar na v43):** a consulta de dias da Logzz pergunta como o checkout real — um tamanho, o produto dele

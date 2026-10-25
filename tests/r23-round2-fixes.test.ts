@@ -183,7 +183,7 @@ describe("persona venda-decidida (14/10): pediu o link nove vezes, nunca recebeu
   });
   it("pedir o link duas vezes nas últimas cinco mensagens, sem link no chat, solta o que falta de nome, CPF e e-mail", () => {
     expect(turn).toContain(".slice(-5).filter((m: { body: string }) => asksForLink(spoken(m.body ?? \"\")) && ");
-    expect(turn).toContain("nameKnown: Boolean(identityDraft.name) || nameRefused || pressed,");
+    expect(turn).toContain("nameKnown: Boolean(identityDraft.name) || nameRefused || pressed || linkAsked || linkWentBefore,");
     // R28: CPF and e-mail are never waited for — only the name is, and `pressed` still releases it.
     expect(turn).toContain("cpfDone: true,");
     expect(turn).toContain("emailDone: true,");
@@ -196,7 +196,7 @@ describe("personas Lu e Vera (14/10): pedido que o sistema não lê é respondid
     expect(turn).toContain("Ela fala de um pedido sobre o qual você não tem informação confiável aqui");
     expect(turn).toContain("depois responda o que mais ela");
     // Negação: o pedido de pessoa continua com a frase honesta.
-    expect(turn).toContain('guide("Ela pediu pra falar com uma pessoa.", PERSON_ASK_EXAMPLE, "a cliente pediu para falar com uma pessoa", true);');
+    expect(turn).toContain('guide("Ela pediu pra falar com uma pessoa.", personAskExample(CONFIG.support ?? {}), "a cliente pediu para falar com uma pessoa", true);');
   });
 });
 

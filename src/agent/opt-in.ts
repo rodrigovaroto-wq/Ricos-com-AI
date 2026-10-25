@@ -103,6 +103,21 @@ export const suspendsMarketingOptIn = (message: { body: string; reply?: { id: st
   return MARKETING_STEM.test(t);
 };
 
+/**
+ * She says in words that she wants the offers (personas of 2026-10-24, cob-aceita-ofertas: "pode me mandar as promoções sim" heard
+ * the vague-objection question). It GRANTS NOTHING — the root rule above stands: her text only suspends (`suspendsMarketingOptIn`,
+ * which this message also triggers), and the button question is asked again by the sweep. It only lets the turn answer her yes
+ * instead of reading it as "vou pensar". A clause with a marketing stem and a yes, no negation and no question in it.
+ */
+export const acceptsOffers = (body: string): boolean => {
+  const t = collapse(body.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase());
+  // Each clause with the mark that ends it: "vc vai me mandar cupom?" is a question, not a yes.
+  return (t.match(/[^,;.!?\n]+[,;.!?\n]*/g) ?? []).some((clause) =>
+    !clause.includes("?") && MARKETING_STEM.test(clause) &&
+    /\b(?:sim|pode|podem|manda|mande|quero|aceito|claro|bora)\b/.test(clause) &&
+    !/\b(?:nao|n|nem|nunca|jamais|pare|parar|para\s+de|chega)\b/.test(clause));
+};
+
 export interface OptInState {
   /** `leads.marketing_opt_in_asked_at` — the last question. */
   askedAt: Date | string | null;

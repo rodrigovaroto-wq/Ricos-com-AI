@@ -375,7 +375,7 @@ Pago na entrega, tenha saído ou não (`COD_CANCEL_REPLY`):
 
 Antecipado, já em rota (`shippedCancelReply`; os dias vêm de `delivery.warrantyDays`):
 
-> Seu pedido já saiu para entrega 🚚, então não dá mais pra cancelar. Quando ele chegar aí, é só
+> Seu pedido já saiu para entrega 🚚 e vai chegar aí. Quando ele chegar, você pode cancelar: é só
 > me chamar aqui pra pedir a devolução 💛 Você tem 7 dias pra devolver depois que receber.
 
 Antecipado, pago e ainda não saiu (`PREPAID_CANCEL_REPLY`; o motivo do handoff manda o operador

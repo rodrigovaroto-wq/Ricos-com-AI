@@ -286,6 +286,11 @@ export interface Region {
    * `lookupLogzz` asks the days of), for scarcity (4.6). Absent or null: unknown. Never from the Coinzz `stock`, which is "1" always.
    */
   readonly stockQty?: number | null;
+  /**
+   * Her size has no stock where she lives, and these sizes have (A4, personas of 2026-10-24): the reason the delivery does not
+   * reach her is the size, not her region. Absent: not read (a cache from before, the Coinzz fallback, the region's own "no").
+   */
+  readonly otherSizesInStock?: readonly Size[];
 }
 
 /**
@@ -490,7 +495,13 @@ const lookupLogzzUnsafe = async (
   // unknown, the size with the most local stock stands for the region.
   const asked: Size | null = size ?? (Object.keys(stock.bySize) as Size[]).sort((a, b) => (stock.seen.get(b) ?? 0) - (stock.seen.get(a) ?? 0))[0] ?? null;
   const ops = [...new Set(asked !== null ? stock.bySize[asked] ?? [] : [])];
-  if (ops.length === 0) return size !== null ? (stock.seen.has(size) && !stock.unreadable ? { kind: "found", region: none } : { kind: "failed", place }) : stock.unreadable ? { kind: "failed", place } : { kind: "found", region: none };
+  if (ops.length === 0) {
+    return size !== null
+      ? stock.seen.has(size) && !stock.unreadable
+        ? { kind: "found", region: { ...none, otherSizesInStock: (Object.keys(stock.bySize) as Size[]).filter((s) => s !== size) } }
+        : { kind: "failed", place }
+      : stock.unreadable ? { kind: "failed", place } : { kind: "found", region: none };
+  }
   const product = asked !== null ? stock.productOf[asked] : undefined;
   if (product === undefined) return { kind: "failed", place };
   const q = new URLSearchParams(where);

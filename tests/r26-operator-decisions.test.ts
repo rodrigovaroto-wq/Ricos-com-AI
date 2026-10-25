@@ -73,7 +73,7 @@ describe("R26.1 — CEP depois do 'não lembro' (persona Marcinha, 15/10)", () =
   it("a falta do CEP esquecido só segura o link: a oferta do kit segue", () => {
     // R28: no kit offer before the link at all; the link waits for the CEP she forgot.
     expect(turn).toContain("const kitOfferNow = false;");
-    expect(turn).toContain("cepKnown: Boolean(addressDraft.cep) && !cepNotFound,");
+    expect(turn).toContain("cepKnown: (Boolean(addressDraft.cep) && !cepNotFound) || (linkAsked && paymentChoice === \"prepay\" && linkPath === \"prepay\"),");
   });
 });
 

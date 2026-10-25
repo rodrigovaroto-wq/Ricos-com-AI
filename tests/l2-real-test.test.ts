@@ -80,7 +80,7 @@ describe("L2 — um 'ok' sozinho não ganha resposta", () => {
 
   it("a função de produção para antes do intérprete, sem chamar o modelo, e arma a ajuda", () => {
     const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
-    const ack = turn.indexOf('if (!isRetry && !isResume && lastOutbound !== "" && ackGoesUnanswered(isBareAck(parts), lastOutbound, datum))');
+    const ack = turn.indexOf('if (!isRetry && !isResume && lastOutbound !== "" && ackGoesUnanswered(isBareAck(parts) || (datum === null && isBareThanks(parts)), lastOutbound, datum))');
     expect(ack).toBeGreaterThan(-1);
     expect(ack).toBeLessThan(turn.indexOf("const ask = interpretRequest(lastOutbound"));
     expect(turn).toContain("ackHelpText(datum)");
@@ -303,7 +303,8 @@ describe("L2 — o prompt (anotações 1, 2, 3, 5, 6 e a pergunta no fim)", () =
   it("variação de palavras, pergunta no último balão, região antes do CEP, devolver se não gostar, sem detalhe do entregador", () => {
     expect(prompt).toContain("VARIE AS PALAVRAS.");
     expect(prompt).toContain("a pergunta vai no último balão, nunca no primeiro");
-    expect(prompt).toContain(`diga "dependendo da sua região" ou "na maioria das regiões"`);
+    // Personas of 2026-10-24: "na maioria das regiões" is false where the door payment depends on her size and city.
+    expect(prompt).toContain(`diga "dependendo da sua cidade e do tamanho", nunca como certo pra ela, e nunca "na maioria das regiões".`);
     expect(prompt).toContain("pra devolver se não gostar");
     expect(prompt).toContain("se toca a campainha");
   });

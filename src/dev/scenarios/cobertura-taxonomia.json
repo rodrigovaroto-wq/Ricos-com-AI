@@ -162,6 +162,17 @@
     { "id": "N4", "desc": "mensagem longa", "origem": "real", "by": [] },
     { "id": "N5", "desc": "várias perguntas numa mensagem", "origem": "real", "by": [] },
     { "id": "N6", "desc": "abreviações (vc, qnt, pq)", "origem": "real", "by": ["venda-sensivel-preco"] },
-    { "id": "N7", "desc": "se contradiz", "origem": "persona", "by": ["persona-karol"] }
+    { "id": "N7", "desc": "se contradiz", "origem": "persona", "by": ["persona-karol"] },
+    { "id": "O1", "desc": "objeção vaga (\"tá caro\", \"vou ver\") — uma pergunta só, com motivo verdadeiro (plano 16, PR #77)", "origem": "futuro", "by": [] },
+    { "id": "O2", "desc": "conta uma ocasião pessoal (formatura, viagem) — gatilho pessoal ≤3 usos e balão antes da oferta (PR #77)", "origem": "futuro", "by": [] },
+    { "id": "O3", "desc": "kit no antecipado com o frete dito antes do link (prepayFreight, PRs #77/#80)", "origem": "futuro", "by": [] },
+    { "id": "O4", "desc": "pergunta de estoque — escassez só com o número real da Logzz (scarcity.lowStock, PR #77)", "origem": "futuro", "by": [] },
+    { "id": "O5", "desc": "Recife ou São Paulo com o G: a consulta da Logzz como o checkout pergunta (v43, PR #80)", "origem": "futuro", "by": [] },
+    { "id": "O6", "desc": "manda a rua com 'dr'/'av' e número no lugar do CEP, ou diz que não sabe o CEP (v39, PR #76)", "origem": "futuro", "by": [] },
+    { "id": "O7", "desc": "CEP novo depois do link (re-consulta, PR #76) ou mudança de endereço antes do pedido (support_before_order)", "origem": "futuro", "by": [] },
+    { "id": "O8", "desc": "tamanho M fora de BH (sem estoque no antecipado, §116)", "origem": "futuro", "by": [] },
+    { "id": "O9", "desc": "aceite de ofertas no fim (channel.askMarketingOptIn, R30.10)", "origem": "futuro", "by": [] },
+    { "id": "O10", "desc": "pede pessoa e recebe o e-mail do suporte (A4, R31.1)", "origem": "futuro", "by": [] },
+    { "id": "O11", "desc": "troca de tamanho e o número do atendimento ao cliente (sem nome de pessoa, §115)", "origem": "futuro", "by": [] }
   ]
 }

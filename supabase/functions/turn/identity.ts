@@ -221,7 +221,11 @@ const COMMON_WORDS =
 /** Words a name never starts with — what follows "nome dela" when it is not a name. */
 const NOT_A_FIRST_NAME =
   // "prefiro não passar", "pode ser sem", "sem nome" after the name ask are refusals, not names (review of round 2).
-  /^(eu|te|ta|esta|e|eh|igual|mesmo|mesma|passo|vou|vai|ja|nao|sei|depois|o|a|no|na|do|da|de|um|uma|ele|ela|meu|minha|seu|sua|que|com|pra|para|mae|filha|irma|esposa|amiga|tia|avo|sogra|prefiro|prefere|pode|sem|manda|deixa|precisa|obrigada|obrigado)$/;
+  /^(eu|te|ta|esta|e|eh|igual|mesmo|mesma|passo|vou|vai|ja|nao|sei|depois|o|a|no|na|do|da|de|um|uma|ele|ela|meu|minha|seu|sua|que|com|pra|para|mae|filha|irma|esposa|amiga|tia|avo|sogra|prefiro|prefere|pode|sem|manda|deixa|precisa|obrigada|obrigado|nossa|vixe|pera|perai|antes|calma|eita|gente|ah|ai|ui|oxe|oxi|uai|poxa|puxa|caramba|deus|gracas|aff|hum|hmm|tipo|parque|vila|jardim|bairro|centro|condominio|residencial|conjunto|segue|endereco)$/;
+
+const UFS = "AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO";
+const UF_ALONE = new RegExp(`^(?:${UFS})$`);
+const UF_END = new RegExp(`\\s(?:${UFS})$`);
 
 export const extractName = (text: string, askedName = false): string | null => {
   // Line breaks survive: WhatsApp messages arrive several lines at once, and a name must
@@ -240,14 +244,29 @@ export const extractName = (text: string, askedName = false): string | null => {
   // pegar o documento" and "Nossa senhora, que demora" opened with no name in them).
   // And written like a name — every word capitalised but the particles (third Opus review: "Antes disso, me manda o link", "Pera ai,
   // cadê o link?", "Vixe maria, esqueci o cpf" kept passing every word list).
-  const [head = "", ...tail] = cleaned.split(/[,\n]/);
+  // A sentence's full stop splits too ("Gisele Rocha. resto eu passo no link", persona venda-ajuda-tamanho, 2026-10-24).
+  const [head = "", ...tail] = cleaned.split(/[,\n]|[.;](?=\s)/);
   const podeSer = /^pode\s+ser\s+/i.test(cleaned) && tail.length === 0;
   const written = (t: string): boolean => t.split(" ").filter(Boolean).every((w) => /^(?:da|de|do|das|dos|e)$/.test(w) || /^[A-ZÀ-Ý]/.test(w));
+  // Personas of 2026-10-24, right after the ask: the name on a line of its own above the rest ("Vilma Torres\n\no da minha mae é …",
+  // "aline prado\n\nmas queria na entrega mesmo"), and the name before an emoji ("Patrícia Souza pode agendar pra mim 🙏 …"). Each
+  // goes through every check below, the line's first word through the interjections too ("Pera ai\nvou pegar o documento").
+  // "é Carla Menezes", "sou patricia souza": the "it is / I am" before it is not the name.
+  const bare = (t: string): string => t.replace(/^(?:[eé]h?|sou(?:\s+a)?)\s+/i, "").trim();
+  const firstLine = bare(cleaned.split("\n")[0] ?? "");
+  // Not a place nor a payment above its details (Opus review of §130): "Recife PE\n50000000", "Santa Maria\nRS", "Belo Horizonte\nrua x
+  // 10", "Cartão de crédito\nem 12x". A line below that is a state, an address word or a short one with a number is no sentence of hers.
+  const placeLine = (l: string): boolean =>
+    UF_ALONE.test(l.trim()) || /^(?:rua|r\.|av\.?|avenida|travessa|alameda|rodovia|estrada|cep|bairro|numero|n[º°])(?=\s|$)/i.test(l.trim()) ||
+    (/\d/.test(l) && l.trim().split(/\s+/).length <= 3);
+  const ownLine = askedName && cleaned.includes("\n") && lettersOnly(firstLine) && !UF_END.test(firstLine) &&
+    !/^(?:cart[aã]o|pix|boleto|dinheiro|cr[eé]dito|d[eé]bito)\b/i.test(firstLine) && !cleaned.split("\n").slice(1).some(placeLine);
+  const leadRun = cleaned.match(/^[A-Za-zÀ-ÿ'´` ]{2,60}(?=[^A-Za-zÀ-ÿ'´` ,.;\n])/)?.[0].trim() ?? "";
   const opening = !askedName ? ""
     : podeSer ? cleaned.replace(/^pode\s+ser\s+/i, "").trim()
-    : tail.length > 0 && /\b(?:resto|restante|link|checkout|cpf|e-?mail)\b/i.test(tail.join(" ")) ? head.trim()
-    : "";
-  if (introduced === null && opening !== "" && !written(opening) && !lettersOnly(cleaned)) return null;
+    : tail.length > 0 && /\b(?:resto|restante|link|checkout|cpf|e-?mail)\b/i.test(tail.join(" ")) ? bare(head)
+    : ownLine ? firstLine
+    : bare(leadRun);
   const candidate = introduced?.[1] ?? (askedName && lettersOnly(opening) ? opening : lettersOnly(cleaned) ? cleaned : null);
   if (candidate === null) return null;
 
@@ -258,12 +277,19 @@ export const extractName = (text: string, askedName = false): string | null => {
     // "me chamo Rosa moro em Ponte Nova MG como faço…" went into the checkout link as "Rosa Moro Em Ponte Nova" (real lead,
     // 2026-10-20): nor where she lives or what she asks next. Never "de/da/do", the particles of a name.
     .replace(/(?:\s+e)?\s+(?:moro|mora|sou|tenho|estou|t[oô]|quero|queria|gostaria|preciso|vi|vim|como|qual|quanto|quais|pra|para|em|no|na|aqui|daqui)(?=\s|$).*$/i, "")
+    // Nor what she says after it, when she gives it on asking or introducing herself (personas of 2026-10-24: "Fernanda Lima ok manda o
+    // link" was dropped, "Daiane Santos o resto passo" and "Fernanda Lima Souza o resto" went into the link). Only then: on its own,
+    // "Achei caro mas ok" with the words cut would read as a name.
+    .replace(askedName || introduced !== null ? /\s+(?:ok|okay|blz|beleza|sim|mas|pode|manda|mande|me|passo|j[aá]|[eé]|eh|o\s+rest\w*|rest\w*|k{2,}|segue)(?=\s|$).*$/i : /$^/, "")
     .trim()
     .split(" ")
     .filter((w) => w.length > 0)
     .slice(0, 5)
     .join(" ");
 
+  // Opening a longer message, it is written like a name — checked on the name once cut (2026-10-24: "Patrícia Souza pode agendar pra
+  // mim 🙏"). The name on a line of its own may be lowercase ("aline prado"): the line is the whole answer to the ask.
+  if (introduced === null && opening !== "" && !lettersOnly(cleaned) && !ownLine && !written(name)) return null;
   if (name.length < 2 || NOT_A_NAME.test(name)) return null;
   // Even after "nome dela", what follows has to start like a name (code review,
   // 2026-09-24): "o nome dela eu te passo depois", "é igual ao meu", "tá no pedido".
@@ -415,11 +441,13 @@ const NAME_ASK = String.raw`(?<!\b(?:n[oa]|em|d[oa]|com|pr[oa]|para|pel[oa])\s+(
  * seu nome completo, por favor." and "Pra finalizar: nome completo, CPF e e-mail." are asks too).
  * Read per sentence; the name as the reason is no ask.
  */
+// "Só preciso do seu nome completo pra deixar tudo prontinho" — the offer's own ask (`NAME_ASK` of the funnel) — read as the reason
+// ("do seu nome"), so her name right after it was read as if nobody had asked (personas of 2026-10-24).
 export const asksForName = (text: string): boolean =>
   text
     .split(/(?<=[.!?\n])\s*/)
     .map((q) => q.trim())
-    .some((q) => new RegExp(String.raw`\b(?:${NAME_ASK})\b`, "i").test(q) && (q.endsWith("?") || REQUEST.test(q) || /\bpor\s+favor\b|:/i.test(q)));
+    .some((q) => new RegExp(String.raw`\b(?:${NAME_ASK}|(?<=\bpreciso\s+d[oa]\s+)seu\s+nome)\b`, "i").test(q) && (q.endsWith("?") || REQUEST.test(q) || /\bpor\s+favor\b|:/i.test(q)));
 
 /**
  * Whether one message asks for the field (review of f657faa, finding 3): read per sentence, as

@@ -2333,3 +2333,9 @@ Grafo [§124](04-grafo-de-decisoes.md). Propostas P0–P5 aprovadas, ajustadas o
   `OPERATOR_APPROVED` em `jev-gold.ts`, o relatório diz "aprovada pelo operador"); `pergunta_ignorada` recusada e retirada das perguntas
   e do ouro. Ficam 18 perguntas, todas aprovadas.
 
+- **R31.1 — A4 e A5 do parecer de conformidade corrigidas** (operador, 2026-10-24): o pedido antecipado que já saiu para entrega ouve que
+  pode cancelar quando chegar (pedindo a devolução), nunca que "não dá mais pra cancelar"; o pedido de pessoa leva o e-mail do suporte
+  (`support.email`) no exemplo do modelo. Grafo §127.
+- **R31.2 — Boleto, horário e correio viram gate** (operador, 2026-10-24): `operational_claim` veta "pode pagar no boleto", "ela escolhe o
+  horário da entrega" e "o carteiro/os Correios levam o pedido do pagamento na entrega"; supera o resíduo de R21.6 para essas três. As
+  `LIES` do calibrador do Hermes mudaram. Grafo §127.

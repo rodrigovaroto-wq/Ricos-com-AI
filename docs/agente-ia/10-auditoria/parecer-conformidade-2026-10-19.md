@@ -164,7 +164,7 @@ quiser manter o `-contributor`, isso precisa de consentimento específico e dest
 política de privacidade, o que na prática é inviável no meio de uma venda. **Pergunta para o advogado**, se ele quiser
 seguir por esse caminho.
 
-### A4. Pedido de pessoa sem canal de escalonamento: **bloqueia**
+### A4. Pedido de pessoa sem canal de escalonamento: **bloqueia** — ✅ corrigido em 2026-10-24 (R31.1, grafo §127: o exemplo do pedido de pessoa leva `support.email`)
 
 **Onde:** `src/agent/retry.ts:148-149` (`HUMAN_HANDOFF_REPLY`): *"Entendo 💛 Por aqui o atendimento é todo comigo, a
 assistente virtual da Encorpa, e não tenho como te passar pra uma pessoa. Me conta o que você precisa que eu resolvo
@@ -187,7 +187,7 @@ número) não conflita com a política: ela aceita **e-mail ou telefone** como c
 O e-mail vem de `CONFIG.support.email`, como no resto do código. Conferir também se o perfil comercial do número no
 WhatsApp mostra o e-mail ou o site.
 
-### A5. "Não dá mais pra cancelar": **bloqueia** (uma linha)
+### A5. "Não dá mais pra cancelar": **bloqueia** (uma linha) — ✅ corrigido em 2026-10-24 (R31.1, grafo §127: "você pode cancelar quando ele chegar")
 
 **Onde:** `src/agent/retry.ts:296-298` (`shippedCancelReply`, pedido antecipado já despachado): *"Seu pedido já saiu para
 entrega 🚚, então não dá mais pra cancelar. Quando ele chegar aí, é só me chamar aqui pra pedir a devolução 💛"*.

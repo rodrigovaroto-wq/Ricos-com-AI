@@ -213,20 +213,46 @@ export const prepayOfferText = (config: FunnelConfig, freightBrl: number | null 
 
 /** The question after the offer: the size if it is still missing, else her full name (2.2 and 2.4 of the copy v4). */
 export const NAME_ASK = "Vamos agendar seu pedido e aproveitar essa mega oferta?! 😊\n\nSó preciso do seu nome completo pra deixar tudo prontinho pra você.";
-export const offerAsk = (_cod: boolean, sizeKnown: boolean): string => (!sizeKnown ? SIZE_ASK : NAME_ASK);
+/** The prepaid offer's name ask: nothing is scheduled on that path, it goes by the Correios (personas of 2026-10-24, A4). */
+export const PREPAY_NAME_ASK = "Só preciso do seu nome completo pra deixar tudo prontinho pra você 😊";
+export const offerAsk = (cod: boolean, sizeKnown: boolean): string => (!sizeKnown ? SIZE_ASK : cod ? NAME_ASK : PREPAY_NAME_ASK);
 
-/** The whole offer: the price image, the box, the recorded audio 4 on the delivery path only, and the ask. */
+/**
+ * Why the prepaid offer, said before it (personas of 2026-10-24, A4: 13 of 14 prepaid boxes went to women who asked to pay at the
+ * door, with no reason). The delivery is the stock of her SIZE in her city: where the lookup read another size in stock there, the
+ * size is the reason; where it read none, or her size is unknown, the region is.
+ */
+export const noCodReasonLine = (size: string | null, otherSizeHasIt: boolean): string =>
+  size && otherSizeHasIt
+    ? `No ${size}, aí na sua cidade o pagamento na entrega não está disponível agora`
+    : "Aí na sua região o pagamento na entrega ainda não chega";
+
+/**
+ * Her CEP came before her size, and the delivery reaches it (A3, personas of 2026-10-24): whether it reaches HER is the stock of her
+ * size, so nothing is promised before it — the delivery offer went, and the next turn took it back ("No M, … não está disponível").
+ */
+export const SIZE_BEFORE_OFFER = "Anotei seu CEP 😊 A entrega aí depende do tamanho, então antes eu preciso saber:";
+export const sizeFirstBubbles = (): FunnelBubble[] => [{ text: SIZE_BEFORE_OFFER }, { text: SIZE_ASK }];
+
+/**
+ * The whole offer: the price image, the box, the recorded audio 4 on the delivery path only, and the ask. The audio says "Eu
+ * consigo agendar a entrega pra amanhã mesmo": it goes only when the checkout's first day IS tomorrow (personas of 2026-10-24,
+ * A10: the box said "segunda (26/10)" on a Saturday and the audio said tomorrow).
+ */
 export const offerBubbles = (
   config: FunnelConfig,
   region: { cod: boolean; dates: readonly string[]; prepayFreightBrl?: number | null },
   now: Date,
   ask: string | null,
+  /** `noCodReasonLine`, before the prepaid box (A4). Ignored on the delivery path. */
+  noCodReason: string | null = null,
 ): FunnelBubble[] => {
   const m = config.funnel?.media ?? {};
   return [
+    ...(!region.cod && noCodReason ? [{ text: noCodReason }] : []),
     ...media(m.price, "image", priceLabel(config)),
     { text: region.cod ? codOfferText(config, region.dates[0], now) : prepayOfferText(config, region.prepayFreightBrl ?? null) },
-    ...(region.cod ? media(m.audio4, "audio", FUNNEL_LABELS.audio4) : []),
+    ...(region.cod && firstDayLine(region.dates[0], now)?.startsWith("amanhã") ? media(m.audio4, "audio", FUNNEL_LABELS.audio4) : []),
     ...(ask ? [{ text: ask }] : []),
   ];
 };
@@ -292,8 +318,9 @@ export const funnelLinkMessage = (
 };
 
 /** 2.5 of the copy v4: her size has no delivery there after the delivery offer went. A question: the prepaid box goes on her yes. */
+// The size is the reason, not her region (A4, personas of 2026-10-24): the same CEP has the delivery in another size.
 export const sizeNoCodAsk = (size: string): string =>
-  `No ${size}, o pagamento na entrega infelizmente não está disponível na sua região agora... posso te enviar via correios? 💛`;
+  `No ${size}, aí na sua cidade o pagamento na entrega não está disponível agora... posso te enviar via correios? 💛`;
 /** 3.3 of the copy v4: a delivery link went and the new address has none. The prepaid link goes on her yes. */
 export const ADDRESS_NO_COD_ASK = "Nesse endereço infelizmente não tem entrega com pagamento na hora... posso te enviar por correios? 💛";
 

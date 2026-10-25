@@ -334,6 +334,16 @@ export const quantityOf = (
     " ",
   );
   const units = i.units !== null && i.units > 1 && !QUANTITY_CUE.test(text) && !namesCount(text, i.units) ? null : i.units;
+  // "um G pra mim e um M pra minha cunhada" (persona cob-recompra, 2026-10-24): each piece's size, read here when the interpreter
+  // read none — she was asked the sizes again. The letter as she typed it, capital; a denied one ("não quero um M") is out.
+  // Only pieces joined by "e" in a statement of what she wants now: a doubt ("um M ou um G?"), a question or the past ("comprei um G
+  // e um M", "era um M, mas troquei por um G") counts no piece (Opus review of §130).
+  const doubt = message.includes("?") || /\b(?:ou|comprei|comprou|compramos|era|eram|troquei|tinha|tinham|usei|veio|vieram)\b/.test(norm(message));
+  const found = doubt || i.unit_sizes.length > 0 ? [] : [...message.matchAll(/\bum(?:as?)?\s+(PP|P|M|GG|G|XGG)\b/g)]
+    .filter((m) => !/\b(?:nao|nem|sem)\b[^,;.!?\n]*$/.test(norm(message.slice(0, m.index ?? 0))));
+  const joined = found.every((m, k) => k === 0 || /\be\b/.test(norm(message.slice(found[k - 1]!.index ?? 0, m.index ?? 0))));
+  const pieces = joined ? found.map((m) => (m[1] === "PP" ? "P" : m[1]) as SizeLetter) : [];
+  if (pieces.length >= 2) return { units: units !== null && units > pieces.length ? units : pieces.length, sizes: pieces };
   if (units === null && i.unit_sizes.length === 0) return null;
   return { units, sizes: [...i.unit_sizes] };
 };
@@ -796,6 +806,34 @@ export const isBareAck = (parts: readonly string[]): boolean =>
     return words.length <= 5 && words.every((w) => ACK_WORDS.has(w));
   });
 
+/**
+ * A thanks or a goodbye and nothing else (personas of 2026-10-24, venda-sem-dinheiro T10–T12: "ta bom amiga obrigada viu" three
+ * times, each a paid reply). Every word is an acknowledgment, a thanks or its filler; a question, a datum or any other word is not.
+ */
+const THANKS_WORDS = new Set([
+  ...ACK_WORDS, "obrigada", "obrigado", "obrigadaa", "obg", "obgda", "obgd", "brigada", "brigado", "valeu", "vlw", "grata", "grato",
+  "amiga", "amg", "viu", "muito", "mto", "mt", "tchau", "tchauzinho", "bjs", "bj", "beijo", "beijos", "flor", "querida", "entao",
+  "de", "nada", "ate", "mais", "logo", "boa", "noite", "tarde", "dia", "e", "pra", "voce", "vc",
+]);
+export const isBareThanks = (parts: readonly string[]): boolean =>
+  parts.length > 0 &&
+  parts.some((p) => /\b(?:obrigad\w*|obg\w*|brigad\w*|valeu|vlw|grat[ao])\b/.test(norm(p))) &&
+  parts.every((p) => {
+    const t = norm(p).replace(/[\p{Extended_Pictographic}\p{Emoji_Modifier}\uFE0F\u200D]/gu, " ");
+    if (t.includes("?")) return false;
+    const words = t.split(/[\s,.!;]+/).filter(Boolean);
+    return words.length > 0 && words.length <= 8 && words.every((w) => THANKS_WORDS.has(w));
+  });
+
+/**
+ * Her own hesitation over the purchase, in her words (personas of 2026-10-24): the vague objection's question went to "obrigada,
+ * vou descansar a vista", "no almoço eu vejo o cep e te chamo", "vou falar com ela pra ver se ela fica em casa" — a goodbye or an
+ * errand, read by the interpreter as "vou pensar". Only thinking, looking, deciding or putting the purchase off counts.
+ */
+const HESITATES =
+  /\b(?:pens\w*|vou\s+(?:ver|olhar|analisar|decidir|deixar|esperar|fechar)|(?:de|pra)\s+olhar|olhar\s+(?:aqui|com\s+calma|direitinho)|ver\s+(?:aqui|direitinho|com\s+calma|isso)|decid\w*|analis\w*|deixa\w*\s+pra\s+(?:depois|outra|proxima)|fica\s+pra\s+(?:depois|outra|proxima)|outro\s+dia|mais\s+pra\s+frente|semana\s+que\s+vem|mes\s+que\s+vem|nao\s+sei|sei\s+la|(?:to|estou|ainda)\s+vendo|deixa\s+eu\s+ver|(?:vou|vo)\s+dar\s+uma\s+olhad\w*|depois\s+(?:eu\s+)?(?:compro|te\s+(?:chamo|falo|aviso))|hoje\s+nao|agora\s+nao\s+(?:posso|da|consigo)|(?:nao\s+tenho|(?:to|estou|tou)\s+sem)\s+(?:\w+\s+)?(?:dinheiro|grana)|vou\s+(?:consultar|perguntar\s+(?:pro|pra|ao|a)|falar\s+com)\s+(?:o\s+|a\s+)?(?:meu|minha)\s+(?:marido|esposo|esposa|namorad[oa]|noivo|noiva))\b/;
+export const hesitates = (message: string): boolean => HESITATES.test(norm(message));
+
 /** The clause before `at` carries a negation: "ainda não comprei", "não vou querer". */
 const negatedBefore = (t: string, at: number): boolean =>
   /\b(nao|nunca|jamais|nem)\b/.test(t.slice(0, at).split(/[,;.!?\n]/).pop() ?? "");
@@ -867,6 +905,13 @@ export const changesAddress = (message: string): boolean => {
     /\bendereco\b[^.!?\n]{0,20}\b(?:novo|outro|diferente|errado)\b/.test(t) ||
     /\b(?:nao\s+tem|sem)\s+entrega\s+(?:pro|pra|para\s+o|no|nesse|neste)\s+(?:meu\s+|esse\s+|novo\s+)?endereco\b/.test(t);
 };
+
+/**
+ * A bare "comprei" on a new lead's first message is past the sale only with what comes after one of ours (Opus review of §131:
+ * "comprei um vestido pra formatura, esse colete serve?" skipped the opening): the fit, the delay, the order, the vest or us named.
+ */
+export const reportsOrderTrouble = (message: string): boolean =>
+  /\b(?:ficou\s+(?:\w+\s+)?(?:grande|pequen\w*|apertad\w*|larg\w*|folgad\w*)|nao\s+(?:serviu|chegou|veio)|chegou|meu\s+pedido|(?:comprei|paguei)\s+(?:\w+\s+){0,2}colete|com\s+(?:voces|vcs|vc|voce)|daqui|rastrei\w*|trocar|troca)\b/.test(norm(message));
 
 export const statesPastPurchase = (message: string, current = true): boolean => {
   const t = norm(message);
@@ -1054,10 +1099,12 @@ export const withdrawsInBurst = (messages: readonly string[]): boolean => {
  * it takes the refusal back ("desisti não", second review of E1.1).
  */
 const DECLINE_FILLER = String.raw`(?:ah|ai|entao|olha|oi|ok|ta|bom|na verdade|pensando bem|moca|malu|obrigad[ao]s?|brigad[ao]|obg|valeu|vlw|tchau|mesmo|msm|de verdade|viu|beleza|blz|kk+|rs+|eu|ja|mas|pela|atencao)`;
+/** Personas of 2026-10-24 (cob-loja-fisica): "então deixa pra lá" / "prefiro provar antes" — the reason she will not buy here. */
+const PREFERS_TRYING = String.raw`prefiro (?:provar|experimentar|ver pessoalmente)(?: antes| primeiro| pessoalmente| na loja)?(?: ${DECLINE_FILLER})*`;
 const DECLINE_LINE = new RegExp(
   String.raw`^(?:${DECLINE_FILLER} )*(?:` +
     String.raw`(?:(?:nao|n|nem) quero mais(?: comprar| o colete| a cinta)?|nao vou (?:mais )?(?:querer|levar|comprar)|nao tenho (?:mais )?interesse(?: nenhum| (?:no|nesse|neste|em|pelo) (?:produto|colete|cinta|comprar|compra))?)(?: (?:${DECLINE_FILLER}|nao))*` +
-    String.raw`|(?:desisti(?: d[ao] (?:compra|colete|cinta|pedido))?|desisto|deixa pra la|deixa quieto)(?: ${DECLINE_FILLER})*` +
+    String.raw`|(?:desisti(?: d[ao] (?:compra|colete|cinta|pedido))?|desisto|deixa pra la|deixa quieto)(?: ${DECLINE_FILLER})*(?: ${PREFERS_TRYING})?` +
     String.raw`)$`,
 );
 const words = (line: string): string => norm(line).replace(/[^a-z0-9]+/g, " ").trim();
@@ -1067,6 +1114,7 @@ const staysClosed = (line: string): boolean =>
   declineLine(line) ||
   (closesConversation(line) && !line.includes("?") && onlyDoneWords(line)) ||
   /^(?:nao|n)(?: quero| obrigad[ao]| valeu)?$/.test(words(line)) ||
+  (!line.includes("?") && new RegExp(String.raw`^(?:${DECLINE_FILLER} )*${PREFERS_TRYING}$`).test(words(line))) ||
   isBareAck([line]);
 /**
  * The newest refusal in her words and nothing after it but lines that keep it closed. Read over the
@@ -1215,6 +1263,27 @@ export const linkHeldBack = (
 ): boolean => pathBase !== undefined && !asksForLink(message) && lastLinkBase(outbound, checkoutBases) === pathBase;
 
 /**
+ * A payment link in her message that is not ours (persona venda-decidida, 2026-10-24: "https://encorpa.pay/checkout?size=G" was
+ * answered "Combinado, fica no seu nome assim"): never endorsed, ours goes instead. A checkout, payment or cart word in it, on a
+ * host that is none of `ourHosts` nor under one of them. Our own link pasted back, a site or an Instagram post is not one.
+ */
+const registrable = (host: string): string => host.split(".").slice(/\.(?:com|net|org|gov|edu|co)\.[a-z]{2}$/.test(host) ? -3 : -2).join(".");
+export const foreignCheckoutUrl = (message: string, ourHosts: readonly string[]): string | null => {
+  for (const m of message.matchAll(/\b(?:https?:\/\/|www\.)[^\s<>"']+|\b[a-z0-9-]+(?:\.[a-z0-9-]+)+\/[^\s<>"']*/gi)) {
+    const raw = m[0].replace(/[.,;!?)]+$/, "");
+    const href = /^https?:\/\//i.test(raw) ? raw : `https://${raw}`;
+    const url = URL.canParse(href) ? new URL(href) : null;
+    if (!url || !/\./.test(url.hostname)) continue;
+    const host = url.hostname.toLowerCase();
+    // Ours by the registrable domain (Opus review of §130: "pay.coinzz.com.br", "logzz.com.br/pedido", the site's "/cart"), and a
+    // payment word only as a whole segment of the host or path ("maps.app.goo.gl/Pixa12" is a map).
+    if (ourHosts.some((h) => registrable(h.toLowerCase().replace(/^https?:\/\//, "").split("/")[0]!) === registrable(host))) continue;
+    if (/(?:^|[/._?=&-])(?:checkout|pay|pagamento|pagar|pix|boleto|carrinho|cart|compra|order|pedido)(?:$|[/._?=&-])/i.test(`${host}${url.pathname}${url.search}`)) return raw;
+  }
+  return null;
+};
+
+/**
  * She asks for the link herself ("manda o link de novo", "não achei o link") — the M-03
  * window does not hold it back (code review, 2026-09-24). Only the request form counts:
  * "você já mandou o link", "mandei o link pra minha irmã" and "não precisa mandar o link"
@@ -1241,15 +1310,31 @@ export const asksForLink = (message: string): boolean => {
   )
     return true;
   if (/^\s*(?:(?:entao|sim|ok|ta|pode|ah)[\s,]+)*(?:(?:me\s+)?(?:manda|mande|envia|envie)\s+(?:logo|agora|ja|ai|aqui)|pode\s+(?:me\s+)?(?:mandar|enviar))\s*[!.]*\s*$/.test(t)) return true;
+  // "sim, manda" as the whole message, after a yes (persona venda-compra-forte, 2026-10-24); a bare "manda" stays out.
+  if (/^\s*(?:(?:entao|sim|ok|ta|pode|isso|blz|beleza)[\s,]+)+(?:manda|mande|envia|envie)\s*[!.]*\s*$/.test(t)) return true;
+  // "cadê o link" is the cobrança itself (persona venda-curiosa, 2026-10-24).
+  if (/\bcade\s+(?:o\s+)?(?:meu\s+)?link\b/.test(t)) return true;
+  // "pode agendar pra mim" (persona cob-gatilho-formatura, 2026-10-24): the delivery offer's own "Vamos agendar seu pedido?" answered
+  // yes — the checkout is where it is scheduled. Never denied, put off or about a day ("agenda pra sexta").
+  for (const m of t.matchAll(/(?:^|[,;.!?\n]\s*|\b(?:sim|ok|entao|ta|blz)\s+)(?:(?:ah|sim|entao|ok|ta|por\s+favor)\s+)*(?:pode\s+(?:me\s+)?agendar|agenda|agende)(?:\s+(?:pra|para)\s+mim)?\b/g)) {
+    const after = t.slice((m.index ?? 0) + m[0].length);
+    if (/\b(?:nao|se|quando|depois|amanha|mais\s+tarde|noite|semana|segunda|terca|quarta|quinta|sexta|sabado|domingo|dia|cheia|lotada)\b/.test(after)) continue;
+    // "agenda" alone is a word, not a yes; and what she schedules is the order, not "o meu horário no dentista" (Opus review of §130).
+    if (/^\s*agend[ae]\s*[!.?]*\s*$/.test(t)) continue;
+    if (/^\s+(?:(?:o|a|os|as|meu|minha|um|uma)\s+)+(?!(?:o|a|os|as|meu|minha|um|uma|pedido|colete|entrega|kit)\b)\p{L}/u.test(after)) continue;
+    return true;
+  }
   // An allowlist, not a blocklist (second review, three rounds): the imperative opens the
   // clause, after at most a filler ("ah", "sim", "pode", "me"…), and no condition follows.
   for (const m of t.matchAll(
-    /(?:^|[,;.!?\n]\s*)(?:(?:ah|sim|entao|ok|por\s+favor)\s+)*(?:(?:me\s+)?(?:manda|mande|envia|envie|passa|passe|reenvia|reenvie)|pode\s+(?:me\s+)?(?:mandar|enviar|passar|reenviar))\s+(?:(?:o|um|esse|aquele)\s+)?(?:link|checkout)\b/g,
+    // "só manda o link aí", "tá então me manda o link" (persona cob-pago-na-entrega-sim and gatilho-formatura, 2026-10-24).
+    /(?:^|[,;.!?\n]\s*)(?:(?:ah|sim|entao|ok|por\s+favor|so|ta|blz)\s+)*(?:(?:me\s+)?(?:manda|mande|envia|envie|passa|passe|reenvia|reenvie)|pode\s+(?:me\s+)?(?:mandar|enviar|passar|reenviar))\s+(?:(?:o|um|esse|aquele)\s+)?(?:link|checkout)\b/g,
   )) {
     // The whole rest of the message: "manda o link, mas só amanhã" and "passa o link, não!"
     // are not a request for now (second review, 5th round).
+    // "Só" puts it off only before a time ("só às 18h", "só a partir de"): "manda o link só aí eu vejo" asks for it now (2026-10-24).
     const after = t.slice((m.index ?? 0) + m[0].length);
-    if (/\b(?:nao|se|quando|depois|amanha|mais\s+tarde|noite|semana|segunda|terca|quarta|quinta|sexta|sabado|domingo|so)\b/.test(after)) continue;
+    if (/\b(?:nao|se|quando|depois|amanha|mais\s+tarde|noite|semana|segunda|terca|quarta|quinta|sexta|sabado|domingo|dia\s+\d+|so\s+(?:as|a\s+partir|la\s+pr?a|de\s+tarde|mais|no\s+dia))\b/.test(after)) continue;
     return true;
   }
   return false;

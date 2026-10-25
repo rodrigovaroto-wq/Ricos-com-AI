@@ -4127,6 +4127,240 @@ que não conta, e "se a cliente não …, a resposta é não". Caminho que falho
 se…") virou "sim" quase sempre (58% no "não"); escrito como teste positivo dos três sinais (pergunta, link, pedido), 94%/100%. Resultado:
 17 de 19 (`hermes/jev-avaliacao.md`). Guarda: `tests/jev.test.ts` (versão 5, a regra das duas condições).
 
+## 127. Cancelar pedido já enviado, e-mail no pedido de pessoa, e três mentiras operacionais com gate (operador, 2026-10-24)
+
+**Sintoma.** O parecer de conformidade de 19/10 apontou A4 (a Malu fecha a única porta que a política do WhatsApp exige aberta: "não
+tenho como te passar pra uma pessoa", sem nenhum canal) e A5 ("não dá mais pra cancelar" a um pedido antecipado já enviado, o que lê
+como recusa do direito de desistir, CDC art. 49). Em paralelo, "pode pagar no boleto", "o horário você escolhe no checkout" e "quem leva
+é o carteiro" passavam em todos os gates (as três perguntas do JEV de R30.11; o Hermes só acha 16% dessa classe).
+
+**Causa.** (A5) `shippedCancelReply` foi escrita em 06/10 com "não dá mais pra cancelar". (A4) o exemplo do pedido de pessoa
+(`PERSON_ASK_EXAMPLE`) não levava canal algum, embora o config tenha `support.email`. (Mentiras) o prompt as desmente, mas nenhum gate
+as lia; a regra R21.6 ("gate só por frase real") as deixara como resíduo. O operador pediu a correção em 24/10, o que vale mais que o resíduo.
+
+**Correção.**
+- `shippedCancelReply`: "Seu pedido já saiu para entrega 🚚 e vai chegar aí. Quando ele chegar, você pode cancelar: é só me chamar aqui pra
+  pedir a devolução 💛 Você tem N dias pra devolver depois que receber." Nunca "não dá mais pra cancelar".
+- `personAskExample` (substitui `PERSON_ASK_EXAMPLE`): leva "Se preferir, você também pode escrever pra <e-mail>" quando o config tem
+  `support.email`; ausente, a frase de antes. A Malu continua sem prometer pessoa no chat (R22.1).
+- Gate novo `operational_claim` (`rewrite`, 33 gates): (a) qualquer menção a boleto que não seja negação ("sem boleto", "nada de boleto",
+  "boleto não tem") nem pergunta; (b) ela escolhe, marca ou define o horário (ou manhã/tarde/noite) da entrega — só o dia se escolhe;
+  (c) `carteiro` ou `Correios` numa frase do pagamento na entrega (os Correios no antecipado são verdade e passam, por qualquer sinal de
+  antecipado na frase: antecipado, pix, cartão, rastreio, transportadora, envio).
+- O calibrador do Hermes plantava exatamente essas três mentiras como "passam nos gates". Passaram a ser vetadas, então as `LIES` mudaram
+  para três que ainda passam e o prompt desmente (lavar na máquina, barbatana de metal, outras cores). A medição de 16% do Hermes
+  nessa classe era dessas três: **precisa ser refeita com as novas** antes de se citar o número.
+
+**Caminhos que falharam.** `horas?` e `turnos?` como "horário": "escolhe a forma que deseja pagar na hora da entrega" e "o turno termina"
+foram vetados (o `prompt.test.ts` e o `dev:gates` pegaram); saíram. `carteir[oa]` pegou "coloco na carteira"; ficou só `carteiro`. "Nada de
+boleto que demora" e "não é o carteiro" não eram lidos como negação por `deniedNear`; ganharam checagem própria.
+
+**Resíduos (R21.6).** "hora da entrega" sem "horário" passa; o Correios numa frase que também diz "antecipado" passa mesmo se o resto
+da frase for do pagamento na entrega; a lista com vírgula ("escolhe o dia, o horário") passa. O JEV segue lendo as três em sombra.
+
+**Guarda.** `tests/fact-gates.test.ts` (veto e negação nos dois sentidos), `tests/shipped-cancel.test.ts`, mutações `G127-boleto`,
+`G127-correio-na-entrega`, `G127-cancelar-quando-chegar`; `pnpm dev:gates` sem afrouxamento (só endurecimento no `operational_claim`).
+
+## 128. Revisão final com personas antes do smoke test: estoque por tamanho e cidade, link retido, falsos vetos (operador, 2026-10-24)
+
+**Sintoma.** 132 leads sintéticos (51 fichas de cobertura, 16 delas novas para os PRs #76/#77/#80 e R31; 14 de segurança; 16 compradoras
+em 3 seeds), R$ 4,03, na `turn` do disco da branch R31. 12 de 16 compradoras da seed 2 caíram no antecipado; o link ficou retido depois
+de ela pedir em 9 conversas; ~40 vetos de gate em frases verdadeiras.
+
+**Causa (conferida).** (1) A Logzz responde o pagamento na entrega por **tamanho e cidade** (estoque): P só no Rio, M só em BH, Recife
+nenhum (`lookupRegion` direto, 24/10). (2) As demais causas estão listadas por defeito em
+[`personas-2026-10-24-revisao-final.md`](../../agente-ia/10-auditoria/personas-2026-10-24-revisao-final.md) e **não foram consertadas
+nesta sessão** — diagnóstico primeiro (memória `diagnostico-antes-de-consertar`).
+
+**Guarda.** As 16 fichas novas em `src/dev/scenarios/cobertura.json` e as situações O1–O11 da taxonomia; `tests/persona-coverage.test.ts`.
+
+## 129. Os falsos vetos da revisão final de personas e quatro falsos negativos (operador, 2026-10-24)
+
+**Sintoma.** Na rodada do §128, ~40 frases verdadeiras foram vetadas e a resposta caiu na reescrita e na linha genérica:
+- `shipping_promise` (11): a frase canônica do frete grátis ao lado de "paga ao entregador no dinheiro, Pix ou cartão".
+- `charge_promise` (8): "na sua ainda não chega".
+- `installment_promise` (7): "no antecipado: Pix ou até 12x", e "dividir com sua mãe" no kit.
+- `delivery_promise` (6): "*7 Dias de Garantia*", "garantir dia por aqui".
+- `size_claim`/`unverified_size` (4): "o maior que a gente tem é o XGG".
+- `invented_testimonial` (2), `cep_insist` (2).
+
+E passaram quatro mentiras: "acompanha bem mesmo quando o quadril é maior", "o M já fica reservado", "seu M fica lá te esperando" e
+"confirmado, apaguei tudo que você informou aqui".
+
+**Causa (cada frase reproduzida na porta dos gates antes do conserto).**
+- `names()` do `shipping_promise` lia pix e "no cartão" como o antecipado mesmo pagando ao entregador. Boleto negado e "também não"
+  contavam como outro pagamento. O frete calculado só valia na própria frase (`honest`). `FREE_DENIED` lia ", tá?" como pergunta.
+- `DOOR_PAYMENT` (`charge_promise`) lia como promessa o desejo dela, "depende da região e na sua não chega", o lugar da colega e o
+  preço do outro caminho.
+- `installment_promise` lia o `ou` de "Pix ou 12x" como dois caminhos e "entrega" negada como porta. `TOKEN` lia "dividir com sua mãe"
+  como parcela.
+- O `tail` da garantia no `delivery_promise` não ficava vazio com `*` e emoji. Faltavam o "conta depois que", `provar` e "se já tiver
+  recebido". "é seu nome completo" casava com o "é seu" de `ARRIVAL`, e "dia" faltava na negação do tópico.
+- "o maior é o XGG" casava com a indicação de tamanho; "tem do P ao XGG" era lido como estoque.
+- `asksForTestimonial` não lia "QUERO VER PROVA", "shopee" nem "oficial"; `asksCep` lia "não encontrei esse CEP" como pedido.
+- Nenhum gate lia reserva nem dado apagado; "acompanha … quando o quadril" escapava do `GAP` do `hip_claim`.
+
+**Caminhos que falharam.**
+1. `MARK` inteiro no `tail` da garantia liberou "Pode trocar em 7 dias, quando ele chega" (o `change-registry` pegou): ficou
+   `START_MARK`.
+2. Mudar `asksCep` mexeria em `cepAsks`/`datum`/`cepDue` da `turn`: o aviso sai só dentro do `cep_insist`.
+3. Isentar toda frase com "dependendo da região" liberaria "na maioria chega": as isenções nunca valem com "maioria".
+
+**Correção.**
+- `shipping_promise`: `DOOR_MEANS`, `BOLETO_DENIED`, `chargedElsewhere` (com `EXTENDS`).
+- `charge_promise`: `doorNotHers`, e "leva com" em `deniedRightBefore`.
+- `installment_promise`: "pix ou" fora do teste do `ou`, `DOOR_DENIED`, "dividir com <pessoa>".
+- `delivery_promise`: limpeza das marcas no `tail`, `START_MARK`, e a correção de `ARRIVAL`/`WHO`/`PURPOSE`.
+- `size_claim`: extremo da grade pelo `GateConfig.sizes` opcional (ausente = P a XGG), e o teto da tabela. `unverified_size`: grade
+  fora da leitura, salvo "em estoque/disponível/reservado".
+- `asksForTestimonial` ampliado; `cep_insist` ignora `CEP_NOT_FOUND`.
+- `hip_claim` com a condição do quadril; `order_action_claim` veta reserva e dado apagado.
+
+**Não feito.** "segura a postura" é R16.6 (o prompt ensina; `tests/postura-e-depoimentos.test.ts` exige): só vetar por decisão do
+operador.
+
+**Resíduos.**
+- "…e no antecipado tem 10% de desconto." ao lado da canônica segue vetado (§33; ensinada por `priceBeforeCepMessage`).
+- "na hora você paga no dinheiro, Pix ou cartão, tá bom?".
+- "o da entrega é só pra pagar quando receber".
+- Parcela em frase sem antecipado nem checkout.
+- "Pra eu ver se chega até sábado, me passa seu CEP".
+- O número do teto da tabela não é conferido.
+
+**Guarda.** `tests/persona-2026-10-24-gates.test.ts` (124 casos, nos dois sentidos); 29 mutações `G129-*`; 16 afrouxamentos aceitos em
+`tests/gate-loosen-accepted.txt` (os falsos vetos acima).
+
+## 130. O link não saía a pedido, o nome se perdia, a entrega era prometida antes do tamanho (personas de 2026-10-24, A1–A9)
+
+**Sintoma.**
+- "manda o link ai", até 6 vezes, recebia "lá no checkout você escolhe o G".
+- "Fernanda Lima" ouvia o pedido de "nome completinho", e o link saía com `name=Daiane+Santos+O+Resto+Passo`.
+- "🚚 FRETE GRÁTIS… Chegará já segunda" saía antes do tamanho e era desdito no turno seguinte; 13 de 14 cartões do antecipado saíam
+  sem motivo e com "Vamos agendar".
+- "40 eu uso" e "vesto 44" eram ignorados.
+- O CEP de Manaus depois do link ouvia "usa o mesmo link".
+- "av afonso pena 1500 centro bh" não era procurada.
+- O kit no pix travava em "o link sai atrelado ao CEP".
+- O link colado `encorpa.pay` era endossado.
+
+**Causa.**
+1. `asksForName` não reconhecia o `NAME_ASK` da oferta ("preciso **do** seu nome" lido como motivo), e `extractName` não cortava "ok
+   manda o link" e "o resto passo", nem lia nome em linha própria ou antes de emoji.
+2. `nameKnown` só se resolvia por nome, recusa ou `pressed`, e `asksForLink` não lia "sim, manda", "pode agendar pra mim" nem "cadê o
+   link".
+3. Sem tamanho, `lookupRegion` responde pelo tamanho de maior estoque, e o cartão da entrega saía assim mesmo.
+4. `offerBubbles` não tinha motivo, `offerAsk` ignorava `cod`, e `sizeNoCodAsk` culpava a região.
+5. `extractDressSize` só via a deixa antes do número; `statedSizeOf` descartava toda pergunta.
+6. O `cepMoved` da v39 disparava, mas o link esperava o nome, ou ia ao modelo por `askedBeside`.
+7. `streetQueries` lia a cidade como "centro bh".
+8. `cepKnown` exigia CEP válido também no antecipado.
+9. Nada lia URL na mensagem dela.
+
+**Caminhos que falharam.** `pressed` (R23) chega tarde e não pega "sim, manda". O §120 cuidava do `linkJustSent`, mas não do nome nem
+do `askedBeside`. O "escrito como nome" sobre o trecho inteiro barrava "Patrícia Souza pode agendar pra mim 🙏".
+
+**Correção.**
+- `linkAsked` e `linkWentBefore` em `nameKnown`; `cepKnown` aceita o antecipado escolhido.
+- `asksForLink` ampliado, e `asksForName` lê o `NAME_ASK`.
+- `extractName` corta a continuação (só com pedido ou apresentação) e lê a linha própria e o trecho antes do emoji.
+- O ramo `offerNow === "cod" && !sizeKnown` manda `sizeFirstBubbles`.
+- `Region.otherSizesInStock` em `lookupLogzz`, `noCodReasonLine` antes do cartão, `PREPAY_NAME_ASK` sem "agendar", e `sizeNoCodAsk`
+  pelo tamanho.
+- `SIZE_CUE_AFTER`, "vesto", `OWN_NUMBER_IN_QUESTION`, e as peças "um G" em `quantityOf`.
+- Envio fixo com `(!askedBeside || cepMoved)` e `CEP_MOVED_PREPAY`.
+- `CITY_NICKNAMES` em `streetQueries`.
+- `foreignCheckoutUrl` mais `foreignLinkLine`.
+
+**Resíduos.** "manda o link se vira ai" ("se" lido como condição); um primeiro nome sozinho não é nome; o link de terceiro no ramo
+"oferta + link" sai sem o aviso.
+
+**Guarda.** `tests/persona-2026-10-24-flow.test.ts` (47 casos, com negação); 22 mutações `G130-*`; os `from` de `G66-link-fixo`,
+`G120-cep-novo-sem-link` e `R23-link-pedido-nove-vezes` atualizados.
+
+## 131. Conduta e texto da revisão de personas de 2026-10-24 (onda 2)
+
+**Sintoma.**
+- "Claro! Você tem 7 dias…" saía para despedida, recado, "te chamo depois", aceite de ofertas e recusa.
+- "Não temos cupom" com o SUPER20 ativo.
+- "Na maioria das regiões".
+- A formatura era citada 5 vezes.
+- O áudio 4 dizia "amanhã" quando a oferta marcava "segunda (26/10)".
+- Quem já tinha comprado recebia a abertura de venda.
+- O espanhol e o pedido de áudio eram ignorados.
+- "Dá pra pagar depois", dito antes do CEP.
+- Reserva inventada e "apaguei seus dados".
+- Uma resposta paga a cada "obrigada".
+
+**Causa.**
+- `vagueObjection` confiava no `wants_to_think` do interpretador, e `vagueObjectionSituation` sempre oferecia a garantia.
+- O briefing do `coupon_exists` era montado com o cupom escondido pelo `conversationCoupon` (R17.4) e ensinava "não temos cupom no momento".
+- O prompt ensinava "na maioria das regiões".
+- `citesTold` pedia dois termos da ocasião.
+- `offerBubbles` mandava o áudio 4 em toda oferta da entrega.
+- `skipsOpening` não via compra passada.
+- A regra do "ok sozinho" não via agradecimento.
+
+**Caminhos descartados.**
+- Gravar o consentimento de ofertas pelo texto dela: viola a regra raiz do `opt-in.ts` (só o botão concede).
+- Responder em espanhol: os gates só leem português.
+- Preço por peça do kit na objeção de preço: não é preço da loja, e o `price_promise` veta.
+
+**Correção.**
+- `vagueObjection`: entram `hesitates`, a exclusão de CEP e `acceptsOffers`. A garantia só aparece com objeção `tamanho` ou `confianca`, e a
+  reclamação de preço recebe o kit do caminho dela.
+- `PREFERS_TRYING` na recusa.
+- O briefing do `coupon_exists` e o `honestyBriefing` cobrem cupom nunca negado, reserva, dados (que vão ao `support.email`), espanhol e
+  áudio. Entra também "pagar na entrega não é pagar depois", e o prompt diz "dependendo da sua cidade e do tamanho".
+- `citesTold` conta a ocasião por um termo.
+- O áudio 4 só sai quando a primeira data é amanhã.
+- `afterSale` manda o recibo no lugar da abertura.
+- `isBareThanks` fica sem resposta paga.
+
+**Resíduos.**
+- A dor de vários termos ainda exige dois termos.
+- O gancho dito com outra palavra não conta como uso.
+- O áudio 4 diz "frete grátis" mesmo com `codFreeShipping:false`.
+- O aceite por escrito suspende o consentimento e a varredura pergunta de novo com os botões.
+
+**Guarda.** `tests/persona-2026-10-24-conduct.test.ts` (30 testes, cada um com negação); 18 mutações `G131-*`; os `from` de
+`recusa-desisti-nao` e `R28-audio-4-sem-entrega` atualizados.
+
+## 132. A revisão Opus das ondas §129–§131 e as correções (2026-10-24)
+
+**Sintoma (revisão Opus, reprovada).**
+- `quantityOf` lia "um M ou um G?", "era um M, troquei por um G" e "comprei um G e um M mês passado" como kit.
+- `chargedElsewhere` (`shipping_promise`) deixava "No pix fica R$ 116,91 com tudo incluso" ao lado da frase do frete calculado.
+- `size_claim` aceitava qualquer número como teto da tabela.
+- `unverified_size` passava "do P ao XGG, todos disponíveis".
+- `cep_insist` passava "não achei o seu CEP" com `cepForgotten`.
+- `extractName` lia "Recife PE" e "Cartão de crédito" como nome.
+- `foreignCheckoutUrl` marcava o próprio site e os subdomínios da Coinzz/Logzz.
+- `afterSale` pulava a abertura para "comprei um vestido".
+- O pedido de tamanho antes da oferta repetia.
+- `hesitates` não lia "deixa eu ver", "to sem grana" nem "vou consultar meu marido".
+
+**Causa.** Cada exceção nova das ondas era larga demais: a negação ou a isenção olhava a palavra colada e não a frase, ou o domínio
+inteiro e não o registrável.
+
+**Correção.**
+- As peças só contam ligadas por "e" numa oração afirmativa, sem passado.
+- A isenção do `chargedElsewhere` não vale com valor do antecipado nem com "tudo incluso".
+- O teto da tabela é o real (`TABLE_TOP_PANTS` = `TABLE_TOP_DRESS`).
+- O estoque é procurado no resto da frase.
+- `cepNotFound` do turno vai ao gate.
+- A linha própria do nome não vale com dígito, UF, cidade ou pagamento.
+- O domínio registrável e o `CONFIG.site` contam como nossos; a palavra de pagamento só vale como segmento.
+- `afterSale` só vale para compra conosco ou com sinal de troca ou atraso.
+- O pedido de tamanho sai fixo uma vez, com a pergunta dela respondida.
+- `hesitates` ampliado.
+- Menores: `asksForLink` com "só no dia 5", "reservo um tempinho" não vetado, "o maior é o XGG, que é o seu" vetado.
+
+**Resíduos (R21.6).**
+- `doorNotHers` aceita afirmação depois da exceção ("o de R$ 129,90 é pagando na entrega, e é o seu caso aí").
+- "Nem no pix tem frete grátis, viu? Mentira, tem sim."
+
+**Guarda.** `tests/persona-2026-10-24-review-fixes.test.ts`; mutações `G132-*`.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

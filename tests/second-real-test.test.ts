@@ -457,10 +457,11 @@ describe("T3 — o link sai do jeito do operador, sem pedir permissão", () => {
   });
   it("o turno manda a mensagem fixa quando o link sai e ela não perguntou outra coisa", () => {
     expect(turn).toContain("const askedBeside = clauses.some((q: string) => asksSomething(q) && !buyerAsk(q));");
-    expect(turn).toContain("if (guides.length === 0 && checkoutUrl !== null && openNow && !farewell && !askedBeside) {");
+    // 2026-10-24 (A6): a new CEP after the link sends it fixed even with her question beside it, answered after by the resume.
+    expect(turn).toContain("if (guides.length === 0 && checkoutUrl !== null && openNow && !farewell && (!askedBeside || cepMoved)) {");
     // R28: the script v3 link message (`funnelLinkMessage`), fixed.
     expect(turn).toContain("funnelLinkMessage(CONFIG, url, linkPath,");
-    expect(turn).toContain("{ text: cepMoved && linkPath === \"cod\" && region?.cod === true ? v3Link(checkoutUrl) : opening(v3Link(checkoutUrl)) },");
+    expect(turn).toContain("{ text: (cepMoved && region?.cod === (linkPath === \"cod\")) || foreignUrl !== null ? v3Link(checkoutUrl) : opening(v3Link(checkoutUrl)) },");
   });
 });
 

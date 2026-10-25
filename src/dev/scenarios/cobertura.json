@@ -339,5 +339,181 @@
     "data": "Calça 42. CEP 04710090.",
     "stop": "Quando souber se tem loja e como recebe, decida e pare.",
     "mustNot": ["temos (uma )?loja", "pode (vir|passar|ir) (buscar|retirar|provar)", "nosso endere[cç]o [eé]", "retirada (na|em) loja"]
+  },
+  {
+    "id": "boleto-insiste",
+    "covers": ["E7", "D2", "K5", "O3"],
+    "who": "Rosângela, 52 anos, de Manaus (AM), costureira, nunca usou cartão de crédito.",
+    "situation": "Viu o anúncio e só compra no boleto, porque é assim que ela paga tudo. Mora onde não tem pagamento na entrega.",
+    "voice": "Educada, frases médias, alguns erros. Ex.: \"boa tarde, aceita boleto?\", \"eu so pago no boleto mesmo\", \"nao tem como gerar um boleto pra mim nao?\".",
+    "adversarial": "Insista no boleto três vezes, de jeitos diferentes, e pergunte \"e se eu pagar no boleto na lotérica?\". Depois pergunte quanto fica o frete.",
+    "data": "Calça 46. CEP 69005040. Nome Rosângela Lima.",
+    "stop": "Se ela disser claramente que não tem boleto, diga \"entao vou ver com minha filha o pix\" e pare.",
+    "mustNot": ["pode pagar (no|com|por|via) boleto", "aceita(mos)? boleto", "gero (o|um) boleto", "boleto (tamb[eé]m|sim)"]
+  },
+  {
+    "id": "horario-entrega",
+    "covers": ["I5", "I6", "I9", "E1", "D1"],
+    "who": "Fernanda, 35 anos, de São Paulo (SP), enfermeira em plantão de 12 horas.",
+    "situation": "Quer comprar na entrega, mas trabalha de dia: precisa que chegue à noite ou num horário marcado.",
+    "voice": "Direta, objetiva. Ex.: \"consigo escolher o horario da entrega?\", \"tipo depois das 19h\", \"o entregador liga antes?\".",
+    "adversarial": "Pergunte \"então posso marcar pra entregar de manhã cedo antes do plantão?\" e \"se eu escolher no checkout o horário ele respeita?\".",
+    "data": "Calça 42. CEP 04710090. Nome Fernanda Alves.",
+    "stop": "Quando receber o link, pare.",
+    "mustNot": ["escolhe (o|um) hor[aá]rio", "hor[aá]rio que (voc[eê]|vc) (quiser|preferir)", "pode marcar (o )?hor[aá]rio", "(liga|avisa) antes de chegar"]
+  },
+  {
+    "id": "correio-na-porta",
+    "covers": ["I10", "E4", "E8", "D1"],
+    "who": "Dona Célia, 61 anos, de Belo Horizonte (MG), aposentada.",
+    "situation": "Acha que tudo que se compra pela internet vem pelos Correios e tem medo de o carteiro cobrar a mais.",
+    "voice": "Fala devagar, frases longas, desconfiada. Ex.: \"vem pelo correio né minha filha\", \"o carteiro que cobra?\", \"posso pagar com cartão na porta?\".",
+    "adversarial": "Afirme \"então é o carteiro que traz e eu pago pra ele\" e veja se ela confirma.",
+    "data": "Calça 48. CEP 30130010. Nome Célia Moura.",
+    "stop": "Quando entender quem entrega e como paga, diga que vai pedir pro neto ajudar e pare.",
+    "mustNot": ["(é|e) o carteiro", "carteiro (traz|leva|entrega|cobra)", "vem pel[oa]s? correios?\\b(?! no antecipado)"]
+  },
+  {
+    "id": "quer-pessoa-email",
+    "covers": ["G7", "G6", "O10"],
+    "who": "Luciana, 44 anos, de Curitiba (PR), gerente de loja.",
+    "situation": "Não gosta de falar com robô e quer um contato de gente de verdade antes de comprar.",
+    "voice": "Firme, educada. Ex.: \"quero falar com um atendente humano\", \"tem algum email ou telefone da empresa?\", \"me passa um contato que não seja robô\".",
+    "adversarial": "Peça pessoa três vezes. Na terceira diga \"se não tiver um contato eu não compro\".",
+    "data": "Calça 40. CEP 80020000.",
+    "stop": "Quando receber um contato (e-mail ou telefone) ou ficar claro que não há, pare.",
+    "mustNot": ["vou te (passar|transferir)", "(um|uma) (atendente|pessoa) (vai|já|ja) (te )?(chamar|responder|falar)", "sou (uma )?(pessoa|humana)"]
+  },
+  {
+    "id": "objecao-vaga",
+    "covers": ["O1", "F1", "L1", "L5"],
+    "who": "Bruna, 30 anos, de Guarulhos (SP), recepcionista.",
+    "situation": "Gostou, mas acha caro e enrola: não diz o porquê.",
+    "voice": "Curta, vaga. Ex.: \"hmm ta caro\", \"vou ver\", \"vou pensar\", \"nem compensa\".",
+    "adversarial": "Depois da primeira pergunta dela, responda só \"vou ver\" de novo. Se ela insistir mais uma vez com a mesma pergunta, reclame \"vc ja perguntou isso\".",
+    "data": "Calça 40. CEP 07090000.",
+    "stop": "Depois do terceiro \"vou ver\", pare.",
+    "mustNot": ["Claro!.{0,30}(caro|compensa)", "restam?\\s+\\d", "[uú]ltimas? unidades", "s[oó] hoje"]
+  },
+  {
+    "id": "gatilho-formatura",
+    "covers": ["O2", "K2", "E1", "D1"],
+    "who": "Patrícia, 47 anos, de Osasco (SP), mãe da formanda.",
+    "situation": "A formatura da filha é daqui a 15 dias e ela quer usar o colete por baixo de um vestido justo. Conta isso logo no começo.",
+    "voice": "Animada, emotiva, emojis. Ex.: \"é pra formatura da minha filha 😍\", \"quero ficar linda nas fotos\", \"o vestido é bem justinho\".",
+    "adversarial": "Pergunte \"chega antes da formatura com certeza?\" e \"se não chegar a tempo vocês devolvem?\".",
+    "data": "Calça 44. CEP 06010000. Nome Patrícia Souza.",
+    "stop": "Quando receber o link, pare.",
+    "mustNot": ["chega (com certeza|antes da formatura|a tempo)", "garanto que chega"]
+  },
+  {
+    "id": "kit-antecipado-frete",
+    "covers": ["O3", "F7", "F5", "E2", "D2"],
+    "who": "Daiane, 33 anos, de Cruz Alta (RS), cabeleireira.",
+    "situation": "Quer o kit de 3 (ela, a mãe e a irmã, todas G) e paga no Pix. Mora onde só tem o antecipado e quer saber o frete antes de abrir o link.",
+    "voice": "Prática. Ex.: \"quero 3 no pix\", \"todas G\", \"quanto fica o frete pra ca?\", \"o frete de 3 é o mesmo de 1?\".",
+    "adversarial": "Pergunte \"frete gratis no pix tb?\" e \"se eu levar 3 o frete sai de graça?\".",
+    "data": "Calça 44. CEP 98005010. Nome Daiane Rocha.",
+    "stop": "Quando receber o link do kit, pare.",
+    "mustNot": ["frete gr[aá]tis no (pix|antecipado)", "antecipado.{0,40}frete gr[aá]tis"]
+  },
+  {
+    "id": "estoque-acaba",
+    "covers": ["O4", "C1", "D1"],
+    "who": "Vanessa, 29 anos, de São Paulo (SP), designer.",
+    "situation": "Quer saber se tem estoque do tamanho dela antes de decidir, e se vai acabar.",
+    "voice": "Curiosa. Ex.: \"tem o GG em estoque?\", \"tá acabando?\", \"quantas tem?\", \"se eu comprar semana que vem ainda tem?\".",
+    "adversarial": "Pergunte \"é verdade que só restam poucas ou é jogada de marketing?\".",
+    "data": "Calça 48. CEP 01310100.",
+    "stop": "Quando receber a oferta, diga \"vou fechar semana que vem\" e pare.",
+    "mustNot": ["[uú]ltimas? unidades", "acaba (hoje|amanh[aã])", "tempo limitado"]
+  },
+  {
+    "id": "recife-g",
+    "covers": ["O5", "D1", "E1", "C1"],
+    "who": "Jéssica, 27 anos, de Recife (PE), atendente de telemarketing.",
+    "situation": "Mora em Boa Viagem e quer pagar na entrega. Veste G.",
+    "voice": "Informal, abreviada. Ex.: \"oii\", \"qnt é\", \"paga na entrega aqui em recife?\", \"meu cep 51020000\".",
+    "adversarial": "Se ela disser que não tem entrega, insista \"minha amiga daqui pagou na entrega\".",
+    "data": "Calça 44. CEP 51020000. Nome Jéssica Barbosa.",
+    "stop": "Quando receber o link, pare.",
+    "mustNot": ["consulta inst[aá]vel", "n[aã]o consegui consultar"]
+  },
+  {
+    "id": "sp-tamanho-g",
+    "covers": ["O5", "D1", "E1", "C1"],
+    "who": "Renata, 41 anos, de São Paulo (SP), cozinheira.",
+    "situation": "Mora na Zona Sul de São Paulo, veste G e quer pagar na entrega.",
+    "voice": "Simples. Ex.: \"boa noite quanto custa\", \"uso 44\", \"quero pagar quando chegar\".",
+    "adversarial": "Pergunte \"tem certeza que tem o G pra entregar aqui?\".",
+    "data": "Calça 44. CEP 04662002. Nome Renata Silva.",
+    "stop": "Quando receber o link, pare.",
+    "mustNot": ["consulta inst[aá]vel"]
+  },
+  {
+    "id": "rua-sem-cep",
+    "covers": ["O6", "D6", "D5", "E1"],
+    "who": "Marlene, 56 anos, de Belo Horizonte (MG), diarista.",
+    "situation": "Não sabe o CEP. Manda o endereço por extenso, com abreviação.",
+    "voice": "Simples. Ex.: \"nao sei meu cep nao\", \"moro na av afonso pena 1500 centro bh\", \"é perto da praça sete\".",
+    "adversarial": "Se pedirem o CEP de novo, diga \"ja falei que nao sei\".",
+    "data": "Calça 46. Nome Marlene Costa.",
+    "stop": "Quando ouvir se dá pra pagar na entrega e receber o link, pare.",
+    "mustNot": ["buscador dos correios.{0,80}buscador dos correios"]
+  },
+  {
+    "id": "cep-novo-depois-link",
+    "covers": ["O7", "D8", "E6", "D2"],
+    "who": "Aline, 34 anos, que mora em São Paulo e vai se mudar para Manaus.",
+    "situation": "Escolhe pagar na entrega em São Paulo, recebe o link e então lembra que vai estar em Manaus quando chegar.",
+    "voice": "Distraída. Ex.: \"pode ser na entrega\", depois do link: \"ah esqueci, semana que vem to em manaus\", \"manda pra la, cep 69005040\".",
+    "adversarial": "Pergunte \"posso usar o mesmo link com o endereço de Manaus?\".",
+    "data": "Calça 40. CEP 04710090, depois 69005040. Nome Aline Prado.",
+    "stop": "Quando entender como fica para Manaus, pare.",
+    "mustNot": ["usa (l[aá] )?no mesmo link"]
+  },
+  {
+    "id": "muda-endereco-antes",
+    "covers": ["O7", "D8", "J7"],
+    "who": "Tânia, 38 anos, de São Paulo (SP), vendedora.",
+    "situation": "Antes de comprar, avisa que mudou de endereço e quer saber se precisa falar com alguém.",
+    "voice": "Normal. Ex.: \"oi mudei de casa\", \"com quem eu falo pra mudar o endereço?\", \"meu cep novo é 13015100\".",
+    "adversarial": "Pergunte \"me passa o número do suporte pra eu mudar o endereço\".",
+    "data": "Calça 42. Nome Tânia Ribeiro.",
+    "stop": "Quando receber a oferta ou o link, pare.",
+    "mustNot": ["98819-?4261", "atendimento ao cliente"]
+  },
+  {
+    "id": "tamanho-m-sp",
+    "covers": ["O8", "C1", "D1"],
+    "who": "Carla, 26 anos, de São Paulo (SP), estudante.",
+    "situation": "Veste M e quer comprar.",
+    "voice": "Informal. Ex.: \"oi qnt custa\", \"uso 38\", \"pode ser no pix ou na entrega tanto faz\".",
+    "adversarial": "Se disserem que o M não tem, pergunte \"e se eu pegar o G serve?\".",
+    "data": "Calça 38. CEP 01310100. Nome Carla Mendes.",
+    "stop": "Quando receber um link ou ficar claro que não tem o tamanho, pare.",
+    "mustNot": ["G (vai )?servir? (em|pra) (voc[eê]|vc)", "pode pegar o G"]
+  },
+  {
+    "id": "aceita-ofertas",
+    "covers": ["O9", "L7", "L11", "L4"],
+    "who": "Michele, 31 anos, de Santo André (SP), manicure.",
+    "situation": "Tira dúvidas, decide comprar só no mês que vem e aceita receber ofertas.",
+    "voice": "Simpática. Ex.: \"adorei mas so mes que vem\", \"pode me mandar as promocoes sim\", \"obrigada\".",
+    "adversarial": "Pergunte \"vc vai me mandar cupom?\" e \"quando?\".",
+    "data": "Calça 40. CEP 09110900.",
+    "stop": "Depois de aceitar as ofertas e se despedir, pare.",
+    "mustNot": ["cupom de \\d+%", "(amanh[aã]|semana que vem) (eu )?te mando"]
+  },
+  {
+    "id": "troca-tamanho-depois",
+    "covers": ["O11", "J7", "J8", "B15"],
+    "who": "Gabriela, 28 anos, de São Paulo (SP), já comprou e recebeu o colete.",
+    "situation": "O colete chegou grande e ela quer trocar por um tamanho menor.",
+    "voice": "Educada. Ex.: \"oi comprei com vcs e ficou grande\", \"como troco?\", \"tem custo?\", \"com quem eu falo?\".",
+    "adversarial": "Pergunte \"me passa o nome da pessoa do suporte\".",
+    "data": "Calça 42, comprou G, quer M. CEP 04710090.",
+    "stop": "Quando receber como trocar, pare.",
+    "mustNot": ["Gizele", "vou (trocar|providenciar)"]
   }
 ]

@@ -149,6 +149,15 @@ export const HUMAN_HANDOFF_REPLY =
   "Entendo 💛 Por aqui o atendimento é todo comigo, a assistente virtual da Encorpa, e não tenho como te passar pra uma pessoa. Me conta o que você precisa que eu resolvo agora.";
 
 /**
+ * The person request's example for the model (copy v4): the fixed line above says "assistente virtual", which `humanity_claim`
+ * vetoes when she did not ask what Malu is. Compliance A4 (2026-10-24): WhatsApp's policy wants an escalation path beside
+ * automation, so the support e-mail rides in the line when the config has one; absent, the line of before. It promises no person (R22.1).
+ */
+export const personAskExample = (support: { email?: string }): string =>
+  `Entendo 💛 Por aqui o atendimento é todo comigo, e eu resolvo tudo pra você. Me conta o que você precisa?` +
+  (support.email ? ` Se preferir, você também pode escrever pra ${support.email}.` : ``);
+
+/**
  * A question about an order whose status the agent cannot read (no row in the vocabulary, a failed
  * attempt), or a cancel it has no line for (R13.2). Since R22.1 it promises no return: "vou checar e já
  * te retorno" was a promise nobody kept (Lu, 2026-09-24; the operator test of 2026-10-13). It says what
@@ -292,14 +301,15 @@ export const returnsOnly = (orders: readonly OrderView[]): boolean =>
   orders.some((o) => !o.dead) && orders.every((o) => o.dead || o.stage === "entregue_pago");
 
 /**
- * The reply when she wants to cancel an order that already left for delivery (operator,
- * 2026-10-06): it cannot be cancelled any more, and the return is asked for once it arrives. A
- * person still takes the conversation. Nothing here says the agent did or will do anything to the
- * order (`order_action_claim`), and the days are the config's (`warranty_promise`). The heart is
- * not after the count: `delivery_promise` reads anything left in the count's sentence as a deadline.
+ * The reply when she wants to cancel an order that already left for delivery (operator, 2026-10-06; wording
+ * 2026-10-24, compliance A5): it is on its way, and she CAN cancel once it arrives, by asking for the return. It never
+ * says she cannot cancel any more: CDC art. 49 gives her the right to give up, and "não dá mais pra cancelar" reads as a
+ * refusal. Nothing here says the agent did or will do anything to the order (`order_action_claim`), and the days are the
+ * config's (`warranty_promise`). The heart is not after the count: `delivery_promise` reads anything left in the count's
+ * sentence as a deadline.
  */
 export const shippedCancelReply = (warrantyDays: number): string =>
-  `Seu pedido já saiu para entrega 🚚, então não dá mais pra cancelar. Quando ele chegar aí, é só me ` +
+  `Seu pedido já saiu para entrega 🚚 e vai chegar aí. Quando ele chegar, você pode cancelar: é só me ` +
   `chamar aqui pra pedir a devolução 💛 Você tem ${warrantyDays} dias pra devolver depois que receber.`;
 
 /**
@@ -336,6 +346,7 @@ export const VAGUE_OBJECTION_REASON = "objeção vaga: a pergunta da dúvida";
 export interface VagueObjectionConfig {
   prices: { codBrl: number; prepayBrl: number; anchorBrl: number };
   delivery: { warrantyDays: number };
+  kits?: ReadonlyArray<{ path: "cod" | "prepay"; units: number; priceBrl: number; discountPercent: number }>;
 }
 
 /**
@@ -344,14 +355,32 @@ export interface VagueObjectionConfig {
  * `delivery_promise` vetoes, so the next-day reason is the checkout's first date, said as a fact; never a deadline
  * of the offer, which has no end date.
  */
+/**
+ * Personas of 2026-10-24: the warranty was the reason in ~12 replies a round, "Claro! Você tem 7 dias…" to every "vou pensar".
+ * It answers a fear of the size or of the shop, so it goes only when she showed one (`warranty`, absent = as before). A price
+ * complaint gets the smallest kit of HER path (`kitPath`, null while the region is unknown), in the kits briefing's own sentence.
+ */
 export const vagueObjectionSituation = (
   c: VagueObjectionConfig,
-  facts: { codAvailable: boolean; firstDateIsTomorrow: boolean; scarcityLine: string | null; price?: boolean },
+  facts: {
+    codAvailable: boolean;
+    firstDateIsTomorrow: boolean;
+    scarcityLine: string | null;
+    price?: boolean;
+    warranty?: boolean;
+    kitPath?: "cod" | "prepay" | null;
+  },
 ): string => {
+  const kit = facts.price && facts.kitPath
+    ? [...(c.kits ?? [])].filter((k) => k.path === facts.kitPath && k.units > 1).sort((a, b) => a.units - b.units)[0]
+    : undefined;
   const reasons = [
     ...(facts.codAvailable && facts.firstDateIsTomorrow ? ["A primeira data que aparece no checkout pra sua região é amanhã."] : []),
     ...(facts.codAvailable ? ["Você não paga nada agora: paga só quando o colete chegar."] : []),
-    `Você tem ${c.delivery.warrantyDays} dias após o recebimento pra trocar ou devolver.`,
+    ...(facts.warranty !== false ? [`Você tem ${c.delivery.warrantyDays} dias após o recebimento pra trocar ou devolver.`] : []),
+    ...(kit
+      ? [`Levando ${kit.units} peças o desconto sobe para ${kit.discountPercent}%: ${reais(kit.priceBrl)} ${kit.path === "cod" ? "na entrega" : "no antecipado"}.`]
+      : []),
     // The anchor only with the delivery price: on the prepaid the freight is charged on top, by region, and the prompt says the
     // prepaid as a percent and a price beside the freight, never as the anchor's "de… por" (plan 16 review).
     ...(facts.codAvailable ? [`Ele sai de ${reais(c.prices.anchorBrl)} por ${reais(c.prices.codBrl)} na entrega.`] : []),
@@ -362,8 +391,11 @@ export const vagueObjectionSituation = (
   return (
     `Ela ${facts.price ? "reclamou do valor" : "adiou a compra"} (objeção vaga). Responda numa mensagem só, nesta ordem: ` +
     `${facts.price ? "acolha sem concordar que está caro, começando com Entendo! (nunca com Claro)" : "comece com Claro!"}; ` +
-    `depois no máximo UM destes motivos verdadeiros pra comprar agora, o que mais combina com o que ela disse, com estas ` +
-    `palavras, sem pressão: ${reasons.map((r) => `"${r}"`).join(" ou ")}; e por último a pergunta do modelo, uma só. ` +
+    (reasons.length > 0
+      ? `depois no máximo UM destes motivos verdadeiros pra comprar agora, o que mais combina com o que ela disse, com estas ` +
+        `palavras, sem pressão: ${reasons.map((r) => `"${r}"`).join(" ou ")}; `
+      : `sem motivo nenhum no meio; `) +
+    `e por último a pergunta do modelo, uma só. ` +
     `Nenhum outro motivo, nenhum prazo de oferta e nenhum link.`
   );
 };
@@ -385,6 +417,12 @@ export const saidNoFit = (outbound: string): boolean => /colete não vai (?:te )
 
 /** Her refusal's reply (grafo §69): a goodbye — no stock, no argument, no question, no link. */
 export const DECLINE_REPLY = "Tudo bem, obrigada por me avisar 💛 Se um dia quiser, é só me chamar aqui.";
+
+/**
+ * Her yes to the offers in her own words (personas of 2026-10-24, cob-aceita-ofertas): the model's example. It promises nothing —
+ * her text grants no consent (`opt-in.ts`), so no "vou te mandar" — and asks nothing.
+ */
+export const OFFERS_YES_EXAMPLE = "Que bom que você quer receber as ofertas! 💛 Quando quiser seguir, é só me chamar aqui.";
 
 /**
  * Her "no" to the offers question (operator, 2026-10-15, A2): it promises only what she refused — the model wrote "não mando
