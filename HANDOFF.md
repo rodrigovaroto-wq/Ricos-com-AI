@@ -13,6 +13,16 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-25 (madrugada) — rodada de verificação feita (relatório §8). Gasto total da revisão: R$ 5,18 (R$ 0,18 acima do teto).**
+>
+> - Os defeitos corrigidos sumiram ou caíram muito, as reescritas caíram 75% e as compradoras fecharam mais rápido.
+> - **Achado novo: o custo por turno subiu 45%** (o cache do prompt parece não bater na maioria dos turnos). Diagnóstico parcial no §8.
+> - **Falta, nesta ordem:**
+>   1. Achar e consertar a quebra do cache: o que muda por turno vai para o fim do prompt; medir em `llm_calls`.
+>   2. PR para a `main`.
+>   3. `pnpm deploy:turn` (v44), com o "pode subir" do operador.
+>   4. Smoke test.
+
 > **2026-10-25 — correções da revisão Opus FEITAS (grafo §132, commit `b6f6850`). Branch pronta para PR e deploy (v44), NÃO publicada.**
 >
 > - **Validação no HEAD:** 9.099 testes, `typecheck`, `lint`, `typecheck:function`, espelho, `dev:conversas` 1655/1655,

@@ -139,3 +139,39 @@ O gate novo `operational_claim` (R31) **não vetou nada em 132 conversas**: o pr
    é o tamanho) e sem "Vamos agendar".
 4. **Os cinco falsos vetos da §4**, com as frases desta rodada como prova (R21.6: são frases de persona).
 5. **CEP novo e rua (A6, A7)**, mentira de LGPD (A9), link de terceiro (A10), cupom e "na maioria das regiões".
+
+## 8. Rodada de verificação depois das correções (2026-10-25, HEAD `d2af322`)
+
+25 conversas: as 20 fichas e as 5 compradoras que mais falharam, na mesma `turn` local, com o mesmo config e o mesmo modelo.
+
+**Gasto.** R$ 1,15. O total da revisão passou a **R$ 5,18, R$ 0,18 acima do teto de R$ 5**. O executor confere o orçamento antes de cada
+mensagem; com 10 conversas ao mesmo tempo, cada uma passou uma troca além do teto.
+
+**O que melhorou** (contagem nas respostas da Malu; antes = 67 conversas da rodada 1, agora = 25):
+
+| Defeito | Antes | Agora |
+|---|---|---|
+| "na maioria das regiões" | 8 | 0 |
+| "não temos cupom" | 2 | 0 |
+| "Claro! Você tem 7 dias…" (resposta pronta) | 13 | 1 |
+| "me fala de novo o que você quer saber?" (fallback) | 4 | 0 |
+| "nome completinho" / lixo no link | 4 | 0 |
+| "apaguei" (LGPD) | 1 | 0 |
+| "usa o mesmo link" (CEP novo) | 1 | 0 |
+| reescritas por veto (nas mesmas 25 conversas) | 63 | 16 |
+| turnos até o fim (nas mesmas 25) | 177 | 147 |
+
+As compradoras fecharam mais rápido: venda-compra-forte em 4 turnos (eram 9) e venda-decidida em 4 (eram 7).
+
+**Achado novo: o custo por turno subiu 45%** (R$ 0,0049 → R$ 0,0071), apesar de 75% menos reescritas. O total das 25 conversas foi de
+R$ 0,87 para R$ 1,04.
+- **Onde aparece:** antes, a maioria dos turnos depois do primeiro custava ~R$ 0,001–0,002, que é o preço com o cache do prompt. Agora a
+  maioria custa ~R$ 0,008, que é o preço sem cache.
+- **O que já foi descartado:** o prompt cresceu só 4,5% (42.601 → 44.542 caracteres). O ponto onde ele começa a variar continua em ~61%,
+  igual à base.
+- **Hipótese (não confirmada):** alguma parte que varia de turno a turno passou a mudar mais. As candidatas são o `freightBriefing`
+  (frete do antecipado), o `scarcityBriefing` (estoque) e as diretivas de tamanho, nome e checkout, que ficam no meio do prompt e agora
+  dependem da consulta pelo tamanho. Também pode ser variação do cache da Meta.
+- **Conserto proposto:** mover tudo que muda por turno para o fim do prompt de sistema, para o prefixo estático continuar no cache.
+  Medir com uma conversa antes e outra depois, lendo `llm_calls`.
+- Isso precisa ser resolvido antes de escalar: a conversa longa está em R$ 0,07–0,08 só de Malu, contra a premissa de R$ 0,05 por lead.
