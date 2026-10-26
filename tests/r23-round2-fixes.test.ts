@@ -24,14 +24,6 @@ describe("1. calça acima da tabela (…1632: \"Tamanho 65\")", () => {
     expect(sizeBeyondTable("uso 60 de calça")).toBe(60);
     expect(sizeBeyondTable("65", true)).toBe(65);
   });
-  it("53 a 56 de calça já passam da tabela (operador, 2026-10-26): não são mais XGG", () => {
-    for (const n of [53, 54, 56]) {
-      expect(extractDressSize(`uso ${n} de calça`)).toBeNull();
-      expect(sizeBeyondTable(`uso ${n} de calça`)).toBe(n);
-    }
-    expect(extractDressSize("uso 52 de calça")).toBe(52);
-    expect(sizeBeyondTable("uso 52 de calça")).toBeNull();
-  });
   it.each([
     "Estou pesando 200kg", "peso 70", "tenho 62 anos", "calço 60", "uso 52", "nao uso 60, uso 44", "65",
     // R23 review: the house number, the birth year, the "entre" inside "entrega", and a waist in cm are not pants.

@@ -55,7 +55,7 @@ export const sizeFromDressSize = (n: number): Size =>
   RANGES.find((r) => n <= r.dressMax)?.size ?? "XGG";
 
 /** Plausible clothing sizes a customer would actually quote. */
-const DRESS_SIZE_RE = /\b(3[4-9]|4[0-9]|5[0-2])\b/g;
+const DRESS_SIZE_RE = /\b(3[4-9]|4[0-9]|5[0-6])\b/g;
 
 /**
  * Units that make a number something other than a dress size. "Tenho 44 anos" is
@@ -136,7 +136,7 @@ const WEIGHT_CUE = /\b(peso|pesando|pesava|pesa)\b\D{0,4}$/i;
 export const extractDressSize = (text: string): number | null => {
   if (/^\s*\d{2}\s*$/.test(text)) {
     const bare = Number(text.trim());
-    return bare >= 34 && bare <= 52 ? bare : null;
+    return bare >= 34 && bare <= 56 ? bare : null;
   }
 
   // Two passes over the same numbers: `cued` is what a cue word actually introduces,
@@ -166,7 +166,7 @@ export const extractDressSize = (text: string): number | null => {
  * A pants size past the whole table (real test 2026-10-14, …1632: "Tamanho 65"). The model said, rightly, that
  * the vest would not fit — and the ruler then asked her pants size again the next hour. The number has to be cued
  * like any size ("tamanho 65", "uso 60", "calça 58"), not a weight or another unit; a bare number counts only as
- * the answer to the size question (`askedSize`). Past `TABLE_TOP_DRESS` (operador 2026-10-26: 53 to 56 no longer read as the XGG; the table stops at 52).
+ * the answer to the size question (`askedSize`). Past `TABLE_TOP_DRESS` + 4 (56 still reads as the XGG, as before).
  */
 export const TABLE_TOP_DRESS = RANGES[RANGES.length - 1]!.dressMax;
 export const TABLE_TOP_WAIST = RANGES[RANGES.length - 1]!.max;
@@ -176,8 +176,8 @@ const BEYOND_CUE = /\b(tamanho|veste|visto|uso|usa|cal[c\u00e7]a)\b\D{0,10}$/i;
 const BODY_AFTER = /^\s*(?:de\s+)?(?:cintura|quadril|busto|barriga)\b/i;
 export const sizeBeyondTable = (text: string, askedSize = false): number | null => {
   const bare = /^\s*(\d{2})\s*$/.exec(text);
-  if (bare) return askedSize && Number(bare[1]) > 52 && Number(bare[1]) <= 80 ? Number(bare[1]) : null;
-  for (const match of text.matchAll(/\b(5[3-9]|[67]\d|80)\b/g)) {
+  if (bare) return askedSize && Number(bare[1]) > 56 && Number(bare[1]) <= 80 ? Number(bare[1]) : null;
+  for (const match of text.matchAll(/\b(5[7-9]|[67]\d|80)\b/g)) {
     const at = match.index ?? 0;
     const before = text.slice(0, at);
     if (NOT_A_SIZE.test(text.slice(at + match[0]!.length)) || BODY_AFTER.test(text.slice(at + match[0]!.length))) continue;
@@ -262,7 +262,7 @@ export const statedSizeOf = (
       .map((c) => OWN_NUMBER_IN_QUESTION.exec(c)).find((m) => m !== null && !NEGATED_CUE.test(m.input.slice(0, m.index)))
     : undefined;
   const own = asked ? Number(asked[1] ?? asked[2]) : NaN;
-  return fast ?? (own >= 34 && own <= 52 ? sizeFromDressSize(own) : null) ?? (interpreted === null ? null : sizeFromInterpreted(interpreted));
+  return fast ?? (own >= 34 && own <= 56 ? sizeFromDressSize(own) : null) ?? (interpreted === null ? null : sizeFromInterpreted(interpreted));
 };
 const OWN_NUMBER_IN_QUESTION = /\bcal[cç]a\s+(\d{2})\b(?!\s*(?:anos?|kg|reais?|cm|%))|\b(\d{2})\s+(?:eu\s+)?(?:uso|visto|vesto)\b/i;
 

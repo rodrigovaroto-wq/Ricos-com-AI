@@ -5205,7 +5205,7 @@ const MUTATIONS: Mutation[] = [
   { id: "G130-vesto", bug: "'vesto 44' voltaria a não ser lido (cob-recife-g, 24/10)", files: ["src/agent/sizing.ts"],
     from: "(tamanho|veste|visto|vesto|vestia|", to: "(tamanho|veste|visto|vestia|", guard: G130 },
   { id: "G130-numero-dela-na-pergunta", bug: "'tem calça 48 em estoque?' voltaria a não dar o tamanho dela (24/10)", files: ["src/agent/sizing.ts"],
-    from: "return fast ?? (own >= 34 && own <= 52 ? sizeFromDressSize(own) : null) ??", to: "return fast ??", guard: G130 },
+    from: "return fast ?? (own >= 34 && own <= 56 ? sizeFromDressSize(own) : null) ??", to: "return fast ??", guard: G130 },
   { id: "G130-um-g-e-um-m", bug: "'um G pra mim e um M pra cunhada' teria os tamanhos perguntados de novo (cob-recompra, 24/10)", files: ["src/agent/interpret.ts"],
     from: "  if (pieces.length >= 2) return", to: "  if (false) return", guard: G130 },
   { id: "G130-cep-novo-com-pergunta", bug: "'posso usar o mesmo link com o endereço de Manaus?' voltaria a dar 'usa o mesmo link' sem link (24/10)", files: ["supabase/functions/turn/index.ts"],

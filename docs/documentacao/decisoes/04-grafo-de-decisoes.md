@@ -4361,14 +4361,13 @@ inteiro e não o registrável.
 
 **Guarda.** `tests/persona-2026-10-24-review-fixes.test.ts`; mutações `G132-*`.
 
-## 133. Calça 53–56, colete para homem e postura (operador, 2026-10-26)
+## 133. Calça 56 e colete para homem (operador, 2026-10-26)
 
-- **Sintoma:** o prompt diz que a tabela vai até o 52 de calça, mas `extractDressSize` e `sizeFromDressSize` liam 53–56 como XGG ("serve sim") — a revisão de personas de 24/10 achou a contradição.
-- **Decisão do operador:** a tabela para no 52; 53–56 passam a "além da tabela" (`sizeBeyondTable`, a resposta gentil de `noFitReply`).
-- **Correção:** `sizing.ts` (e o espelho em `supabase/functions/turn/`): `DRESS_SIZE_RE`, o teto do número solto e o de `own` caem de 56 para 52; `sizeBeyondTable` começa em 53. Teste em `tests/r23-round2-fixes.test.ts`.
-- **Colete para homem:** o prompt (`QUEM ESTÁ DO OUTRO LADO`) diz que serve, pelo mesmo tamanho de cintura.
-- **Postura:** nada mudou — o prompt já manda dizer "ajuda na postura" (R16.6) e o gate `health_claim` veta "corrige/trata".
-- **Guarda:** `pnpm test`. Mutações `verify-guards` do `own <= 56` movidas para 52; rodada completa de mutações e deploy da `turn` (v45) **não feitos**.
+- **Sintoma:** o prompt dizia que a tabela vai até o 52 de calça, mas `sizeFromDressSize` lê 53–56 como XGG; a revisão de personas de 24/10 viu a contradição.
+- **Caminho tentado e desfeito:** tratar 53–56 como "além da tabela" (commit anterior). O operador corrigiu: o XGG da tabela é do 52 para cima, então o 56 entra.
+- **Correção:** `sizing.ts` voltou ao que era (56 é XGG, `sizeBeyondTable` a partir do 57); o prompt agora diz "do 52 de calça para cima; o 56 ainda é XGG", igual ao código. O colete serve para homem também (linha em `QUEM ESTÁ DO OUTRO LADO`).
+- **Postura:** nada mudou (R16.6; `health_claim` veta "corrige/trata").
+- **Guarda:** `pnpm test`.
 
 ## Lições (valem para qualquer correção futura)
 
