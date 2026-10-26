@@ -13,6 +13,10 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-26 — `turn` v45 NO AR** (função v163, `agent_versions` 45, commit `bda9744`, `pnpm deploy:turn`): o colete serve para homem
+> (prompt) e o prompt diz que o 56 de calça ainda é XGG (grafo §133). A `whatsapp` está na v67. Não provado pela porta do WhatsApp:
+> conferir `turn_outcomes.agent_version = 45` na primeira conversa real e o "Alarme de cobertura" do n8n.
+
 > **2026-10-26 — conferência dos pendentes.** PR #82 mergeado (`turn` v44 no ar, função v160). Ainda **não há `turn_outcomes` com
 > `agent_version = 44`** (última mensagem em 23/10): o smoke test espera a primeira conversa real. A função `whatsapp` foi publicada na **v67**
 > em 26/10 com autorização do operador (id da imagem do PR #81 em `messages.media`; GET sem token 403, POST sem assinatura 401).
