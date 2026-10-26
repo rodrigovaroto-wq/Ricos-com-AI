@@ -13,6 +13,11 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-26 — conferência dos pendentes.** PR #82 mergeado (`turn` v44 no ar, função v160). Ainda **não há `turn_outcomes` com
+> `agent_version = 44`** (última mensagem em 23/10): o smoke test espera a primeira conversa real. A função `whatsapp` está na v66
+> (14/10): o id da imagem do PR #81 **não foi publicado** (`messages.media` sem nenhuma linha) — depende da decisão do operador sobre o
+> congelamento da Malu (23/10–09/11). Workflow n8n "conversa não resolvida" do portal atualizado em produção.
+
 > **2026-10-25 — `turn` v44 NO AR** (função v160, `agent_versions` 44, commit `88a8d6d`, 03:50 UTC, `pnpm deploy:turn`).
 >
 > - Antes do deploy, sem desvio: a v43 no ar era o mesmo código da `main`.
