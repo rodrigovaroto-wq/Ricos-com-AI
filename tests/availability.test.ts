@@ -254,13 +254,16 @@ describe("região", () => {
     expect(r?.size).toBe("GG");
   });
 
-  it("o M dela sem resposta: vale qualquer tamanho, e a resposta não fala pelo M", async () => {
+  // Until 2026-10-27 the M's 404 was read as the Coinzz mapping being wrong, and any size's answer stood for her (R28): the door was
+  // sold on the Logzz checkout. Since the checkout IS this Coinzz offer (operator, 2026-10-27), its 404 is the checkout's own "no M".
+  it("o M dela sem resposta (404) com os outros respondendo: sem estoque, sem porta, e a resposta é do M", async () => {
     const r = await checkRegion(async (url) => {
       if (url.includes("viacep")) return { localidade: "Belo Horizonte", uf: "MG", bairro: "Centro" };
       return url.includes(SIZE_CODES.M) ? null : yes;
     }, "30130-010", "M");
-    expect(r?.cod).toBe(true);
-    expect(r?.size).toBeNull();
+    expect(r?.cod).toBe(false);
+    expect(r?.size).toBe("M");
+    expect(r?.sizeOutOfStock).toBe(true);
   });
 
   it("o M dela sem resposta não promete o Express de outro tamanho", async () => {
@@ -272,6 +275,20 @@ describe("região", () => {
     }, "01310-100", "M");
     expect(r?.sameDay).toBe(false);
     expect(r?.askedSize).toBe("M");
+  });
+
+  // The 404 (null) is the size out of stock since 2026-10-27; an answer without `data` for her size is still "not answered", and the
+  // region of another size may stand for her — never its "hoje".
+  it("o tamanho dela com resposta sem `data` não promete o Express de outro tamanho", async () => {
+    const express = structuredClone(yes);
+    express.data.local_operation_cash_on_delivery.delivery_days_available[0]!.deliverySameDay = 1;
+    const r = await checkRegion(async (url) => {
+      if (url.includes("viacep")) return { localidade: "São Paulo", uf: "SP", bairro: "Bela Vista" };
+      return url.includes(SIZE_CODES.GG) ? { type: "error", status: 500 } : express;
+    }, "01310-100", "GG");
+    expect(r?.cod).toBe(true);
+    expect(r?.sameDay).toBe(false);
+    expect(r?.sizeOutOfStock).toBeUndefined();
   });
 
   it("negação: sem tamanho conhecido, o Express da região continua valendo", async () => {

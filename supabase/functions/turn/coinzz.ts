@@ -268,11 +268,14 @@ export const buildPrefilledCheckoutLink = (
   // 2026-10-19): the checkout got a number that rings nowhere. A mobile (6–9 after the DDD) gets its 9 back; a landline not.
   const raw = digitsOnly(customer.phone ?? "");
   const phone = /^55\d{2}[6-9]\d{7}$/.test(raw) ? `${raw.slice(0, 4)}9${raw.slice(4)}` : raw;
-  const local = paymentMethod === "prepay" && /^55\d{10,11}$/.test(phone) ? phone.slice(2) : phone;
+  // The platform is the URL's, not the path's (operator, 2026-10-27): cash on delivery moved to the Coinzz checkout, one per quantity
+  // with both payment options inside, and that page reads `document` and DDD + number on either path.
+  const logzz = /^https?:\/\/[^/?#]*logzz\.com\.br(?:[/?#]|$)/i.test(base!);
+  const local = !logzz && /^55\d{10,11}$/.test(phone) ? phone.slice(2) : phone;
   if (local.length >= 10) query.set("phone", local);
   if (digitsOnly(customer.document ?? "").length >= 11) {
-    // Logzz (cash on delivery) reads `cpf`; Coinzz (prepaid) reads `document`.
-    query.set(paymentMethod === "cod" ? "cpf" : "document", digitsOnly(customer.document!));
+    // Logzz reads `cpf`; Coinzz reads `document`.
+    query.set(logzz ? "cpf" : "document", digitsOnly(customer.document!));
   }
   const qs = query.toString();
   return qs === "" ? base! : `${base}${base!.includes("?") ? "&" : "?"}${qs}`;

@@ -74,7 +74,7 @@ describe("o link no turno espera os dados (index.ts lido como fonte)", () => {
     // L2 (2026-10-08): the e-mail is waited for on the prepaid path only, refused once is enough.
     expect(source).toContain("emailDone: true,");
     expect(source).toContain("cpfDone: true,");
-    expect(source).toContain("const linkReady = sendLinkNow({ ...linkData, yesBesideQuestion });");
+    expect(source).toContain("const linkReady = sendLinkNow({ ...linkData, yesBesideQuestion }) && sizeOut === null;");
     expect(source).toContain("const linkUnheld = !linkJustSent && linkReady && !withdrew;");
     expect(source).toContain("const linkNow = linkUnheld && !kitFirst;");
     expect(source).toContain("thinkLink = linkUnheld && !(linkInChat");

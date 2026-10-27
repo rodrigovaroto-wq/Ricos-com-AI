@@ -6464,8 +6464,9 @@ const MUTATIONS: Mutation[] = [
     id: "P16-oferta-frete-com-frete-gratis",
     bug: "a caixa fixa do antecipado diria \"Frete pra sua região\" com frete grátis nos dois caminhos (revisão do plano 16, 1)",
     files: ["src/agent/funnel.ts", "supabase/functions/turn/funnel.ts"],
-    from: "config.delivery.freeShipping !== true && freightBrl !== null",
-    to: "freightBrl !== null",
+    from: "const freight = !free && freightBrl !== null",
+    to: "const freight = freightBrl !== null",
+    also: [{ from: "...(free ? [\"*FRETE GRÁTIS!!*\"] : freight)", to: "...freight" }],
     guard: ["pnpm", "-s", "vitest", "run", "tests/prepay-freight-offer.test.ts"],
   },
   {
@@ -6684,6 +6685,21 @@ const MUTATIONS: Mutation[] = [
     to: "l.profile,",
     guard: ["pnpm", "-s", "vitest", "run", "tests/profile.test.ts"],
   },
+  // The offer of 2026-10-27 (one price, free shipping on both paths, the Coinzz checkout, the M out of stock).
+  { id: "O27-m-vende-pelo-outro-tamanho", bug: "a cliente de M ouvia a entrega do GG, e o checkout da Coinzz não vende o M em nenhum caminho",
+    files: ["src/agent/availability.ts"], from: "if (size !== null && bodies[REGION_SIZES.indexOf(size)] === null) {", to: "if (false) {", guard: ["pnpm", "-s", "vitest", "run", "tests/offer-2026-10-27.test.ts"] },
+  { id: "O27-link-do-m", bug: "o link do checkout sairia para o M sem estoque", files: ["supabase/functions/turn/index.ts"],
+    from: "const linkReady = sendLinkNow({ ...linkData, yesBesideQuestion }) && sizeOut === null;", to: "const linkReady = sendLinkNow({ ...linkData, yesBesideQuestion });", guard: ["pnpm", "-s", "vitest", "run", "tests/offer-2026-10-27.test.ts"] },
+  { id: "O27-manchete-0", bug: "a caixa do antecipado diria \"Você Ganhou um Desconto Adicional de *0%!!!*\"", files: ["src/agent/funnel.ts"],
+    from: "config.prices.prepayDiscountPercent > 0 ? `Você Ganhou um Desconto Adicional", to: "true ? `Você Ganhou um Desconto Adicional", guard: ["pnpm", "-s", "vitest", "run", "tests/offer-2026-10-27.test.ts"] },
+  { id: "O27-frete-no-antecipado", bug: "a caixa do antecipado citaria o valor do frete com o frete grátis nos dois caminhos", files: ["src/agent/funnel.ts"],
+    from: "...(free ? [\"*FRETE GRÁTIS!!*\"] : freight)", to: "...freight", also: [{ from: "const freight = !free && freightBrl", to: "const freight = freightBrl" }], guard: ["pnpm", "-s", "vitest", "run", "tests/offer-2026-10-27.test.ts"] },
+  { id: "O27-desconto-0-no-segundo-link", bug: "o link do antecipado dos dois checkouts diria \"Você Ganhou Mais 0% de Desconto!!\"", files: ["src/agent/funnel.ts"],
+    from: "${config.prices.prepayDiscountPercent > 0 ? `*Você Ganhou Mais", to: "${true ? `*Você Ganhou Mais", guard: ["pnpm", "-s", "vitest", "run", "tests/offer-2026-10-27.test.ts"] },
+  { id: "O27-cpf-na-coinzz", bug: "o link da entrega na Coinzz mandaria o CPF em `cpf` (da Logzz) e o telefone com o 55", files: ["src/agent/coinzz.ts"],
+    from: "query.set(logzz ? \"cpf\" : \"document\"", to: "query.set(paymentMethod === \"cod\" ? \"cpf\" : \"document\"", guard: ["pnpm", "-s", "vitest", "run", "tests/offer-2026-10-27.test.ts"] },
+  { id: "O27-preco-antes-do-cep", bug: "o preço antes do CEP diria \"pagando na entrega\" com o mesmo preço e o frete grátis nos dois caminhos", files: ["src/agent/prompt.ts"],
+    from: "if (pct === 0 && config.prices.prepayBrl === config.prices.codBrl && config.delivery.freeShipping === true) {", to: "if (false) {", guard: ["pnpm", "-s", "vitest", "run", "tests/offer-2026-10-27.test.ts"] },
 ];
 
 const wanted = process.argv.slice(2);

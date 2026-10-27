@@ -4361,6 +4361,53 @@ inteiro e não o registrável.
 
 **Guarda.** `tests/persona-2026-10-24-review-fixes.test.ts`; mutações `G132-*`.
 
+## 133. Oferta nova: um preço, frete grátis nos dois caminhos, um checkout da Coinzz, e o M sem estoque (operador, 2026-10-27)
+
+**Decisão do operador.** Volta dos anúncios só nas cidades com pagamento na entrega. R$ 109,90 nos dois caminhos (`prepayDiscountPercent` 0),
+`freeShipping: true` (o operador paga o frete), kits de 2 (R$ 197,82, 10%) e 3 (R$ 263,76, 20%) iguais nos dois caminhos, um checkout da
+Coinzz por quantidade com Cartão, Pix e "Pagar na entrega" dentro (`encorpa-0`, `encorpa-site-0`, `oferta-site2-0`), cupom e experimentos
+desligados, `checkout.logzz` fora. Config: `docs/operacao/business-config-2026-10-27.min.json` (o resto igual ao de 23/10).
+
+**Sintomas que a oferta traria com o código de antes.**
+- A caixa do antecipado abriria com "Você Ganhou um Desconto Adicional de *0%!!!*" (`PREPAY_HEADLINE`), e o segundo link dos dois checkouts com
+  "*Você Ganhou Mais 0% de Desconto!!*" (`bothPrepayBubbles`). O prompt ensinava "*Você Ganhou um Desconto Adicional*" como destaque.
+- O preço antes do CEP dizia "pagando na entrega" com o mesmo preço e o frete grátis nos dois (`priceBeforeCepMessage`).
+- O link da entrega levava o CPF em `cpf` e o telefone com o 55, que são da Logzz; o checkout da entrega agora é da Coinzz
+  (`buildPrefilledCheckoutLink` escolhia pelo caminho, não pela plataforma — o "CPF no link: Logzz `cpf`, Coinzz `document`" do §11).
+- A cliente de M ouvia a entrega de outro tamanho (§105: o 404 da Coinzz pelo M era lido como mapeamento errado, e o checkout da Logzz decidia).
+  Playwright de 27/10 no `encorpa-0`: o M bloqueia a compra nos dois caminhos, em toda cidade.
+
+**Conferido sem mudar.** `prepayOfferText` já tirava o valor do frete com `freeShipping === true`. Sem `checkout.logzz` e com o `codUrl` na Coinzz,
+`logzzIdsOf` dá `null` e `lookupRegion` vai a `lookupCoinzz`, que bate com o checkout real (SP G: só antecipado; SP GG e Goiânia GG: porta;
+BH G: porta). `availabilityQuery` com `billing_moments[]` = só `on_delivery` ou os dois deu a mesma resposta (curl, 27/10). `has_pending_cash_on_delivery`
+(por endereço) vem com as janelas preenchidas (Av. Paulista 100: `true` e três dias) e `readAvailability` lê só as janelas; `hasPendingCod` não é
+usado pela `turn`. O alarme (`checkCoverage`, `COVERAGE_ALARM_CEPS`) pergunta sem tamanho: sadio enquanto algum tamanho tem a porta em SP (o GG
+e o XGG têm; o G não) — não alarma falso e não fica cego à porta sumida.
+
+**Correção.**
+- `PREPAY_HEADLINE` com 0% é a linha dos Correios (`LEGACY_PREPAY_HEADLINE`, que `offerKindOf` já lia como antecipado); `prepayOfferText` não
+  repete os Correios e diz "*FRETE GRÁTIS!!*" onde estaria o frete; `bothPrepayBubbles` só cita desconto acima de 0%; o destaque do prompt idem.
+- `priceBeforeCepMessage`: com preço único e frete grátis, "O colete sai de R$ 216,50 por R$ 109,90, com frete grátis 😊".
+- `buildPrefilledCheckoutLink`: `cpf` e o 55 só para URL da Logzz; qualquer outra (a Coinzz) leva `document` e DDD + número, nos dois caminhos.
+- `lookupCoinzz`: o tamanho dela sem resposta (`null`, o 404) com outro tamanho respondendo é `cod: false`, `sizeOutOfStock: true`. Lançar
+  (timeout) segue `failed`; nenhum tamanho respondendo segue `failed`. Na Logzz, como segunda fonte, nada muda (só o "sim" dela vale).
+- `handleTurn`: com `sizeOut`, o `guide` da linha honesta (`sizeOutOfStockLine`: "O M está sem estoque agora 😔 Se quiser, eu te aviso aqui assim
+  que ele voltar, tá bom?"), e-mail ao operador uma vez (`SIZE_OUT_REASON` em `turn_outcomes`); dita antes, outra linha sem repetir; nenhum link
+  (`linkReady` com `sizeOut === null`) e nenhuma oferta fixa (o `guide` segura). Um kit com uma peça de tamanho sem estoque, idem.
+
+**Caminhos descartados.** Campo novo no config com os tamanhos sem estoque (a consulta já diz, por CEP, e o secret não tem a chave); ler o M como
+`otherSizesInStock` (levaria à caixa do antecipado, que também não vende o M).
+
+**Resíduos.**
+- O kit só confere os outros tamanhos onde o dela tem a porta (bloco do §117): kit com M numa região sem porta vai ao antecipado com o M.
+- Conversa aberta com a caixa velha ("Desconto Adicional de *10%*", "POR R$ 129,90") não é lida como oferta pelo `offerKindOf` com o config novo.
+- Os dois checkouts (`bothLinksBubbles`) mandam o mesmo URL duas vezes; "oferta especial" no segundo é o mesmo preço.
+- n8n "Normaliza a venda": a data agendada é lida só no topo do corpo (`date_delivery`, da Logzz); o pedido da Coinzz vem aninhado em `order.*`,
+  e o nome do campo da data dela não foi conferido — sem a data, a véspera (`order_eve`) não se arma. `afterpay` já vira `cod`. O telefone do suporte de troca é o da Logzz (`returns.logzzSupportPhone`).
+- `dev:conversas` com o config novo: 1650/1655; as 5 são o arco "agente promete um frete grátis que não existe", cuja premissa a decisão desfez.
+
+**Guarda.** `tests/offer-2026-10-27.test.ts`, o canto "produção 27/10" em `tests/prompt.test.ts`, `tests/availability.test.ts` (o M); mutações `O27-*`.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

@@ -150,6 +150,10 @@ export const noCodMessage = (config: PromptConfig): string => {
  */
 export const priceBeforeCepMessage = (config: PromptConfig): string => {
   const pct = config.prices.prepayDiscountPercent;
+  // One price and free shipping on both paths (operator, 2026-10-27): the path decides nothing, so it is not named.
+  if (pct === 0 && config.prices.prepayBrl === config.prices.codBrl && config.delivery.freeShipping === true) {
+    return `O colete sai de ${money(config.prices.anchorBrl)} por ${money(config.prices.codBrl)}, com frete grátis 😊`;
+  }
   return (
     `O colete sai de ${money(config.prices.anchorBrl)} por ${money(config.prices.codBrl)} pagando na entrega` +
     (pct > 0 ? `, e no antecipado tem ${pct}% de desconto.` : `.`)
@@ -858,7 +862,7 @@ export const systemPrompt = (
     `A SUA VOZ É A DA ENCORPA EM CAMPANHA BLACK. Você vende com energia e entusiasmo, como quem tem a melhor oferta do ano`,
     `na mão e quer que ela aproveite agora. Escreva assim:`,
     `— Gatilho em destaque, com o *negrito* do WhatsApp e palavra-chave em caixa alta: *FRETE GRÁTIS*, *Não Paga Nada Agora*,`,
-    `  *${config.delivery.warrantyDays} Dias de Garantia*, *Você Ganhou um Desconto Adicional*, *MEGA OFERTA*. Exclamação dupla (!!) no que empolga.`,
+    `  *${config.delivery.warrantyDays} Dias de Garantia*,${config.prices.prepayDiscountPercent > 0 ? ` *Você Ganhou um Desconto Adicional*,` : ``} *MEGA OFERTA*. Exclamação dupla (!!) no que empolga.`,
     `— Um assunto por bloco, com linha em branco entre eles, e no máximo um emoji por bloco (💛 😊 🎉 ⭐ 🔁 🚚).`,
     `— Fale do que ela ganha, não do produto: o corpo *Fininho em Segundos*, a roupa parada no armário de volta, a autoestima`,
     `  lá em cima. Convide pra fechar com entusiasmo: "Vamos agendar seu pedido e aproveitar essa mega oferta?! 😊",`,

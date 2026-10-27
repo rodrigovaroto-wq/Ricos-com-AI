@@ -42,6 +42,8 @@ const variant = (freeShipping: boolean, discount: boolean, codFreeShipping?: fal
   delivery: { ...base.delivery, freeShipping, ...(codFreeShipping === false ? { codFreeShipping } : {}) },
 });
 
+const withoutStore = ({ store: _, ...c }: PromptConfig): PromptConfig => c;
+
 const corners = [
   { name: "grátis só na entrega, com desconto", config: variant(false, true) },
   { name: "grátis só na entrega, sem desconto", config: variant(false, false) },
@@ -50,6 +52,9 @@ const corners = [
   { name: "frete grátis, com desconto", config: variant(true, true) },
   { name: "frete grátis, sem desconto", config: variant(true, false) },
   { name: "produção: troca pela Logzz, sem custo", config: { ...variant(false, true), returns: { logzzSupportPhone: "+55 11 91132-7877", freeExchange: true } } },
+  // The offer of 2026-10-27: one price, free shipping on both paths, kits the same on both, as the secret carries it — without the
+  // store plan, whose answer is not the one the store tests below read (the corners have none).
+  { name: "produção 27/10: preço único e frete grátis", config: withoutStore(JSON.parse(readFileSync(new URL("../docs/operacao/business-config-2026-10-27.min.json", import.meta.url), "utf8")) as PromptConfig) },
 ] as const;
 
 /** Free on neither path: the only corner where the prompt may not say "frete é grátis" at all. */

@@ -209,6 +209,7 @@ import {
   offerAsk,
   offerBubbles,
   noCodReasonLine,
+  sizeOutOfStockLine,
   sizeFirstBubbles,
   SIZE_BEFORE_OFFER,
   openingBubbles,
@@ -1058,6 +1059,8 @@ const checkoutDirectiveFor = (
  */
 /** The turn_outcomes reason of a question about an order the system cannot read: written once, read to e-mail the operator once. */
 const ORDER_UNREADABLE_REASON = "a cliente fala de um pedido que o sistema não lê";
+/** The out-of-stock line said (2026-10-27): its `turn_outcomes.reason`, read so it is said and e-mailed once. */
+const SIZE_OUT_REASON = "sem estoque no tamanho dela, aviso quando voltar";
 // Before the order, a new address is looked up again (operator, 2026-10-20): it may be outside the delivery network.
 const CEP_MOVED_COD = "Conferi o endereço novo: aí também chega com pagamento na entrega 😊\n\nÉ só usar esse endereço no checkout.";
 /** A6 (personas of 2026-10-24): the new CEP looked up, and the delivery does not reach it: the prepaid link with the new address. */
@@ -3947,6 +3950,8 @@ const handleTurn = async (
     const missing = answers.find(({ r }) => !(r.kind === "found" && r.region.cod));
     // Her own size has it there: the reason said before the prepaid box is the other piece's size, not her region (A4).
     if (missing) region = { ...region, cod: false, dates: [], sameDay: false, size: missing.s, otherSizesInStock: regionSize ? [regionSize] : [] };
+    // A piece whose size has no stock at all (2026-10-27): the kit is sold on neither path, said like her own size's.
+    if (missing?.r.kind === "found" && missing.r.region.sizeOutOfStock === true) region = { ...region, sizeOutOfStock: true };
   }
   // Plan 16 §4.7: where the delivery does not reach her, the prepaid box says the freight the checkout charges at her CEP for what she
   // is buying — one piece of her size, or the kit with the size of each piece, asked in one query like the kit checkout does
@@ -3970,6 +3975,19 @@ const handleTurn = async (
   }
   // Only the freight of these pieces on a prepaid region goes on: any other one (a cache written before, a delivery region) is dropped.
   if (region && (region.cod || freightFor === null || region.prepayFreightFor !== freightFor)) region = { ...region, prepayFreightBrl: null, prepayFreightFor: null };
+  // Her size with no stock to sell on either path (operator, 2026-10-27: the M, 404 in every city, the real checkout blocks it): one
+  // honest line, and the operator e-mailed once so somebody can tell her when it is back. No offer (a guide holds the fixed ones), no
+  // link (`linkReady`), never another size to make the sale. Said already (index: turn_outcomes_conversation_idx), not repeated.
+  const sizeOut = region?.sizeOutOfStock === true ? region.size ?? regionSize : null;
+  if (sizeOut !== null) {
+    const sizeOutSaid = ((await db(`turn_outcomes?conversation_id=eq.${conversation.id}&reason=like.${encodeURIComponent(`*${SIZE_OUT_REASON}*`)}&select=id&limit=1`).catch(() => null))?.length ?? 0) > 0;
+    const sizeOutRule = `Não mande link, não ofereça a entrega nem o antecipado, não diga data de volta e nunca sugira outro tamanho pra fechar a venda.`;
+    if (!sizeOutSaid) {
+      guide(`O tamanho dela, o ${sizeOut}, está sem estoque agora nos dois pagamentos: o checkout não vende o ${sizeOut}. Diga isso numa frase curta e ofereça avisar quando ele voltar. ${sizeOutRule}`, sizeOutOfStockLine(sizeOut), SIZE_OUT_REASON, true);
+    } else {
+      guide(`O ${sizeOut} dela continua sem estoque, e você já disse isso e que avisa quando ele voltar: não repita; responda o que ela disse agora. ${sizeOutRule}`, `Assim que o ${sizeOut} voltar eu te aviso aqui 💛`, "sem estoque no tamanho dela, já dito");
+    }
+  }
 
   // A CEP she typed with the wrong number of digits is never read, and the model told her "Recebi seu
   // CEP" and "Anotei" (second real test, grafo §66). Without a CEP read, the model is told so.
@@ -4276,7 +4294,7 @@ const handleTurn = async (
   // conversation, goes again only when she asks for it. Only this path's checkout counts (code
   // review, 2026-09-24): a switch to the prepaid one, or to a kit, is a different link and goes out.
   const pathBase = kitUrl ?? (linkPath === "cod" ? CONFIG.checkout?.codUrl : CONFIG.checkout?.prepayUrl);
-  const linkReady = sendLinkNow({ ...linkData, yesBesideQuestion });
+  const linkReady = sendLinkNow({ ...linkData, yesBesideQuestion }) && sizeOut === null;
   // Past the twenty-message window, the newest link is read by the checkout hosts: the outbound rows
   // that carry one, newest first. Only when the window has none and the link would go; a failed read
   // falls back to the window, which sends.

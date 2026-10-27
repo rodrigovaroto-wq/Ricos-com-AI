@@ -168,8 +168,9 @@ export const OFFER_HEADLINE = (config: FunnelConfig): string =>
 /** The copy v4 headline (20/10 to 21/10): an offer it opened is never offered again. */
 export const V4_OFFER_HEADLINE = (config: FunnelConfig): string =>
   `⭐*DE ~${money(config.prices.anchorBrl)}~ POR ${money(config.prices.codBrl)}*⭐`;
+// Without a prepaid discount (operator, 2026-10-27: one price on both paths) there is no "0%" to announce: the Correios line opens it.
 export const PREPAY_HEADLINE = (config: FunnelConfig): string =>
-  `Você Ganhou um Desconto Adicional de *${config.prices.prepayDiscountPercent}%!!!*`;
+  config.prices.prepayDiscountPercent > 0 ? `Você Ganhou um Desconto Adicional de *${config.prices.prepayDiscountPercent}%!!!*` : LEGACY_PREPAY_HEADLINE;
 /** The headlines before the copy v4: conversations already open carry them, and an offer sent is never offered again. */
 export const LEGACY_OFFER_HEADLINE = (config: FunnelConfig): string =>
   `⭐ DE ${money(config.prices.anchorBrl)} POR ${money(config.prices.codBrl)} ⭐`;
@@ -201,11 +202,15 @@ export const codOfferText = (config: FunnelConfig, firstDate: string | undefined
  */
 export const prepayOfferText = (config: FunnelConfig, freightBrl: number | null = null): string => {
   const n = config.prices.prepayMaxInstallments;
-  const freight = config.delivery.freeShipping !== true && freightBrl !== null && Number.isFinite(freightBrl) && freightBrl > 0 ? `\nFrete pra sua região: *${money(freightBrl)}*` : "";
+  const free = config.delivery.freeShipping === true;
+  const freight = !free && freightBrl !== null && Number.isFinite(freightBrl) && freightBrl > 0 ? [`Frete pra sua região: *${money(freightBrl)}*`] : [];
+  // The Correios sentence is the headline itself when there is no discount to announce (`PREPAY_HEADLINE`); the free shipping on
+  // both paths (operator, 2026-10-27) is said where the freight would be, never a value.
+  const ship = [...(config.prices.prepayDiscountPercent > 0 ? ["Seu colete vai pelos Correios, com código de rastreio."] : []), ...(free ? ["*FRETE GRÁTIS!!*"] : freight)];
   return [
     PREPAY_HEADLINE(config),
     `⭐*~${money(config.prices.anchorBrl)}~ POR ${money(config.prices.prepayBrl)}*⭐`,
-    `🚚 Seu colete vai pelos Correios, com código de rastreio.${freight}`,
+    ...(ship.length > 0 ? [`🚚 ${ship.join("\n")}`] : []),
     `✅ Você pode pagar agora no Pix${n && n > 1 ? ` ou em até *${n}x no cartão!*` : " ou no cartão!"}`,
     `🔁 *${config.delivery.warrantyDays} Dias de Garantia* pra trocar ou devolver se não gostar`,
   ].join("\n\n");
@@ -317,6 +322,13 @@ export const funnelLinkMessage = (
   return `${head}\n\n${there}${kitLines}`;
 };
 
+/**
+ * Her size has no stock at all (the Coinzz answers 404 for it while the other sizes answer, operator 2026-10-27: the M, on both
+ * paths, and the supplier cannot restock it): said once, honestly, with no link, no date and no other size to make the sale.
+ */
+export const sizeOutOfStockLine = (size: string): string =>
+  `O ${size} está sem estoque agora 😔 Se quiser, eu te aviso aqui assim que ele voltar, tá bom?`;
+
 /** 2.5 of the copy v4: her size has no delivery there after the delivery offer went. A question: the prepaid box goes on her yes. */
 // The size is the reason, not her region (A4, personas of 2026-10-24): the same CEP has the delivery in another size.
 export const sizeNoCodAsk = (size: string): string =>
@@ -377,7 +389,7 @@ export const bothPrepayBubbles = (config: FunnelConfig, name: string | null, pre
   return [
     { text: `${BOTH_PREPAY_HEADLINE}${first ? ` ${first}` : ""}...\nMas não desanima não porque eu tenho uma oferta especial para você!!` },
     {
-      text: `🔵 Pagar Agora\n\n*Você Ganhou Mais ${config.prices.prepayDiscountPercent}% de Desconto!!*\n` +
+      text: `🔵 Pagar Agora\n\n${config.prices.prepayDiscountPercent > 0 ? `*Você Ganhou Mais ${config.prices.prepayDiscountPercent}% de Desconto!!*\n` : ""}` +
         (pieces > 1 ? `⭐*${pieces} PEÇAS POR ${money(price)}*⭐` : `⭐*~${money(config.prices.anchorBrl)}~ POR ${money(price)}*⭐`) +
         `\n\nPode pagar no Pix${n && n > 1 ? ` ou em até ${n}x no cartão!!` : " ou no cartão!!"}\n\n${prepayUrl}`,
     },

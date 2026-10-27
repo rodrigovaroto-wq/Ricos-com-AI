@@ -291,6 +291,8 @@ export interface Region {
    * reach her is the size, not her region. Absent: not read (a cache from before, the Coinzz fallback, the region's own "no").
    */
   readonly otherSizesInStock?: readonly Size[];
+  /** Her size has no stock to sell on either path (the Coinzz 404 for it, 2026-10-27): no link, no offer. Absent: not read. */
+  readonly sizeOutOfStock?: boolean;
 }
 
 /**
@@ -540,6 +542,11 @@ const lookupCoinzz = async (fetcher: Fetcher, zip: string, place: Place, size: S
   // Her size, answered, is the truth for her: the G in São Paulo is not promised on the GG's stock (R28 review).
   const hers = answers.find((a) => a.size === size);
   if (hers) return { kind: "found", region: toRegion(zip, place, hers, size) };
+  // Her size answered nothing (the 404 "Não foi possível identificar o endereço", `null` here) while another size answered: the
+  // real Coinzz checkout blocks that size on both paths (Playwright, 2026-10-27: the M in every city), so no door and no stock.
+  if (size !== null && bodies[REGION_SIZES.indexOf(size)] === null) {
+    return { kind: "found", region: { ...toRegion(zip, place, answers[0]!, size), cod: false, dates: [], sameDay: false, labelBrl: null, sizeOutOfStock: true } };
+  }
   const any = toRegion(zip, place, answers.find((a) => a.cod) ?? answers[0]!, null, size);
   // Her size known and not answered: another size's delivery may stand, its "hoje" never does (second review).
   return { kind: "found", region: size === null ? any : { ...any, sameDay: false } };
