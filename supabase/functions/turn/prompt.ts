@@ -737,6 +737,125 @@ export const honestyBriefing = (config: PromptConfig): string[] => {
 };
 
 /**
+ * She came from the site (2026-10-27): no CTWA referral on her first message, so no ad and no opening. The site already did the
+ * value-building — product, price, reviews, video — so she is answered directly and taken to the close; the media go only on her
+ * request, sent by the system (`requestedMedia`), never promised by the model.
+ */
+export const siteBriefing = (): string[] => [
+  `ELA VEIO DO SITE, não de um anúncio: lá ela já viu o colete, as fotos, o preço, as avaliações e o vídeo, e tocou no botão do`,
+  `WhatsApp pra falar com você. Ela já conhece o produto e chega com uma dúvida, ou pronta pra comprar. Responda direto o que ela`,
+  `perguntou, curto, e conduza ao fechamento; não reapresente o produto do zero nem repita o que o site já mostrou, a não ser que`,
+  `ela pergunte. O que a afasta: ser ignorada, ouvir a mesma coisa duas vezes, insistência depois de um não e link antes da hora.`,
+  ``,
+  `NENHUMA ABERTURA FOI MANDADA AQUI. Vídeo, avaliações, os seus áudios gravados e a tabela de tamanhos o sistema manda sozinho`,
+  `quando ela pede, e eles aparecem no histórico: nunca diga que vai mandar nem que mandou o que não está lá. Se o histórico já`,
+  `tiver um áudio seu gravado, não diga que não consegue mandar áudio.`,
+];
+
+/**
+ * Her checkout at the Coinzz, as its webhooks told (2026-10-27): the cart she abandoned and her latest order. Lines for her
+ * reasoning, in the FATOS LIGADOS manner — never recited, never a status said from them (the turn's own readers say the status).
+ */
+export const checkoutFactLines = (
+  cart: { at?: string; offerName?: string | null; quantity?: number | null; offerPriceBrl?: number | null } | null | undefined,
+  order: { created_at?: string; status?: string | null; payment_method?: string | null; amount_brl?: number | string | null; units?: number | null } | null | undefined,
+): string[] => {
+  // "27/10 às 14h" in São Paulo (UTC−3, no daylight saving since 2019).
+  const when = (iso: string | undefined): string | null => {
+    const t = Date.parse(iso ?? "");
+    if (!Number.isFinite(t)) return null;
+    const d = new Date(t - 3 * 60 * 60 * 1000).toISOString();
+    return `${d.slice(8, 10)}/${d.slice(5, 7)} às ${Number(d.slice(11, 13))}h`;
+  };
+  const pieces = (n: number | null | undefined) => (n && n > 1 ? `${n} peças` : `1 peça`);
+  const lines: string[] = [];
+  const cartAt = when(cart?.at);
+  if (cart && cartAt) {
+    lines.push(
+      `carrinho aberto no checkout em ${cartAt}: ${pieces(cart.quantity)}${cart.offerName ? ` (${cart.offerName})` : ``}` +
+        `${cart.offerPriceBrl ? `, ${money(cart.offerPriceBrl)}` : ``}, sem finalizar`,
+    );
+  }
+  const orderAt = when(order?.created_at);
+  const amount = Number(order?.amount_brl);
+  if (order && orderAt) {
+    lines.push(
+      `pedido feito em ${orderAt}: ${pieces(order.units)}${Number.isFinite(amount) && amount > 0 ? `, ${money(amount)}` : ``}, ` +
+        `${order.payment_method === "cod" ? `pagamento na entrega` : `pagamento antecipado`}, status da plataforma "${order.status ?? "criado"}"`,
+    );
+  }
+  return lines;
+};
+
+export const checkoutFactsBriefing = (lines: readonly string[]): string[] =>
+  lines.length === 0
+    ? []
+    : [
+        ``,
+        `O QUE O CHECKOUT DA COINZZ CONTOU DELA — referência sua, NUNCA formato de mensagem. Use pra entender a conversa (ela pode`,
+        `voltar do checkout com uma dúvida sobre aquele pedido). Não recite estes dados, não diga que viu o carrinho ou o pedido dela`,
+        `a não ser que ela fale disso ou responda ao lembrete, e nunca diga a partir daqui que um pagamento foi aprovado, que o pedido`,
+        `saiu ou chega em tal dia.`,
+        ...lines.map((l) => `[${l}]`),
+      ];
+
+/**
+ * What the CEP lookup found, on its own (operator, 2026-10-06): until then it rode on the size
+ * directive, so a kit — or a CEP before the size — never heard it, and the prepaid was only ever
+ * offered as a fallback. Delivery reaches her: the two options and her choice (`twoOptionsMessage`
+ * in the prompt), or her choice kept. It does not: only the prepaid, with the one reason
+ * (`noCodMessage`). The sentences are the prompt's, so prompt and gate stay one promise.
+ * Moved here from the turn on 2026-10-27 (review of 481f2d3) so a test reaches it: the discount is the config's (0% = none), and
+ * her size out of stock (`sizeOut`) gets no region directive at all — "siga no antecipado" sold a size the checkout does not sell.
+ */
+export const regionDirectiveFor = (
+  region: { readonly cod: boolean; readonly sameDay?: boolean } | null,
+  choice: "cod" | "prepay" | null,
+  _agreedOnly = false,
+  /** The lookup said no where the Logzz delivers as a rule: both checkouts went (operator, 2026-10-19). */
+  unconfirmed = false,
+  /** The offer that fits her region has not gone yet (her size missing, night, a link): never claim it did (review of v3, 9). */
+  offerPending = false,
+  prices: Pick<PromptConfig["prices"], "prepayDiscountPercent" | "prepayBrl"> = { prepayDiscountPercent: 0, prepayBrl: 0 },
+  /** Her size with no stock on either path (2026-10-27): nothing about a path to follow. */
+  sizeOut: string | null = null,
+  /** Both paths on one checkout (`oneCheckout`, 2026-10-27): the one link already carries the Pix and the card. */
+  oneLink = false,
+): string | null => {
+  if (region === null || sizeOut !== null) return null;
+  const discount = prices.prepayDiscountPercent > 0;
+  if (offerPending) {
+    return `O CEP dela já foi consultado, mas a oferta da região ainda não foi enviada: o sistema manda em seguida. Ainda não` +
+      ` fale de pagamento na entrega, de frete nem de prazo; se o tamanho dela ainda não foi dito, peça o número da calça.`;
+  }
+  if (!region.cod && unconfirmed && oneLink) {
+    return `A consulta do CEP dela não confirmou o pagamento na entrega, mas a cidade dela costuma ter: o sistema já mandou o link,` +
+      ` que tem as duas formas de pagar — na entrega, se aparecer o dia, ou agora no Pix ou no cartão. Se ela disser que não apareceu` +
+      ` dia de entrega, diga que no mesmo link ela paga no Pix ou no cartão. Não mande link nenhum por conta própria.`;
+  }
+  if (!region.cod && unconfirmed) {
+    return `A consulta do CEP dela não confirmou o pagamento na entrega, mas a cidade dela costuma ter: o sistema já mandou o link 🟢` +
+      ` (pagar na entrega), e manda o 🔵 (pagar agora, pelos Correios) quando ela disser que não apareceu dia de entrega. Se ela` +
+      ` perguntar, peça pra ela abrir o link 🟢 e ver se aparece o dia da entrega. Não mande link nenhum por conta própria.`;
+  }
+  if (!region.cod) {
+    return `A consulta do CEP dela respondeu: ali o colete vai pelos Correios, no pagamento antecipado (não existe pagamento na` +
+      ` entrega na região dela). A oferta do antecipado já foi enviada pelo sistema${discount ? `, com o desconto` : ``}: não repita a oferta,` +
+      ` siga no antecipado, e nunca diga que ela paga na entrega, ao entregador ou quando receber.`;
+  }
+  // Script v3 (R28): the delivery offer went fixed, with the audio; she is not asked to choose between two options.
+  const today = region.sameDay ? ` Existe a opção de receber HOJE, em até 4 horas — não guarde isso.` : "";
+  return choice === "prepay"
+    ? `A consulta do CEP dela respondeu: o pagamento na entrega chega ali, mas ela escolheu o antecipado: siga no` +
+      ` antecipado${discount ? `, com o desconto` : ``}, sem reabrir a comparação.`
+    : `A consulta do CEP dela respondeu: o pagamento na entrega chega ali, com frete grátis, e a oferta já foi enviada` +
+      ` pelo sistema (o quadro do preço e o áudio).${today} Não apresente duas opções nem repita a oferta: siga no` +
+      ` pagamento na entrega. Se ela perguntar do antecipado, ${discount
+        ? `diga o desconto do antecipado e deixe ela escolher.`
+        : `diga que pagando antes, no Pix ou no cartão, o preço é o mesmo, ${money(prices.prepayBrl)}, sem desconto a mais, e deixe ela escolher.`}`;
+};
+
+/**
  * E3.1 (H1): her first real reply is the model's, with no fixed greeting before it. Said once, on that
  * turn only: the hour's greeting, "a Malu, da Encorpa" once, and the answer to what she wrote. `headline`
  * is the ad she came from (`leads.source.headline`, Click-to-WhatsApp). No freight unless she asked
@@ -747,6 +866,8 @@ export const openingDirective = (
   dayPart: string,
   headline: string | null,
   onlyGreeted: boolean,
+  /** She came from the site (2026-10-27): she knows the product; a bare greeting gets "what is your question". */
+  fromSite = false,
 ): string =>
   [
     `Esta é a sua primeira resposta a ela, e não houve saudação antes: comece com uma saudação curta`,
@@ -755,8 +876,12 @@ export const openingDirective = (
       ? [`Ela chegou pelo anúncio "${headline.replace(/["\s]+/g, " ").trim().slice(0, 120)}".`]
       // No ad behind her (real test …6682, grafo §95): "Vi seu oi, você veio pelo anúncio do nosso colete, né?" left
       // "Que isso" and "Oque você faz" without the product for two turns.
+      : fromSite
+      ? [`Ela veio do site, onde já viu o colete: não diga que ela veio por um anúncio e não reapresente o produto.`]
       : [`Não sabemos de onde ela veio: não diga que ela veio por um anúncio, e, se ela ainda não falou do colete nem de um pedido, diga numa frase que a ${config.brand} vende o Colete Cinta Modeladora.`]),
-    onlyGreeted
+    onlyGreeted && fromSite && !headline
+      ? `Ela só cumprimentou: depois da saudação, pergunte numa frase curta qual é a dúvida dela, tipo "Me conta, qual a sua dúvida sobre o colete?", num balão só.`
+      : onlyGreeted
       ? `Ela só cumprimentou: depois da saudação, uma frase sobre ${headline ? "o que o anúncio mostra" : "o nosso colete"} e uma pergunta aberta, tudo num balão ou dois.`
       : `Depois da saudação, responda o que ela escreveu, no assunto dela, em no máximo dois balões.`,
     `Nesta primeira resposta não fale de frete, a não ser que ela tenha perguntado.`,
@@ -798,7 +923,14 @@ export const systemPrompt = (
    * `stockLine` is `stockScarcityLine`'s (and `GateContext.stockLeft` carries its size and count), and
    * `prepayFreightBrl` goes only on the prepaid path (`GateContext.prepayFreightBrl`). Absent: today's prompt.
    */
-  turnFacts: { stockLine?: string | null; prepayFreightBrl?: number | null } = {},
+  turnFacts: {
+    stockLine?: string | null;
+    prepayFreightBrl?: number | null;
+    /** She came from the site, not an ad, and no opening went (2026-10-27): the ad paragraphs give way to `siteBriefing`. */
+    site?: boolean;
+    /** What the Coinzz told about her checkout (`checkoutFactLines`): internal facts, never recited. */
+    checkoutFacts?: readonly string[];
+  } = {},
 ): string => {
   const options = twoOptionsMessage(config);
   return [
@@ -821,17 +953,22 @@ export const systemPrompt = (
     `desejo, com carinho e sem pena — nunca aponte defeito, nunca diga que ela "precisa"`,
     `mudar, nunca sugira que ela está errada do jeito que é. O que muda é o caimento da roupa,`,
     `não o valor dela.`,
-    `Quase sempre ela vem do anúncio, e AINDA NÃO ESTÁ CONVENCIDA. Primeiro ela precisa ouvir que funciona no`,
-    `corpo e na roupa dela, que é confortável e não marca, que ninguém vai enganá-la e que o`,
-    `risco é pequeno; só depois vêm a oferta, o preço e os dados. O que a afasta: ser ignorada,`,
-    `ouvir a mesma coisa duas vezes, insistência depois de um não, dado pedido sem motivo e link antes da hora.`,
-    ``,
-    `A ABERTURA JÁ FOI (roteiro v3, R28). Na primeira mensagem dela o sistema mandou sozinho: a sua apresentação,`,
-    `dois áudios seus sobre o colete, o vídeo de uma cliente vestindo, as avaliações e a pergunta do`,
-    `número da calça — está tudo no histórico. Não se apresente de novo, não repita o que ela já viu e não pergunte`,
-    `"que roupa você ama" de saída: ela já recebeu o motivo pra comprar. A abertura já terminou perguntando o`,
-    `número da calça: na sua primeira resposta depois dela, responda o que ela perguntou e NÃO repita essa pergunta —`,
-    `ela acabou de ler. Só peça o número da calça de novo numa mensagem seguinte, se ela ainda não tiver dito.`,
+    ...(turnFacts.site
+      ? siteBriefing()
+      : [
+          `Quase sempre ela vem do anúncio, e AINDA NÃO ESTÁ CONVENCIDA. Primeiro ela precisa ouvir que funciona no`,
+          `corpo e na roupa dela, que é confortável e não marca, que ninguém vai enganá-la e que o`,
+          `risco é pequeno; só depois vêm a oferta, o preço e os dados. O que a afasta: ser ignorada,`,
+          `ouvir a mesma coisa duas vezes, insistência depois de um não, dado pedido sem motivo e link antes da hora.`,
+          ``,
+          `A ABERTURA JÁ FOI (roteiro v3, R28). Na primeira mensagem dela o sistema mandou sozinho: a sua apresentação,`,
+          `dois áudios seus sobre o colete, o vídeo de uma cliente vestindo, as avaliações e a pergunta do`,
+          `número da calça — está tudo no histórico. Não se apresente de novo, não repita o que ela já viu e não pergunte`,
+          `"que roupa você ama" de saída: ela já recebeu o motivo pra comprar. A abertura já terminou perguntando o`,
+          `número da calça: na sua primeira resposta depois dela, responda o que ela perguntou e NÃO repita essa pergunta —`,
+          `ela acabou de ler. Só peça o número da calça de novo numa mensagem seguinte, se ela ainda não tiver dito.`,
+        ]),
+    ...checkoutFactsBriefing(turnFacts.checkoutFacts ?? []),
     ``,
     `O CAMINHO DA CONVERSA, que é caminho e não trilho: o número da calça e o tamanho → o CEP → (o sistema manda`,
     `a oferta da região dela, com a foto do preço) → o nome completo → (o sistema manda o link). Ela pode pular ou voltar:`,
@@ -868,7 +1005,7 @@ export const systemPrompt = (
     `  lá em cima. Convide pra fechar com entusiasmo: "Vamos agendar seu pedido e aproveitar essa mega oferta?! 😊",`,
     `  "Vamos agendar sua transformação e recuperar essa autoestima hoje?!".`,
     `— A urgência e o desconto vêm dos fatos do sistema, que já são fortes: a primeira data de entrega (amanhã é "Seu Pedido`,
-    `  Chegará em *Menos de 24 Horas!!*"), o desconto do antecipado e dos kits, o pagamento só na entrega e a garantia.`,
+    `  Chegará em *Menos de 24 Horas!!*"), ${config.prices.prepayDiscountPercent > 0 ? `o desconto do antecipado e dos kits` : `o desconto dos kits`}, o pagamento só na entrega e a garantia.`,
     `Estas frases do operador são o seu modelo de tom (não copie palavra por palavra; escreva no mesmo estilo):`,
     `  "Você pode usar embaixo de qualquer roupa, ela é super confortável, não enrola, não dobra e não machuca."`,
     `  "*Não Paga Nada Agora*, só quando chegar aí, no dinheiro, Pix ou cartão!"`,

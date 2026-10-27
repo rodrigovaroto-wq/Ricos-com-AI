@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { runGates } from "@/agent/guardrails.js";
 import { asksForName, extractName, nameOnFirstLine, refusedAsks } from "@/agent/identity.js";
 import { NEUTRAL_INTERPRETATION, buyerAsk, kitWasOffered, pathChoiceToStore, quantityOf, type Interpretation } from "@/agent/interpret.js";
-import { DEFAULT_COD_CONFIRM, twoOptionsMessage } from "@/agent/prompt.js";
+import { DEFAULT_COD_CONFIRM, regionDirectiveFor, twoOptionsMessage } from "@/agent/prompt.js";
 import { confirmsAddress } from "@/agent/address.js";
 import { buildPrefilledCheckoutLink } from "@/agent/coinzz.js";
 import { thinkReply } from "@/agent/retry.js";
@@ -94,9 +94,9 @@ describe("o link no turno espera os dados (index.ts lido como fonte)", () => {
 
   it("a diretiva da região sai sozinha, com ou sem tamanho, e nunca como 'saída boa'", () => {
     expect(source).toContain('regionDirectiveFor(knownRegion, paymentChoice, agreedOnly, offerBefore === "both", ');
-    expect(source).toContain("ali o colete vai pelos Correios, no pagamento antecipado");
+    expect(regionDirectiveFor({ cod: false, sameDay: false }, null)).toContain("ali o colete vai pelos Correios, no pagamento antecipado");
     // R28: the offer is fixed; the model never presents two options.
-    expect(source).toContain("Não apresente duas opções nem repita a oferta");
+    expect(regionDirectiveFor({ cod: true, sameDay: false }, null)).toContain("Não apresente duas opções nem repita a oferta");
     expect(source).not.toContain("apresente as duas opções, como no PAGAMENTO");
     expect(source).not.toContain("saída boa");
   });

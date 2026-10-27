@@ -109,6 +109,34 @@ export const asksSizeTable = (message: string): boolean => {
   return /\btabela\b|\bmedidas\b|\bquais\s+(?:sao\s+)?(?:os\s+)?tamanhos\b|\btamanhos\s+(?:que\s+)?(?:tem|disponiveis)\b/.test(t);
 };
 
+/**
+ * The opening's media on her request, for a lead who came from the site and got no opening (operator, 2026-10-27): she asks for it,
+ * or for what it shows, and the system sends it — never the model (R11.1). The video for "tem vídeo?", "manda foto", "como fica no
+ * corpo?"; the reviews image for "tem avaliação?", "é bom mesmo?", "funciona mesmo?", "depoimento"; the two recorded audios for
+ * "manda um áudio". The size table stays `asksSizeTable`'s. Negation: "não precisa de vídeo", "sem áudio", "já vi o vídeo",
+ * "não consigo ouvir áudio", "não abre vídeo". Each file absent in the config: that bubble skipped.
+ */
+export const requestedMedia = (message: string, config: FunnelConfig): FunnelBubble[] => {
+  const t = message.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  const m = config.funnel?.media ?? {};
+  // Refused, seen already, or she cannot play it: nothing goes.
+  const off = (word: string): boolean =>
+    new RegExp(`\\b(?:nao|sem|nem|nunca)\\s+(?:\\S+\\s+){0,3}${word}|\\bja\\s+(?:vi|assisti|ouvi|olhei)\\s+(?:\\S+\\s+){0,2}${word}|${word}\\w*\\s+(?:nao|nem)\\b`).test(t);
+  // A photo she asks of the product, never one she sends ("posso mandar foto do comprovante?").
+  const photo = /\b(?:tem|manda|mande|mostra|mostre|envia|envie|me\s+passa)\s+(?:\S+\s+){0,2}(?:fotos?|fotinha)\b/.test(t) &&
+    !/\b(?:posso|vou|vou\s+te|deixa\s+eu)\s+(?:te\s+)?(?:mandar|enviar)\b|\b(?:comprovante|pix|documento|rg|cpf|boleto|endereco|fachada)\b/.test(t);
+  const video = (/\bvideos?\b|\bcomo\s+(?:ela\s+|ele\s+)?fica\s+(?:no\s+corpo|vestid[oa]|em\s+quem)|\bver\s+(?:ela|ele|o\s+colete|a\s+cinta)\s+(?:no\s+corpo|vestid[oa])/.test(t) || photo) &&
+    !off("(?:videos?|fotos?|fotinha)");
+  const reviews = /\bavaliac\w*|\bdepoiment\w*|\bcomentarios?\s+(?:de\s+)?(?:clientes?|quem)|\be\s+bom\s+mesmo\b|\bfunciona\s+mesmo\b|\bquem\s+ja\s+(?:comprou|usou)\b|\bresultado\s+de\s+(?:clientes?|quem)/.test(t) &&
+    !off("(?:avaliac|depoiment|comentario)") && !/\bnao\s+(?:e|era|foi|ficou)\s+bom\b|\bnao\s+funciona\b/.test(t);
+  const audio = /\baudios?\b/.test(t) && !off("audios?") && !/\b(?:nao|nem)\s+(?:\S+\s+){0,2}(?:ouvir|escutar|ouco|escuto)\b/.test(t);
+  return [
+    ...(video ? media(m.video, "video", FUNNEL_LABELS.video) : []),
+    ...(reviews ? media(m.reviews, "image", FUNNEL_LABELS.reviews) : []),
+    ...(audio ? [...media(m.audio1, "audio", FUNNEL_LABELS.audio1), ...media(m.audio2, "audio", FUNNEL_LABELS.audio2)] : []),
+  ];
+};
+
 /** The history's media rows ("[imagem da Malu: …]", "[áudio da Malu] …", "[vídeo da Malu: …]") out of a model reply (replay of 2026-10-20). */
 export const stripMediaLabels = (text: string): string =>
   text.replace(/\[(?:imagem|vídeo|video) da Malu:[^\]]*\]/gi, "").replace(/\[áudio da Malu\][^\n]*/gi, "").replace(/\n{3,}/g, "\n\n").trim();
@@ -329,6 +357,21 @@ export const funnelLinkMessage = (
 export const sizeOutOfStockLine = (size: string): string =>
   `O ${size} está sem estoque agora 😔 Se quiser, eu te aviso aqui assim que ele voltar, tá bom?`;
 
+/** The safe reply after five vetoes with her size out of stock (review of 481f2d3): the line itself, or its short form once said. */
+export const sizeOutFallback = (size: string, said: boolean): string =>
+  said ? `Assim que o ${size} voltar eu te aviso aqui 💛` : sizeOutOfStockLine(size);
+
+/**
+ * The reply said her size is out of stock (the model's own words, or the line): only then the turn records it as said, so the
+ * next turn does not skip a line she never read (review of 481f2d3). Negation: "não está sem estoque", "não esgotou".
+ */
+export const sizeOutLineSent = (reply: string, size: string | null): boolean => {
+  if (size === null) return false;
+  const t = reply.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return t.split(/(?<=[.!?])\s+|\n+/).some((s) =>
+    /\bsem\s+estoque\b|\besgotad[oa]s?\b|\bem\s+falta\b/.test(s) && !/\b(?:nao|nem)\s+(?:\S+\s+){0,2}(?:sem\s+estoque|esgot|em\s+falta)/.test(s));
+};
+
 /** 2.5 of the copy v4: her size has no delivery there after the delivery offer went. A question: the prepaid box goes on her yes. */
 // The size is the reason, not her region (A4, personas of 2026-10-24): the same CEP has the delivery in another size.
 export const sizeNoCodAsk = (size: string): string =>
@@ -356,7 +399,7 @@ export const bothLinksBubbles = (
   config: FunnelConfig,
   _city: string,
   codUrl: string,
-  _prepayUrl: string,
+  prepayUrl: string,
   _size: string | null,
   pieces = 1,
 ): FunnelBubble[] => {
@@ -365,6 +408,20 @@ export const bothLinksBubbles = (
   const kit = (path: "cod" | "prepay") => config.kits?.find((k) => k.path === path && k.units === pieces)?.priceBrl;
   const codPrice = pieces > 1 ? kit("cod") ?? config.prices.codBrl * pieces : config.prices.codBrl;
   const free = config.delivery.freeShipping === true || config.delivery.codFreeShipping !== false;
+  // One checkout with both payments inside (operator, 2026-10-27, grafo §133/§134): ONE link, both ways named, and no second
+  // "oferta especial" with the same URL and the same price.
+  if (oneCheckout(codUrl, prepayUrl)) {
+    return [
+      ...media(m.price, "image", priceLabel(config)),
+      { text: `${BOTH_HEADLINE}, mas a sua cidade costuma ter disponibilidade sim. Te mando o link, que tem as duas formas de pagar:` },
+      {
+        text: (pieces > 1 ? `⭐*${pieces} PEÇAS POR ${money(codPrice)}*⭐` : `⭐*~${money(config.prices.anchorBrl)}~ POR ${money(codPrice)}*⭐`) +
+          `\n\n🟢 *Pagar SÓ Quando Receber*, se aparecer o dia da entrega pra você\n🔵 Ou pagar agora, no Pix ou no cartão` +
+          `${free ? "\n\nE o Melhor, com *FRETE GRÁTIS!!*" : ""}\n\n${codUrl}`,
+      },
+      { text: "Abre o link: se aparecer um dia de entrega pra escolher, é só finalizar e ser feliz! Se não aparecer, dá pra pagar no Pix ou no cartão ali mesmo 💛" },
+    ];
+  }
   // Copy v4, section 4 (operator, 2026-10-20, grafo §119): the delivery link first; the prepaid one only when she says no day
   // showed up (`bothPrepayBubbles`).
   return [
@@ -379,6 +436,10 @@ export const bothLinksBubbles = (
     { text: "Se não aparecer me fala aqui que a gente utiliza outro método, tudo bem?" },
   ];
 };
+
+/** The two paths share one checkout page (the same URL without its query): one link says both (2026-10-27). */
+export const oneCheckout = (codUrl: string | null | undefined, prepayUrl: string | null | undefined): boolean =>
+  !!codUrl && !!prepayUrl && codUrl.split(/[?#]/)[0] === prepayUrl.split(/[?#]/)[0];
 
 /** The second half of section 4: she says no delivery day showed up in the first link. */
 export const bothPrepayBubbles = (config: FunnelConfig, name: string | null, prepayUrl: string, pieces = 1): FunnelBubble[] => {

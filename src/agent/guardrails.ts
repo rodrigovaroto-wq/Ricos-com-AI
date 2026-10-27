@@ -1174,6 +1174,7 @@ const gates: readonly Gate[] = [
         : ``) +
       `. ` +
       `Nenhum outro número em reais. ` +
+      (c.prices.prepayDiscountPercent > 0 ? `` : `O antecipado não tem desconto: o preço é o mesmo da entrega. `) +
       (savingOf(c) > 0
         ? `Nunca diga a economia em reais — a diferença entre os dois preços, nem a de um kit, em ` +
           `nenhuma formulação. Diga o percentual e o preço ("${c.prices.prepayDiscountPercent}% ` +
@@ -1181,7 +1182,7 @@ const gates: readonly Gate[] = [
           `da quantidade de que você está falando: não junte o desconto de um kit com o preço de outro. `
         : ``) +
       `Os únicos descontos são ` +
-      `${c.prices.prepayDiscountPercent}% no antecipado e 40% (o já publicado no site)` +
+      `${c.prices.prepayDiscountPercent > 0 ? `${c.prices.prepayDiscountPercent}% no antecipado e ` : ``}40% (o já publicado no site)` +
       (c.kits?.length ? `, mais os percentuais dos kits acima` : ``) +
       `${c.coupon.active ? `, mais ${c.coupon.percent}% do cupom` : ``}. E não prometa desconto ` +
       `sem número: "eu tiro um pouquinho", "faço um precinho", "dou um jeito no valor" ` +
@@ -1195,6 +1196,20 @@ const gates: readonly Gate[] = [
       const orderAmount = ctx.stage === "logistics" ? ctx.orderAmountBrl : undefined;
       if (orderAmount !== undefined) allowedPrices.add(orderAmount);
       const t = norm(text);
+
+      // No prepaid discount in the config (operator, 2026-10-27: one price on both paths): "Pagando no Pix antecipado tem desconto"
+      // is a discount the checkout does not give — the old prompt taught it (review of 481f2d3, R21.6). Only a sentence that names
+      // the prepaid path alone, no kit, no coupon (`coupon_exists` reads it) and no count of pieces, and no denial before the word ("não tem desconto", "sem desconto").
+      if (prepayDiscountPercent <= 0) {
+        for (const sentence of sentencesIn(t)) {
+          // A question claims nothing ("Quer saber se tem desconto no Pix?"): the answer after it is what is read.
+          if (/\?\s*$/.test(sentence)) continue;
+          if (!/\b(?:antecipa\w*|adianta\w*|pix|pag\w*\s+(?:antes|agora)|a\s+vista)\b/.test(sentence)) continue;
+          if (/\bna\s+entrega\b|\bna\s+porta\b|\bentregador\b|\bkits?\b|\bcupom\b|\b(?:[2-9]|duas|dois|tres)\s+(?:pecas?|unidades?|coletes?)\b/.test(sentence)) continue;
+          const claim = /\b(?:desconto|mais\s+barat\w*|mais\s+em\s+conta|sai\s+menos|abatimento)\b/.exec(sentence);
+          if (claim && !negatedAt(sentence, claim.index)) return "claims a prepaid discount; there is none — the prepaid price is the same";
+        }
+      }
 
       // Exit A (operator decision 2026-09-22, Frente 4 item 6): the saving in reais — the
       // difference between the two offers — is never said, in any wording, on either path

@@ -11,7 +11,7 @@ const load = (file: string) => JSON.parse(readFileSync(`n8n/workflows/${file}.js
  * contra a cópia versionada.
  */
 describe("n8n: a versão ativa versionada respeita as regras", () => {
-  it.each(["turno-da-agente", "relogio-da-regua", "venda-confirmada", "hermes-decisao", "whatsapp-envio", "responder-cliente", "alarme-de-cobertura"])("%s", (file) => {
+  it.each(["turno-da-agente", "relogio-da-regua", "venda-confirmada", "hermes-decisao", "whatsapp-envio", "responder-cliente", "alarme-de-cobertura", "carrinho-abandonado"])("%s", (file) => {
     expect(checkWorkflow(load(file))).toEqual([]);
   });
 });

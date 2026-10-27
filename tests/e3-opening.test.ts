@@ -61,7 +61,8 @@ describe("E3.1 — a diretiva da primeira resposta", () => {
 
   it("o turno: o braço 1 pula a recepção só com a janela aberta; fastOpening ausente = hoje", () => {
     expect(turn).toContain(`const fastOpening = armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "A");`);
-    expect(turn).toContain("if (isNewLead && !isResume && !(fastOpening && openNow)) {");
+    // Site mode (2026-10-27): inside the window a site lead gets no receipt either.
+    expect(turn).toContain("if (isNewLead && !isResume && !(fastOpening && openNow) && !(siteMode && openNow)) {");
     expect(turn).toContain("bubbles: paced(receiptText),");
     expect(turn).toContain(`typeof lead.source?.headline === "string" && conversation.entry_at ? lead.source.headline : null,`);
   });

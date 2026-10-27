@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { confirmsAddress } from "@/agent/address.js";
 import { agreesWithoutChoosing, lastLinkBase, linkHeldBack, pathChoiceToStore, withdrawsInBurst } from "@/agent/interpret.js";
-import { DEFAULT_COD_CONFIRM, noCodMessage, twoOptionsMessage } from "@/agent/prompt.js";
+import { DEFAULT_COD_CONFIRM, noCodMessage, regionDirectiveFor, twoOptionsMessage } from "@/agent/prompt.js";
 import { draftMayGo } from "@/agent/retry.js";
 import { config } from "./fixtures.js";
 
@@ -95,7 +95,7 @@ describe("2. 'sim' às duas opções sem escolher: confirma a entrega (agreesWit
     expect(source.indexOf("const choiceToStore = pathChoiceToStore(")).toBeLessThan(source.indexOf("const agreedOnly ="));
     // R28: the two options are no longer presented, so there is no "sim" to them to confirm; the prepaid choice still holds.
     expect(source).toContain('regionDirectiveFor(knownRegion, paymentChoice, agreedOnly, offerBefore === "both", ');
-    expect(source).toContain("mas ela escolheu o antecipado: siga no");
+    expect(regionDirectiveFor({ cod: true, sameDay: false }, "prepay")).toContain("mas ela escolheu o antecipado: siga no");
     expect(source).toContain("const paymentChoice = (agreedOnly ? null : interpretation.payment_choice) ?? choiceToStore ?? storedChoice;");
   });
 });

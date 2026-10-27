@@ -177,7 +177,7 @@ describe("6. quem chega depois da compra não recebe a abertura de venda", () =>
     ]) expect(afterSale(s), s).toBe(false);
   });
   it("a fiação: o recibo no lugar da abertura", () => {
-    expect(turn).toContain('if (isNewLead && !isResume && !skipsOpening(spoken(inbound.body ?? "")) && !afterSale) {');
+    expect(turn).toContain('if (isNewLead && fromAd && !isResume && !skipsOpening(spoken(inbound.body ?? "")) && !afterSale) {');
     expect(turn.indexOf("const afterSale = statesPastPurchase(")).toBeLessThan(turn.indexOf("&& !afterSale) {"));
   });
 });

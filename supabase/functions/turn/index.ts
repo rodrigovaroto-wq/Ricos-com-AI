@@ -70,6 +70,15 @@ import {
   ackGoesUnanswered,
   ackHelpText,
   type AskedDatum,
+  armsCartRecovery,
+  asksPixCode,
+  pixResendTexts,
+  awaitsPix,
+  CART_RECOVERY_MS,
+  checkoutSlug,
+  firstNameOf,
+  leadPhoneOf,
+  phoneTwins,
   type FollowupConfig,
   type FollowupKind,
   type RulerAnchors,
@@ -78,7 +87,7 @@ import {
 import { asksForSize, type Size, SIZES, sizeBeyondTable, sizeFromDressSize, statedSizeOf, TABLE_TOP_DRESS, TABLE_TOP_WAIST } from "./sizing.ts";
 import { acceptsOffers, mayAskOptIn, optInAnswer, optInMessage, suspendsMarketingOptIn } from "./opt-in.ts";
 import { furthest, overwritableBy, reachedStage, type Stage } from "./state-machine.ts";
-import { cachedRegion, type CachedRegion, cepsByStreet, checkCoverage, type Fetcher, healthOf, logzzIdsOf, lookupRegion, lookupsDegraded, prepayFreight, type Region, type RegionLookup } from "./availability.ts";
+import { cachedRegion, type CachedRegion, kitRegion, cepsByStreet, checkCoverage, type Fetcher, healthOf, logzzIdsOf, lookupRegion, lookupsDegraded, prepayFreight, type Region, type RegionLookup } from "./availability.ts";
 import {
   confirmsAddress,
   extractAddress,
@@ -198,10 +207,13 @@ import {
   BOTH_HEADLINE,
   BOTH_PREPAY_HEADLINE,
   bothPrepayBubbles,
+  oneCheckout,
+  requestedMedia,
   saysNoDeliveryDay,
   sizeNoCodAsk,
   ADDRESS_NO_COD_ASK,
   SIZE_ASK,
+  LEGACY_SIZE_ASK,
   skipsOpening,
   funnelLinkMessage,
   type FunnelBubble,
@@ -210,6 +222,8 @@ import {
   offerBubbles,
   noCodReasonLine,
   sizeOutOfStockLine,
+  sizeOutFallback,
+  sizeOutLineSent,
   sizeFirstBubbles,
   SIZE_BEFORE_OFFER,
   openingBubbles,
@@ -262,7 +276,7 @@ import {
   changesAddress,
   type Interpretation,
 } from "./interpret.ts";
-import { asksDeadline, asksPayment, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, logzzSupportPhone, noCodMessage, offerFallbackMessage, openingDirective, paidDeadlineLine, paymentFallbackMessage, priceBeforeCepMessage, registerDirective, regionTurnFacts, triggerUsesSoFar, personalTriggerDirective, MAX_TRIGGER_USES, systemPrompt as buildSystemPrompt } from "./prompt.ts";
+import { asksDeadline, asksPayment, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, logzzSupportPhone, noCodMessage, offerFallbackMessage, openingDirective, paidDeadlineLine, regionDirectiveFor, checkoutFactLines, paymentFallbackMessage, priceBeforeCepMessage, registerDirective, regionTurnFacts, triggerUsesSoFar, personalTriggerDirective, MAX_TRIGGER_USES, systemPrompt as buildSystemPrompt } from "./prompt.ts";
 import { afterUnansweredTouch, isAudioBody, mergeProfile, profileFold, profileMarks, storedProfileOf, scoreOf, bandOf, scoreTag, type LeadProfile } from "./profile.ts";
 import { sealIsValid } from "./inbound-signature.ts";
 import { agentVersionOf } from "./agent-version.ts";
@@ -922,47 +936,6 @@ const sizeDirectiveFor = (
 };
 
 /**
- * What the CEP lookup found, on its own (operator, 2026-10-06): until then it rode on the size
- * directive, so a kit — or a CEP before the size — never heard it, and the prepaid was only ever
- * offered as a fallback. Delivery reaches her: the two options and her choice (`twoOptionsMessage`
- * in the prompt), or her choice kept. It does not: only the prepaid, with the one reason
- * (`noCodMessage`). The sentences are the prompt's, so prompt and gate stay one promise.
- */
-const regionDirectiveFor = (
-  region: Pick<Region, "cod" | "sameDay"> | null,
-  choice: "cod" | "prepay" | null,
-  agreedOnly = false,
-  /** The lookup said no where the Logzz delivers as a rule: both checkouts went (operator, 2026-10-19). */
-  unconfirmed = false,
-  /** The offer that fits her region has not gone yet (her size missing, night, a link): never claim it did (review of v3, 9). */
-  offerPending = false,
-): string | null => {
-  if (region === null) return null;
-  if (offerPending) {
-    return `O CEP dela já foi consultado, mas a oferta da região ainda não foi enviada: o sistema manda em seguida. Ainda não` +
-      ` fale de pagamento na entrega, de frete nem de prazo; se o tamanho dela ainda não foi dito, peça o número da calça.`;
-  }
-  if (!region.cod && unconfirmed) {
-    return `A consulta do CEP dela não confirmou o pagamento na entrega, mas a cidade dela costuma ter: o sistema já mandou o link 🟢` +
-      ` (pagar na entrega), e manda o 🔵 (pagar agora, pelos Correios) quando ela disser que não apareceu dia de entrega. Se ela` +
-      ` perguntar, peça pra ela abrir o link 🟢 e ver se aparece o dia da entrega. Não mande link nenhum por conta própria.`;
-  }
-  if (!region.cod) {
-    return `A consulta do CEP dela respondeu: ali o colete vai pelos Correios, no pagamento antecipado (não existe pagamento na` +
-      ` entrega na região dela). A oferta do antecipado já foi enviada pelo sistema, com o desconto: não repita a oferta,` +
-      ` siga no antecipado, e nunca diga que ela paga na entrega, ao entregador ou quando receber.`;
-  }
-  // Script v3 (R28): the delivery offer went fixed, with the audio; she is not asked to choose between two options.
-  const today = region.sameDay ? ` Existe a opção de receber HOJE, em até 4 horas — não guarde isso.` : "";
-  return choice === "prepay"
-    ? `A consulta do CEP dela respondeu: o pagamento na entrega chega ali, mas ela escolheu o antecipado: siga no` +
-      ` antecipado, com o desconto, sem reabrir a comparação.`
-    : `A consulta do CEP dela respondeu: o pagamento na entrega chega ali, com frete grátis, e a oferta já foi enviada` +
-      ` pelo sistema (o quadro do preço e o áudio).${today} Não apresente duas opções nem repita a oferta: siga no` +
-      ` pagamento na entrega. Se ela perguntar do antecipado, diga o desconto do antecipado e deixe ela escolher.`;
-};
-
-/**
  * Name, e-mail and CPF — the three the checkout link carries, and the only three the
  * conversation collects. One question at a time, because a form in a WhatsApp message is
  * where a sale stops.
@@ -1281,6 +1254,8 @@ const scheduleSilenceTouches = async (
   postponed?: FollowupKind,
   /** The reply ended in a question: "Ainda está aí?" in 10 minutes (operator, 2026-10-06). */
   askedQuestion = false,
+  /** This turn read a size out of stock (her own, or a kit's piece): nothing is chased (review of 481f2d3). */
+  sizeOut = false,
 ) => {
   // She already bought (`chasesSilence`): every caller routes through here — end of turn,
   // fixed line, deferred reply, re-anchoring — so this is where the ruler stops re-arming.
@@ -1292,7 +1267,7 @@ const scheduleSilenceTouches = async (
   // messages ride in the same request, newest 20 by messages_conversation_idx (conversation_id, created_at).
   // The lead's size and `score_band` only (leads_pkey; 0029 applied on 2026-10-21): never the whole row, which carries her
   // address and the profile's free text (/code-review of plan 16).
-  const at = (await db(`conversations?id=eq.${conversationId}&select=*,leads(size,score_band,orders(status)),followups(kind,sent_at),messages(direction,body,created_at)&messages.order=created_at.desc&messages.limit=20`).catch(() => null))?.[0];
+  const at = (await db(`conversations?id=eq.${conversationId}&select=*,leads(size,score_band,stock_out:address->region->>sizeOutOfStock,orders(status)),followups(kind,sent_at),messages(direction,body,created_at)&messages.order=created_at.desc&messages.limit=20`).catch(() => null))?.[0];
   const orderStatuses = (at?.leads?.orders ?? []).map((o: { status: string | null }) => o.status ?? "");
   // She said no and has not come back to the sale (grafo §69): nothing is chased, the checkout touch included.
   // R26.2: her "então deixa" refuses only where the region has no payment at the door — read from what Malu told her.
@@ -1302,6 +1277,12 @@ const scheduleSilenceTouches = async (
   // Copy v4: the model writes the no-fit answer in its own words, so her own pants number past the table is read too (review of v38).
   if (at && !at.leads?.size && ((at.messages ?? []).some((m: { direction: string; body: string | null }) => m.direction === "outbound" && saidNoFit(m.body ?? "")) ||
     herRecent(at.messages ?? [], spoken).some((m: string) => sizeBeyondTable(m, true) !== null))) {
+    await cancelScheduled(conversationId, "all");
+    return;
+  }
+  // Her size has no stock on either path (review of 481f2d3): every touch would sell a size the checkout does not sell — "No
+  // antecipado o colete sai por R$ 109,90" went to the M an hour later. This turn's reading, or the last region stored for her size.
+  if (sizeOut || at?.leads?.stock_out === "true") {
     await cancelScheduled(conversationId, "all");
     return;
   }
@@ -1382,7 +1363,39 @@ interface OrderWebhook {
   checkoutUrl?: string;
   scheduledFor?: string;
   orderedAt?: string;
+  /** Coinzz (2026-10-27, n8n "Normaliza a venda"): the order's number, her name, the offer, and the Pix while it waits. */
+  orderNumber?: string | null;
+  customerName?: string | null;
+  offerName?: string | null;
+  pixUrl?: string | null;
+  pixCode?: string | null;
 }
+
+/** A short text from a webhook, or null: nothing past `max` characters is kept. */
+const shortText = (v: unknown, max: number): string | null =>
+  typeof v === "string" && v.trim() !== "" && v.trim().length <= max ? v.trim() : null;
+
+/**
+ * A webhook's phone to her lead (sale and cart, 2026-10-27): the exact row, else the one lead whose number ends in the same 8
+ * digits — the platforms write the phone six different ways. Two rows ending the same way is not a match, it is a coin toss: the
+ * loser gets someone else's sale and its touches, so the caller refuses it out loud. Index: leads_phone_key; the suffix is a scan
+ * of `leads` (`like *x`), as it was in `recordOrder`.
+ */
+const leadForPhone = async (phone: string): Promise<{ id: string; opted_out_at?: string | null } | "ambiguous" | null> => {
+  const exact = await db(`leads?phone=eq.${encodeURIComponent(phone)}&select=id,opted_out_at`);
+  if (exact?.[0]) return exact[0];
+  const tail = digits(phone).slice(-8);
+  if (tail.length !== 8) return null;
+  const bySuffix = await db(`leads?phone=like.*${tail}&select=id,opted_out_at&limit=2`);
+  return bySuffix?.length === 1 ? bySuffix[0] : (bySuffix?.length ?? 0) > 1 ? "ambiguous" : null;
+};
+
+/**
+ * A lead the checkout made (2026-10-27): she bought or abandoned a cart in the Coinzz checkout without writing to us — the site
+ * test's path. No `source`: a lead with no ad behind it is a site lead. Her conversation, open, so the touches have one.
+ */
+const checkoutLead = async (phone: string): Promise<{ id: string; opted_out_at?: string | null }> =>
+  (await db("leads", { method: "POST", body: JSON.stringify({ phone }) }))[0];
 
 /** Digits only, which is how a phone survives being written six different ways. */
 const digits = (v: string): string => v.replace(/\D/g, "");
@@ -1403,31 +1416,35 @@ const recordOrder = async (order: OrderWebhook) => {
   // The webhook writes the phone the way its platform stores it — +55, spaces, dashes,
   // sometimes without the 9. The lead row holds whatever the channel delivered. An exact
   // match is the happy path; the suffix is what stops a sale from silently not existing.
-  const exact = await db(`leads?phone=eq.${encodeURIComponent(order.phone)}&select=id`);
-  const tail = digits(order.phone).slice(-8);
-  let lead = exact?.[0];
-  if (!lead && tail.length === 8) {
-    // Two rows ending the same way is not a match, it is a coin toss — and the loser
-    // gets someone else's sale filed against her, with the follow-ups to match. Asking
-    // for two is how the ambiguity becomes visible; taking [0] threw that away.
-    const bySuffix = await db(`leads?phone=like.*${tail}&select=id&limit=2`);
-    if (bySuffix?.length === 1) lead = bySuffix[0];
-    else if ((bySuffix?.length ?? 0) > 1) {
-      return { status: "ambiguous_phone", phone: order.phone, ok: false };
-    }
-  }
+  const match = await leadForPhone(order.phone);
+  if (match === "ambiguous") return { status: "ambiguous_phone", phone: order.phone, ok: false };
+  // A sale from the site, by a woman who never wrote to us (2026-10-27): her lead is made here, with its conversation, so the
+  // Pix touch and the post-order ruler have somewhere to live. A phone that is no Brazilian number stays refused, out loud.
+  const made = match === null && leadPhoneOf(order.phone) !== null;
+  const lead = match ?? (made ? await checkoutLead(leadPhoneOf(order.phone)!) : null);
   // 200 here would tell n8n the sale was filed when nothing was written and the silence
   // ruler is still chasing her. It has to be visible.
   if (!lead) return { status: "unknown_lead", phone: order.phone, ok: false };
 
-  const conversations = await db(
-    `conversations?lead_id=eq.${lead.id}&select=id,stage&order=created_at.desc&limit=1`,
-  );
+  const conversations = made
+    ? await db("conversations", { method: "POST", body: JSON.stringify({ lead_id: lead.id }) })
+    : await db(`conversations?lead_id=eq.${lead.id}&select=id,stage&order=created_at.desc&limit=1`);
   const conversation = conversations?.[0] ?? null;
 
   // A dead order stays dead (`orderStatusAfter`): what is written and every decision below
   // read this status, never the late webhook's. Index: orders_external_id_key (unique).
-  const stored = await db(`orders?external_id=eq.${encodeURIComponent(order.externalId)}&select=status,scheduled_for`);
+  const stored = await db(`orders?external_id=eq.${encodeURIComponent(order.externalId)}&select=status,scheduled_for,details`);
+  // The Coinzz details (0033): merged over what an earlier webhook of this order left, a field absent now never erasing one.
+  const details = Object.fromEntries(
+    Object.entries({
+      orderNumber: shortText(order.orderNumber, 64),
+      firstName: firstNameOf(order.customerName),
+      offerName: shortText(order.offerName, 120),
+      pixUrl: shortText(order.pixUrl, 1024)?.startsWith("https://") ? shortText(order.pixUrl, 1024) : null,
+      pixCode: shortText(order.pixCode, 1024),
+    }).filter(([, v]) => v !== null),
+  );
+  const pix = Boolean(details.pixCode || details.pixUrl);
   const status = orderStatusAfter(stored?.[0]?.status, order.status ?? "created");
   // The delivery day in force (D1): a status webhook without `date_delivery` does not erase
   // the day she chose — without it the eve has no date and the sweep would cancel it.
@@ -1450,6 +1467,7 @@ const recordOrder = async (order: OrderWebhook) => {
       amount_brl: order.amountBrl,
       status,
       scheduled_for: scheduledFor,
+      ...(Object.keys(details).length > 0 ? { details: { ...(stored?.[0]?.details ?? {}), ...details } } : {}),
       ...(orderedOn && !Number.isNaN(orderedOn.getTime()) ? { created_at: orderedOn.toISOString() } : {}),
       updated_at: new Date().toISOString(),
     }),
@@ -1503,6 +1521,7 @@ const recordOrder = async (order: OrderWebhook) => {
     status,
     orderRowId,
     scheduledFor,
+    pix,
   );
 
   // Only a row still waiting: the sweep may have just sent it, and a sent touch is history.
@@ -1558,6 +1577,79 @@ const recordOrder = async (order: OrderWebhook) => {
     canceled: effect.cancel,
     armed: [...effect.arm, ...effect.move, ...(takeOver?.arm ?? [])].map((f) => f.kind),
   };
+};
+
+/**
+ * The Coinzz "Carrinho Abandonado" webhook, normalized by n8n ("Carrinho abandonado", 2026-10-27). She typed her phone in our
+ * checkout and left: the cart is kept on her lead (for the conversation's facts) and ONE touch is armed 30 minutes later
+ * (`armsCartRecovery`). Her lead is found like a sale's, or made (no `source`: a site lead). Only her first name is kept — no CPF,
+ * no e-mail, no address.
+ */
+interface CartWebhook {
+  phone: string;
+  name?: string | null;
+  offerName?: string | null;
+  quantity?: number | string | null;
+  offerPrice?: number | string | null;
+  checkoutUrl?: string | null;
+}
+
+const recordCart = async (cart: CartWebhook) => {
+  const phone = leadPhoneOf(cart.phone);
+  if (!phone) return { status: "invalid_phone", ok: false };
+  const match = await leadForPhone(cart.phone);
+  if (match === "ambiguous") return { status: "ambiguous_phone", phone: cart.phone, ok: false };
+  const lead = match ?? (await checkoutLead(phone));
+  // Her open conversation, as the turn reads it, so her message cancels the touch. Index: conversations_lead_idx.
+  const conversation =
+    (await db(`conversations?lead_id=eq.${lead.id}&closed_at=is.null&select=id,last_inbound_at&order=created_at.desc&limit=1`))?.[0] ??
+    (await db("conversations", { method: "POST", body: JSON.stringify({ lead_id: lead.id }) }))[0];
+  const now = new Date();
+  const quantity = Number(cart.quantity);
+  const price = Number(String(cart.offerPrice ?? "").replace(",", "."));
+  await db(`leads?id=eq.${lead.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      cart: {
+        at: now.toISOString(),
+        firstName: firstNameOf(cart.name),
+        offerName: shortText(cart.offerName, 120),
+        quantity: Number.isInteger(quantity) && quantity >= 1 && quantity <= 10 ? quantity : null,
+        offerPriceBrl: Number.isFinite(price) && price > 0 ? price : null,
+        checkoutUrl: checkoutSlug(cart.checkoutUrl) ? String(cart.checkoutUrl).trim() : null,
+      },
+    }),
+  });
+  // Her orders of the last day (orders_lead_idx) and her cart and link touches in any conversation (conversations_lead_idx, then
+  // the unique (conversation_id, kind)): the facts `armsCartRecovery` decides on.
+  const since = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+  const [orders, touches] = await Promise.all([
+    db(`orders?lead_id=eq.${lead.id}&created_at=gte.${encodeURIComponent(since)}&select=id&limit=1`).catch(() => null),
+    db(`followups?select=kind,status,sent_at,conversations!inner(lead_id)&conversations.lead_id=eq.${lead.id}&kind=in.(cart_recovery,checkout_reminder)`).catch(() => null),
+  ]);
+  // A read that failed arms nothing: a second touch is worse than none.
+  const arm = orders !== null && touches !== null && armsCartRecovery({
+    optedOut: Boolean(lead.opted_out_at),
+    hasOrder: orders.length > 0,
+    cartTouchSent: touches.some((t: { kind: string; sent_at: string | null }) => t.kind === "cart_recovery" && t.sent_at),
+    checkoutReminderPending: touches.some((t: { kind: string; status: string }) => t.kind === "checkout_reminder" && t.status === "scheduled"),
+    lastInboundAt: conversation.last_inbound_at ? new Date(conversation.last_inbound_at) : null,
+    now,
+  });
+  if (arm) {
+    await db("followups?on_conflict=conversation_id,kind", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify({
+        conversation_id: conversation.id,
+        kind: "cart_recovery",
+        run_at: new Date(now.getTime() + CART_RECOVERY_MS).toISOString(),
+        status: "scheduled",
+        body: null,
+      }),
+    });
+  }
+  return { status: "recorded", leadMade: match === null, armed: arm };
 };
 
 /**
@@ -1669,6 +1761,8 @@ const runFollowupSweep = async () => {
         name: string;
         language: string;
         variables: readonly string[];
+        /** The template's URL button {{1}} (the cart's checkout slug), sent by n8n as a button component. */
+        urlButton?: string;
       }
     | { to: string; kind: string; followupId: string; via: "buttons"; body: string; buttons: ReadonlyArray<{ id: string; title: string }> };
   const toSend: Send[] = [];
@@ -1866,6 +1960,37 @@ const runFollowupSweep = async () => {
     }
     // A post-order touch speaks of THAT order — its total, pieces and sizes — never the
     // 1-piece price (fifth review, kits).
+    // The Coinzz touches (2026-10-27) read what they speak of on their own, so a missing 0033 column fails only them.
+    // The cart: on her lead (leads_pkey). Gone, an order since, or her message after it: nothing to say.
+    // deno-lint-ignore no-explicit-any
+    let checkoutCtx: any = {};
+    if (kind === "cart_recovery") {
+      const cart = (await db(`leads?id=eq.${lead.id}&select=cart`))?.[0]?.cart ?? null;
+      const wrote = typeof row.conversations?.last_inbound_at === "string" && cart?.at && Date.parse(row.conversations.last_inbound_at) > Date.parse(cart.at);
+      if (!cart || wrote || statuses.some((st: string) => !isOrderDead(st))) {
+        await leave("canceled");
+        skipped.push({ followupId: row.id, reason: !cart ? "carrinho sem dados" : wrote ? "ela escreveu depois do carrinho" : "ela já tem pedido" });
+        return;
+      }
+      checkoutCtx = { firstName: cart.firstName ?? null, checkoutSlug: checkoutSlug(cart.checkoutUrl) };
+    }
+    // The Pix: its own order (orders_pkey), still waiting for this Pix — paid, expired or cancelled since, nothing goes.
+    if (kind === "pix_pending") {
+      const pixOrder = row.order_id ? (await db(`orders?id=eq.${row.order_id}&select=status,amount_brl,external_id,details`))?.[0] ?? null : null;
+      const d = pixOrder?.details ?? {};
+      if (!pixOrder || !awaitsPix(pixOrder.status, Boolean(d.pixCode || d.pixUrl))) {
+        await leave("canceled");
+        skipped.push({ followupId: row.id, reason: "o Pix não está mais aguardando pagamento" });
+        return;
+      }
+      checkoutCtx = { firstName: d.firstName ?? null, orderNumber: d.orderNumber ?? pixOrder.external_id, amountBrl: Number(pixOrder.amount_brl), prepaid: true, paymentPath: "prepay" };
+    }
+    // Her size out of stock, as the last lookup stored it (review of 481f2d3): no silence touch sells it — armed before the deploy too.
+    if (inSilenceRuler(kind) && lead.address?.region?.sizeOutOfStock === true) {
+      await leave("canceled");
+      skipped.push({ followupId: row.id, reason: "tamanho dela sem estoque: régua encerrada" });
+      return;
+    }
     const order = kind.startsWith("order_")
       ? (
           await db(
@@ -1920,6 +2045,7 @@ const runFollowupSweep = async () => {
           .some((m: { body: string | null }) => forgetsCep(spoken(m.body ?? "")) || refusesCep(spoken(m.body ?? ""))),
       body: row.body ?? undefined,
       marketingOptIn: ASK_OPT_IN && !!lead.marketing_opt_in_at && !lead.marketing_opt_in_declined_at,
+      ...checkoutCtx,
     };
     // The 24-hour window (WA-1): outside it only an approved template leaves, and the text
     // gated and recorded is the one it says — not a variant she never reads (R15.2).
@@ -1936,9 +2062,11 @@ const runFollowupSweep = async () => {
         reason:
           kind === "deferred_reply"
             ? "resposta adiada sem corpo guardado"
-            : CONFIG.coupon.active
+            : kind === "pix_pending"
+              ? "Pix sem número ou valor do pedido"
+              : CONFIG.coupon.active
               ? "cupom ativo sem código (coupon.code) no BUSINESS_CONFIG"
-              : "cupom ainda não existe",
+              : "retomada sem o tamanho dela ou sem frete grátis nos dois caminhos",
       });
       return;
     }
@@ -1948,12 +2076,14 @@ const runFollowupSweep = async () => {
       layer: kind === "payment_check" ? "auto" : "agent",
       optedOut: false,
       now: new Date(),
-      paymentPath: touchPath,
+      paymentPath: kind === "pix_pending" ? "prepay" : touchPath,
       units: touchUnits,
       // Before an order, her stored region; after it, the order's own path is the truth.
       codUnavailable: !order && lead.address?.codAvailable === false,
       ...(order && Number(order.amount_brl) > 0 ? { orderAmountBrl: Number(order.amount_brl) } : {}),
-      stage: kind.startsWith("order_") ? "logistics" : "presale",
+      // The Pix touch says its order's total: the order's own amount, on the logistics stage, like the post-order touches.
+      ...(kind === "pix_pending" ? { orderAmountBrl: checkoutCtx.amountBrl } : {}),
+      stage: kind.startsWith("order_") || kind === "pix_pending" ? "logistics" : "presale",
     });
 
     await recordTraces(row.conversation_id, gates.traces);
@@ -2074,7 +2204,7 @@ const runFollowupSweep = async () => {
     }
     toSend.push(
       delivery.via === "template"
-        ? { to: lead.phone, kind, followupId: row.id, via: "template", body: text, name: delivery.name, language: delivery.language, variables: delivery.variables }
+        ? { to: lead.phone, kind, followupId: row.id, via: "template", body: text, name: delivery.name, language: delivery.language, variables: delivery.variables, ...(delivery.urlButton ? { urlButton: delivery.urlButton } : {}) }
         : { to: lead.phone, kind, followupId: row.id, via: "text", body: text },
     );
     if (kind === "still_there") nudged.add(row.conversation_id);
@@ -2144,6 +2274,8 @@ type TurnPayload = {
   /** A tap on one of our buttons (`InboundMessage.reply`); its `id` is sealed. */
   reply?: { id: string; contextId?: string };
   order?: OrderWebhook;
+  /** `job: "cart"` (2026-10-27): the Coinzz abandoned cart, normalized by n8n. */
+  cart?: CartWebhook;
   /** The sale webhook's secret, forwarded by n8n from the platform's URL (O10). */
   token?: string;
   /** `job: "human_reply"` (L0.3): her phone and what the person typed in the n8n form. */
@@ -2320,6 +2452,17 @@ const handleTurn = async (
     return json("ok" in result && result.ok === false ? 422 : 200, reply);
   }
 
+  // The abandoned cart (2026-10-27): the same public-webhook secret as the sale, checked in constant time.
+  if (payload.job === "cart") {
+    const saleToken = Deno.env.get("SALE_WEBHOOK_TOKEN") ?? "";
+    if (saleToken !== "" && !sameSecret(String(payload.token ?? ""), saleToken)) {
+      return json(401, { error: "token do webhook de carrinho inválido" });
+    }
+    if (!payload.cart || typeof payload.cart.phone !== "string") return json(400, { error: "cart.phone é obrigatório" });
+    const result = await recordCart(payload.cart);
+    return json("ok" in result && result.ok === false ? 422 : 200, result);
+  }
+
   // L0.3: a person answers her from the n8n form "Responder cliente".
   if (payload.job === "human_reply") return json(200, await humanReply(String(payload.phone ?? ""), String(payload.text ?? "")));
 
@@ -2363,8 +2506,11 @@ const handleTurn = async (
     if (seen?.length) return json(200, { status: "duplicate" });
   }
 
-  // 2. Lead and conversation.
-  const existing = await db(`leads?phone=eq.${encodeURIComponent(inbound.from)}&select=*`);
+  // 2. Lead and conversation. Her number with or without the ninth digit (2026-10-27): a lead the Coinzz checkout made from her cart
+  // or her order (`leadPhoneOf`, with the 9) is hers when she writes from WhatsApp's form (without it). The exact row first.
+  const twins = phoneTwins(inbound.from);
+  const existing = ((await db(`leads?phone=in.(${twins.map(encodeURIComponent).join(",")})&select=*`)) ?? [])
+    .sort((a: { phone: string }, b: { phone: string }) => Number(b.phone === inbound.from) - Number(a.phone === inbound.from));
   const lead =
     existing?.[0] ??
     (
@@ -2379,6 +2525,12 @@ const handleTurn = async (
         }),
       })
     )[0];
+  // Attribution is the first touch, never overwritten — but a lead the checkout made has none, and her first message from an ad is
+  // that first touch (2026-10-27). Only over a null `source`. Index: leads_pkey.
+  if (existing?.[0] && !lead.source && payload.source) {
+    await db(`leads?id=eq.${lead.id}&source=is.null`, { method: "PATCH", body: JSON.stringify({ source: payload.source }) }).catch(() => undefined);
+    lead.source = payload.source;
+  }
   // E2.3: her A/B arm, sorted from the phone and written once — `arm=is.null` never overwrites it.
   // A lead from before 0026 gets hers on her next turn. Index: leads_pkey. Failure costs only the label.
   if (!lead.arm) {
@@ -2526,6 +2678,12 @@ const handleTurn = async (
       method: "PATCH",
       body: JSON.stringify({ last_inbound_at: inboundAt.toISOString() }),
     }).catch(() => undefined);
+    // She wrote: the cart touch has nothing left to say, the conversation answers her in the window (2026-10-27). Index: the unique
+    // (conversation_id, kind).
+    await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.cart_recovery&status=eq.scheduled`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: "canceled" }),
+    }).catch(() => undefined);
     // A message from an ad (CTWA `referral`) is a new entry: a new free window of 72 h, and the
     // anchor of `silence_3` (4a). Its own write: before 0022 the column does not exist, and the
     // failure must not take `last_inbound_at` with it.
@@ -2551,7 +2709,15 @@ const handleTurn = async (
   // número da calça?". She is past the sale: the receipt goes, and the model answers her (`statesPastPurchase`, `changesAddress`).
   const afterSale = statesPastPurchase(spoken(inbound.body ?? ""), false) ||
     (statesPastPurchase(spoken(inbound.body ?? "")) && reportsOrderTrouble(spoken(inbound.body ?? ""))) || (changesAddress(spoken(inbound.body ?? "")) && /\bmudei\b/i.test(spoken(inbound.body ?? "")));
-  if (isNewLead && !isResume && !skipsOpening(spoken(inbound.body ?? "")) && !afterSale) {
+  // Origin (operator, 2026-10-27): an ad behind her — the CTWA referral on her lead or on this message — or not: the site, or her
+  // own number. Never read from her text. With no ad and no opening sent, she is in site mode: no opening, her message answered
+  // directly, the opening's media only on her request (`requestedMedia`). A failed read keeps the ad's behavior.
+  // Index: messages_conversation_idx (conversation_id, created_at).
+  const fromAd = Boolean(lead.source || payload.source);
+  const siteMode = !fromAd && (isNewLead || ((await db(
+    `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&body=in.(${[SIZE_ASK, LEGACY_SIZE_ASK].map((b) => encodeURIComponent(`"${b}"`)).join(",")})&select=id&limit=1`,
+  ).catch(() => null)) ?? [null]).length === 0);
+  if (isNewLead && fromAd && !isResume && !skipsOpening(spoken(inbound.body ?? "")) && !afterSale) {
     const opening = openingBubbles(CONFIG);
     const sent = await sendFunnel(conversation.id, opening);
     if (sent) {
@@ -2574,7 +2740,8 @@ const handleTurn = async (
     }
   }
   // The receipt stays only where the opening could not be written (a database error): she is never left unanswered.
-  if (isNewLead && !isResume && !(fastOpening && openNow)) {
+  // Site mode inside the send window: no receipt either, the turn answers her now (2026-10-27).
+  if (isNewLead && !isResume && !(fastOpening && openNow) && !(siteMode && openNow)) {
     // At night the reply waits for the opening: the receipt says when, never "já" (E3 review, R2).
     const receiptText = openNow ? WELCOME_AUTO_REPLY : welcomeNightReply(CONFIG.hours.openHour);
     const welcomedAt = new Date().toISOString();
@@ -3382,6 +3549,18 @@ const handleTurn = async (
   let herOrders: Promise<unknown[] | null> | undefined;
   const herOrderRows = (): Promise<unknown[] | null> =>
     (herOrders ??= herLeadIds().then((ids) => db(`orders?lead_id=in.(${ids.join(",")})&select=id&limit=1`).catch(() => null)));
+  // "Reenvia o Pix" (2026-10-27): the Pix touch promises it, and its button says it. Her order waiting for the Pix, with the code the
+  // webhook brought (orders.details), sent as it came, the code alone in its bubble. Index: orders_lead_idx, her newest rows.
+  if (!isResume && parts.some((p: string) => asksPixCode(spoken(p)))) {
+    const waiting = (((await db(`orders?lead_id=in.(${(await herLeadIds()).join(",")})&select=status,details&order=created_at.desc&limit=3`).catch(() => null)) ?? []) as Array<{ status: string | null; details: { orderNumber?: string; pixCode?: string; pixUrl?: string } | null }>)
+      .find((o) => awaitsPix(o.status, Boolean(o.details?.pixCode || o.details?.pixUrl)));
+    const texts = waiting?.details ? pixResendTexts(waiting.details) : [];
+    if (texts.length > 0) {
+      const sent = await sendFunnelTurn(texts.map((text) => ({ text })), "pix reenviado a pedido dela");
+      if (sent) return sent;
+    }
+  }
+
   // 4a0. "Paguei" (operator, 2026-10-08, L2): the agent tells her the payment's status instead of
   // calling a person who may not come. Before the interpreter, so its post-sale handoff never fires
   // here. Only a receipt, after the check found nothing, goes to a person.
@@ -3873,8 +4052,8 @@ const handleTurn = async (
    * The postcode rides in on the address machinery that was already accumulating it, so
    * there is no new state and no second question. What comes back is about the REGION:
    * whether delivery reaches her, which three days, whether Express exists, and the
-   * carrier quote. It never vetoes a size — the Coinzz mapping is wrong about the M and
-   * the Logzz checkout, where she actually buys, is not.
+   * carrier quote. Since 2026-10-27 the Coinzz is the checkout she buys on, and its 404 for her size while other sizes answer is
+   * that size out of stock (`sizeOutOfStock`, `lookupCoinzz`): the one case where the lookup vetoes a size.
    *
    * A failed lookup is not a blocked sale. `region` stays null, the agent keeps talking,
    * and the only thing it loses is permission to name a size — which is the correct
@@ -3922,7 +4101,7 @@ const handleTurn = async (
           }),
         }).catch(() => undefined);
       }
-      if (region) freshRegion = { ...region, checkedAt: new Date().toISOString() };
+      if (region) freshRegion = { ...region, checkedAt: new Date().toISOString(), stockAware: true };
       // Said in the turn the CEP arrives, not on every message after it (review of round 2).
       cepNotFound = lookup.kind === "not_found" && Boolean(foundAddress.fields.cep);
       // Not kept either: a CEP that does not exist never counts for the link, in this turn or the next.
@@ -3936,8 +4115,9 @@ const handleTurn = async (
     }
   }
   // A kit is delivered only when every size she chose is (operator, 2026-10-20, grafo §117): the Logzz kit checkout with an M where the M
-  // has no stock does not schedule. The other sizes are asked each turn — the cache keeps one size's answer.
-  if (region?.cod && units > 1 && addressDraft.cep) {
+  // has no stock does not schedule. The other sizes are asked each turn — the cache keeps one size's answer. On either path since the
+  // review of 481f2d3: a piece out of stock is read wherever her own size goes (`kitRegion`).
+  if (region && !region.sizeOutOfStock && units > 1 && addressDraft.cep) {
     const cep = addressDraft.cep;
     const others = [...new Set(unitSizes)].filter((x): x is Size => (SIZES as readonly string[]).includes(x) && x !== regionSize);
     // In parallel, inside the region's own timeout: the model's budget is not theirs (review).
@@ -3947,11 +4127,7 @@ const handleTurn = async (
         .then((r) => ({ s, r }))));
     // A size without delivery, or one the lookup could not answer, makes the kit prepaid: a delivery link with a size the Logzz may
     // not schedule never goes, and a failure never turns a known answer into the two links (review: the offers flip-flopped).
-    const missing = answers.find(({ r }) => !(r.kind === "found" && r.region.cod));
-    // Her own size has it there: the reason said before the prepaid box is the other piece's size, not her region (A4).
-    if (missing) region = { ...region, cod: false, dates: [], sameDay: false, size: missing.s, otherSizesInStock: regionSize ? [regionSize] : [] };
-    // A piece whose size has no stock at all (2026-10-27): the kit is sold on neither path, said like her own size's.
-    if (missing?.r.kind === "found" && missing.r.region.sizeOutOfStock === true) region = { ...region, sizeOutOfStock: true };
+    region = kitRegion(region, regionSize, answers);
   }
   // Plan 16 §4.7: where the delivery does not reach her, the prepaid box says the freight the checkout charges at her CEP for what she
   // is buying — one piece of her size, or the kit with the size of each piece, asked in one query like the kit checkout does
@@ -3979,8 +4155,10 @@ const handleTurn = async (
   // honest line, and the operator e-mailed once so somebody can tell her when it is back. No offer (a guide holds the fixed ones), no
   // link (`linkReady`), never another size to make the sale. Said already (index: turn_outcomes_conversation_idx), not repeated.
   const sizeOut = region?.sizeOutOfStock === true ? region.size ?? regionSize : null;
+  // Read here, used by the fallback after five vetoes too (review of 481f2d3).
+  let sizeOutSaid = false;
   if (sizeOut !== null) {
-    const sizeOutSaid = ((await db(`turn_outcomes?conversation_id=eq.${conversation.id}&reason=like.${encodeURIComponent(`*${SIZE_OUT_REASON}*`)}&select=id&limit=1`).catch(() => null))?.length ?? 0) > 0;
+    sizeOutSaid = ((await db(`turn_outcomes?conversation_id=eq.${conversation.id}&reason=like.${encodeURIComponent(`*${SIZE_OUT_REASON}*`)}&select=id&limit=1`).catch(() => null))?.length ?? 0) > 0;
     const sizeOutRule = `Não mande link, não ofereça a entrega nem o antecipado, não diga data de volta e nunca sugira outro tamanho pra fechar a venda.`;
     if (!sizeOutSaid) {
       guide(`O tamanho dela, o ${sizeOut}, está sem estoque agora nos dois pagamentos: o checkout não vende o ${sizeOut}. Diga isso numa frase curta e ofereça avisar quando ele voltar. ${sizeOutRule}`, sizeOutOfStockLine(sizeOut), SIZE_OUT_REASON, true);
@@ -4211,7 +4389,10 @@ const handleTurn = async (
     // `recordOutcome`); the gate's own reader catches a line said before the mark existed.
     stockSaid: storedProfileOf(lead)?.stock_offered === true || recentOutbound.some((m: string) => claimsStock(m)),
   });
-  const turnFacts = { stockLine, prepayFreightBrl };
+  // What the Coinzz told about her checkout (2026-10-27): the cart on her lead and her newest order, as internal facts. Index:
+  // orders_lead_idx, newest one of her few rows.
+  const newestOrder = ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(",")})&select=created_at,status,payment_method,amount_brl,units&order=created_at.desc&limit=1`).catch(() => null)) ?? [])[0] ?? null;
+  const turnFacts = { stockLine, prepayFreightBrl, site: siteMode, checkoutFacts: checkoutFactLines(lead.cart ?? null, newestOrder) };
   const factsGate = { ...(stockLeft ? { stockLeft } : {}), ...(prepayFreightBrl !== null ? { prepayFreightBrl } : {}) };
   // What the link carries: the name title-cased for the checkout (code review,
   // 2026-09-24 — "maria jose ferreira", "MARIA DA SILVA"); the stored value is untouched.
@@ -4543,6 +4724,17 @@ const handleTurn = async (
     if (sent) return sent;
   }
 
+  // Site mode (operator, 2026-10-27): the opening's media only when she asks for it or for what it shows, chosen by code and sent by
+  // the system, never by the model (R11.1); then n8n's resume lets the model answer the rest. Not on the resume, not twice in a row.
+  const mediaAsked = siteMode && guides.length === 0 && !isResume && openNow && !farewell
+    ? parts.flatMap((p: string) => requestedMedia(spoken(p), CONFIG))
+      .filter((b: FunnelBubble, i: number, all: FunnelBubble[]) => all.findIndex((x) => x.text === b.text) === i && !recentOutbound.slice(-6).includes(b.text))
+    : [];
+  if (mediaAsked.length > 0) {
+    const sent = await sendFunnelTurn(mediaAsked, "mídia a pedido dela (site)", {}, true);
+    if (sent) return sent;
+  }
+
   // The size table on request (operator, 2026-10-20): the image goes, then n8n's resume lets the model answer the rest. Not on the
   // resume itself, and not twice in a row.
   const tableBubbles = sizeTableBubbles(CONFIG);
@@ -4593,7 +4785,9 @@ const handleTurn = async (
     );
   }
   // Copy v4, section 4: after the delivery link of the two checkouts, her "não apareceu" gets the prepaid one, once.
+  // One checkout with both payments (2026-10-27): the link she has already takes the Pix, so no second link goes (`oneCheckout`).
   if (guides.length === 0 && offerBefore === "both" && openNow && !farewell && !withdrew && parts.some((p: string) => saysNoDeliveryDay(spoken(p))) &&
+    !oneCheckout(CONFIG.checkout?.codUrl, CONFIG.checkout?.prepayUrl) &&
     !recentOutbound.some((m: string) => m.startsWith(BOTH_PREPAY_HEADLINE) || m.startsWith("🔵 2) PAGAR AGORA"))) {
     const pieces = units > 1 ? units : 1;
     const prepayBase = pieces > 1 ? kits.find((k) => k.path === "prepay" && k.units === pieces)?.checkoutUrl : CONFIG.checkout?.prepayUrl;
@@ -4738,7 +4932,8 @@ const handleTurn = async (
   const identityDirective = farewell
     ? `Ela está se despedindo ou vai pensar, e você já respondeu isso com a mensagem de "vou pensar". ` +
       `Responda curto e gentil, sem pedir dado nenhum, sem oferta e sem link.`
-    : linkNow || linkAlreadySent || kitOfferNow || !(missing === "name" || missing === "email" || missing === "document")
+    // Her size out of stock (review of 481f2d3): no name nor CPF for a sale that cannot close.
+    : sizeOut !== null || linkNow || linkAlreadySent || kitOfferNow || !(missing === "name" || missing === "email" || missing === "document")
       ? null
       : missing === "document" && parts.some(sentInvalidCpf)
       ? // Persona Vera (2026-10-14): the invalid number was thanked as if it were hers, and the link never came.
@@ -4819,6 +5014,7 @@ const handleTurn = async (
               ? payload.source.headline
               : typeof lead.source?.headline === "string" && conversation.entry_at ? lead.source.headline : null,
             onlyGreets(parts),
+            siteMode,
           )
         : null,
       // E3.2 (H2): her size and register, over her last three messages.
@@ -4854,7 +5050,7 @@ const handleTurn = async (
           ` cancelar, diga isso e que ${logzzPhone ? `o atendimento ao cliente` : `o e-mail acima`} resolve; não oriente recusar na porta nem devolver por conta própria.`
         : null,
       units > 1 ? null : sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null, cepForgotten),
-      regionDirectiveFor(knownRegion, paymentChoice, agreedOnly, offerBefore === "both", offerNow !== null && offerNow !== offerBefore && !pastLink && (!sizeKnown || !openNow)),
+      regionDirectiveFor(knownRegion, paymentChoice, agreedOnly, offerBefore === "both", offerNow !== null && offerNow !== offerBefore && !pastLink && (!sizeKnown || !openNow), CONFIG.prices, sizeOut, oneCheckout(CONFIG.checkout?.codUrl, CONFIG.checkout?.prepayUrl)),
       failedPlace !== null && region === null && isLikelyCodCity(failedPlace, CONFIG.cod.likelyCities) && recentOutbound.some((m: string) => m.includes("🟢 1) PAGAR SÓ NA ENTREGA"))
         ? `A consulta do CEP dela falhou, e o sistema já mandou os dois links (🟢 1, pagar na entrega; 🔵 2, pagar agora). Se ela` +
           ` perguntar, peça pra ela abrir o link 🟢 e ver se aparece o dia da entrega; se não aparecer, o link 🔵 leva o colete do` +
@@ -5187,6 +5383,8 @@ const handleTurn = async (
   const fixedOrDraft =
     fallbackReason === null
       ? attempt.text
+      // Her size out of stock (review of 481f2d3): the safe reply is the out-of-stock line itself, never an offer of a path.
+      : sizeOut !== null ? sizeOutFallback(sizeOut, sizeOutSaid)
       : asksWhen
         ? deadlineFallbackMessage(CONFIG, codUnavailable || paymentChoice === "prepay", knownRegion !== null)
         : asksOffer ? offerFallbackMessage(CONFIG)
@@ -5195,6 +5393,7 @@ const handleTurn = async (
         ? paymentFallbackMessage(CONFIG, codUnavailable ? "no_cod" : paymentChoice === "prepay" ? "prepay" : knownRegion?.cod ? "cod" : offerBefore === "both" ? "both" : null)
         : fallbackIsGeneric ? SAFE_FALLBACK_REPLY
         : codUnavailable ? noCodMessage(CONFIG) : priceBeforeCepMessage(CONFIG);
+
   // Her other question beside the fixed deadline ("quando chega? e se eu pedir reembolso?", operator, 2026-10-13):
   // one more call, told the deadline is answered, answers only the other one — gated, under the ceiling, no
   // rewrite. Vetoed or failed, the fixed deadline goes alone, as before.
@@ -5242,6 +5441,7 @@ const handleTurn = async (
     new Date(),
     undefined,
     endsWithQuestion(replyText),
+    sizeOut !== null,
   );
 
   // O pedido, montado aqui e postado pelo n8n. Regra de negócio é código versionado;
@@ -5307,7 +5507,8 @@ const handleTurn = async (
       // A fallback stays a fallback in the record (the evaluation views and Hermes count it); the e-mail rides on the status.
       fallbackReason !== null ? "fallback" : notifyOrder || extraNotify ? "handoff" : "send",
       // The order's mark leads (the once-per-conversation read is a prefix match), and what else happened stays beside it (H-2).
-      [notifyOrder ? ORDER_UNREADABLE_REASON : null, ...guideReasons, fallbackReason ?? (checkoutUrl && linkFact && replyText.includes(checkoutUrl) ? `link — ${linkFact}` : null)]
+      // The out-of-stock mark only where the line went (review of 481f2d3): read by the next turn as "already said".
+      [notifyOrder ? ORDER_UNREADABLE_REASON : null, ...guideReasons.filter((r) => r !== SIZE_OUT_REASON || sizeOutLineSent(replyText, sizeOut)), fallbackReason ?? (checkoutUrl && linkFact && replyText.includes(checkoutUrl) ? `link — ${linkFact}` : null)]
         .filter((r): r is string => r !== null).join(" | ") || null,
       rewritesUsed,
       spent - spentBefore,

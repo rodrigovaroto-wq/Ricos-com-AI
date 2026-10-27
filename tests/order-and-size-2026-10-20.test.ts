@@ -40,11 +40,11 @@ describe("pedido não encontrado", () => {
 
 describe("kit: a entrega só com todos os tamanhos dela", () => {
   it("pergunta os outros tamanhos do kit em paralelo; sem entrega ou sem resposta, o kit vai pelo antecipado (nunca os dois links)", () => {
-    expect(turn).toContain("if (region?.cod && units > 1 && addressDraft.cep) {");
+    expect(turn).toContain("if (region && !region.sizeOutOfStock && units > 1 && addressDraft.cep) {");
     expect(turn).toContain("const others = [...new Set(unitSizes)].filter((x): x is Size => (SIZES as readonly string[]).includes(x) && x !== regionSize);");
     expect(turn).toContain("const answers = await Promise.all(others.map((s) =>");
-    expect(turn).toContain('const missing = answers.find(({ r }) => !(r.kind === "found" && r.region.cod));');
-    expect(turn).toContain("if (missing) region = { ...region, cod: false, dates: [], sameDay: false, size: missing.s, otherSizesInStock: regionSize ? [regionSize] : [] };");
+    // The rule moved to `kitRegion` (review of 481f2d3); its behavior is held in tests/offer-2026-10-27-review.test.ts.
+    expect(turn).toContain("region = kitRegion(region, regionSize, answers);");
   });
   it("a oferta da entrega que já foi pergunta se pode ir pelos Correios antes do antecipado (copy v4, 2.5)", () => {
     expect(turn).toContain('} else if (region !== null && offerBefore === "cod" && offerNow === "prepay" && region.size && lastOutbound !== sizeNoCodAsk(region.size)) {');

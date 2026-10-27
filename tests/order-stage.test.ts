@@ -140,7 +140,9 @@ describe("7.4: a régua de silêncio termina em perdido", () => {
     // And a sixth (4a): the anchored silence_2/silence_3 whose reopening is past its deadline.
     // And a seventh (plan 16 §4.2, 2026-10-22): the silence_2/silence_3 of a lead gone cold during the ruler.
     // And an eighth (R30.7, 2026-10-22): the silence_2 armed before the ruler lost its second touch.
-    expect(afterLeave.match(/await leave\("canceled"\);/g)?.length).toBe(8);
+    // And three more (2026-10-27, grafo §134): the cart touch with nothing to say, the Pix no longer waiting, and the silence touch
+    // of a size out of stock.
+    expect(afterLeave.match(/await leave\("canceled"\);/g)?.length).toBe(11);
     expect(afterLeave).toContain('if (!(await leave("sent"))) {');
     const nullBranch = afterLeave.slice(afterLeave.indexOf("if (text === null) {"));
     expect(nullBranch.indexOf("return;")).toBeGreaterThan(-1);
@@ -196,7 +198,7 @@ describe("dois pedidos no mesmo lead: o toque guarda o pedido dele", () => {
     expect(source).toContain("const orderRowId: string | undefined = saved?.[0]?.id;");
     expect(source).toContain("order_id: orderRowId ?? null,");
     expect(source).toContain("followups?conversation_id=eq.${conversation.id}&select=kind,status,order_id");
-    expect(source).toContain("    status,\n    orderRowId,\n    scheduledFor,\n  );");
+    expect(source).toContain("    status,\n    orderRowId,\n    scheduledFor,\n    pix,\n  );");
   });
   it("a varredura lê o pedido do toque, e o último só para linha antiga", () => {
     expect(source).toContain("&select=id,kind,run_at,stop_point,body,order_id,conversation_id,");
@@ -364,7 +366,7 @@ describe("segunda revisão: varredura e webhook de venda", () => {
 
   it("o ponto de parada lê a janela M-03; o lembrete, só a resposta que levou o link", () => {
     expect(source).toContain(
-      "  await scheduleSilenceTouches(\n    conversation.id,\n    stopPointOf(replyText, recentOutbound),\n    linkSentRecently([replyText], CHECKOUT_BASES),\n    new Date(),\n    undefined,\n    endsWithQuestion(replyText),\n  );",
+      "  await scheduleSilenceTouches(\n    conversation.id,\n    stopPointOf(replyText, recentOutbound),\n    linkSentRecently([replyText], CHECKOUT_BASES),\n    new Date(),\n    undefined,\n    endsWithQuestion(replyText),\n    sizeOut !== null,\n  );",
     );
     // The window read by itself before the turn's history exists (grafo §96).
     expect(source).toContain('extra.checkoutUrl ? "link_sent" : stopPointOf(text, await outboundBefore()),');
@@ -508,7 +510,7 @@ describe("depois da compra, a régua de silêncio não volta", () => {
   const sweep = source.slice(source.indexOf("const runFollowupSweep"), source.indexOf('return { status: "swept"'));
 
   it("scheduleSilenceTouches lê estágio e pedidos do lead e, depois da compra, só cancela", () => {
-    const read = schedule.indexOf("conversations?id=eq.${conversationId}&select=*,leads(size,score_band,orders(status))");
+    const read = schedule.indexOf("conversations?id=eq.${conversationId}&select=*,leads(size,score_band,stock_out:address->region->>sizeOutOfStock,orders(status))");
     const guard = schedule.indexOf("if (at && !chasesSilence(");
     expect(read).toBeGreaterThan(-1);
     expect(guard).toBeGreaterThan(read);

@@ -4408,6 +4408,113 @@ e o XGG têm; o G não) — não alarma falso e não fica cego à porta sumida.
 
 **Guarda.** `tests/offer-2026-10-27.test.ts`, o canto "produção 27/10" em `tests/prompt.test.ts`, `tests/availability.test.ts` (o M); mutações `O27-*`.
 
+**Revisão (2026-10-27, reprovada).** O prompt, a régua, o kit, o fallback depois de cinco vetos e o cache ainda vendiam o tamanho sem
+estoque, e o desconto do antecipado era dito a 0%: causa, correção e guarda no §134 A. O resíduo "os dois checkouts mandam o mesmo URL
+duas vezes" foi fechado no §134 B.
+
+## 134. O teste em dois braços (anúncio → WhatsApp e anúncio → site → checkout), os toques da Coinzz, e a revisão do §133 (operador, 2026-10-27)
+
+### A. A revisão Opus do §133 (481f2d3, reprovada)
+
+**Sintoma.**
+- Com o tamanho sem estoque (`sizeOut`), o prompt ainda recebia `regionDirectiveFor` ("siga no antecipado, com o desconto") e a
+  diretiva de identidade (nome e CPF de uma venda que não fecha). Reprodução: CEP 04710-090, M, "e pelo pix dá?".
+- `scheduleSilenceTouches` não tinha saída para o tamanho sem estoque: uma hora depois, `silence_1` dizia à cliente do M "No antecipado
+  o colete sai por R$ 109,90".
+- Kit: o M só era lido sem estoque se fosse a primeira peça sem entrega (`answers.find` da primeira não-entrega), e o bloco só rodava
+  com `region?.cod` — com o tamanho dela sem a entrega e um M no kit, saía o link do kit antecipado com o M.
+- Depois de cinco vetos, o fallback era `noCodMessage`/`deadlineFallbackMessage` (oferecem o antecipado), e `turn_outcomes.reason`
+  gravava `SIZE_OUT_REASON` mesmo sem a linha ter saído — o turno seguinte achava que ela já tinha ouvido.
+- "com o desconto", "diga o desconto do antecipado" e "o desconto do antecipado e dos kits" com o antecipado a 0%; e o gate deixava
+  passar "Pagando no Pix antecipado tem desconto 😊" (frase que o prompt antigo ensinava, R21.6).
+- `cachedRegion` servia por até 1 h uma região gravada antes da leitura do estoque (M com `cod: true` de outro tamanho).
+- O comentário do 5d-bis dizia que "a Coinzz erra o M" — falso desde o §133.
+
+**Causa.** O §133 tratou o tamanho sem estoque no ponto de decisão do link e da oferta fixa, mas o prompt, a régua, o kit, o fallback e
+o cache tinham cada um a sua leitura da região, e nenhuma olhava `sizeOutOfStock`.
+
+**Correção.**
+- `regionDirectiveFor` saiu da `turn` para `prompt.ts` (testável), lê o desconto do config e devolve `null` com `sizeOut`; a diretiva de
+  identidade também cala com `sizeOut`.
+- `scheduleSilenceTouches` cancela tudo com o `sizeOut` do turno ou a região guardada sem estoque
+  (`stock_out:address->region->>sizeOutOfStock`); a varredura (`runFollowupSweep`) cancela na hora do envio todo toque de silêncio de
+  quem tem a região guardada sem estoque (toques armados antes do deploy ou por resposta adiada).
+- `kitRegion` (`availability.ts`): uma peça sem estoque em qualquer posição e em qualquer caminho deixa o kit sem estoque; só depois, onde
+  o tamanho dela tem a entrega, a peça sem entrega leva o kit ao antecipado. O bloco do kit roda também onde o tamanho dela não tem a entrega.
+- Fallback com `sizeOut`: `sizeOutFallback` (a linha, ou a curta se já dita); `SIZE_OUT_REASON` só é gravado quando a resposta disse que
+  acabou (`sizeOutLineSent`, com negação).
+- `price_promise`: com `prepayDiscountPercent` 0, uma frase que nomeia só o antecipado (sem kit, cupom, contagem de peças, entrega nem
+  pergunta) e afirma desconto/"mais barato" sem negação antes é vetada; o briefing do gate diz "O antecipado não tem desconto".
+- `CachedRegion.stockAware`: a `turn` grava; cache sem ele não é servido.
+
+**Guarda.** `tests/offer-2026-10-27-review.test.ts` (comportamental: `regionDirectiveFor`, `kitRegion`, `sizeOutFallback`,
+`sizeOutLineSent`, `cachedRegion`, `runGates`); mutações `O28-diretiva-sem-estoque`, `O28-identidade-sem-estoque`,
+`O28-regua-sem-estoque`, `O28-regua-sem-estoque-na-varredura`, `O28-kit-peca-sem-estoque`, `O28-fallback-sem-estoque`,
+`O28-motivo-so-se-disse`, `O28-desconto-do-config`, `O28-gate-desconto-0`, `O28-cache-sem-estoque`. `pnpm dev:gates`: 0 afrouxados,
+15 endurecidos (todos `price_promise`, desconto do antecipado com 0%).
+
+### B. O teste em dois braços (operador, 2026-10-27)
+
+**Decisão do operador.** Cinco dias, as mesmas 12–16 cidades, a mesma oferta: (A) anúncio → WhatsApp (Click-to-WhatsApp, a `referral`
+vira `leads.source`); (B) anúncio → site → checkout da Coinzz, com botão de WhatsApp para a Malu.
+
+**Sintomas que o código de antes teria.**
+- Toda lead nova recebia a abertura de 9 balões (áudios, vídeo, avaliações) — inclusive quem já viu tudo no site.
+- O prompt afirmava "A ABERTURA JÁ FOI" e "quase sempre ela vem do anúncio" para todas.
+- O carrinho abandonado e o Pix gerado e não pago não chegavam a ninguém; o pedido de quem nunca escreveu era recusado (`unknown_lead`).
+- O `silence_3` com o cupom desligado saía vazio (memória `stage-nunca-e-escrito`).
+- `bothLinksBubbles` mandava o mesmo URL da Coinzz duas vezes, com "oferta especial" do mesmo preço (resíduo do §133).
+
+**Correção.**
+- Origem: `fromAd` = `leads.source` ou a `referral` da mensagem (nunca o texto). Sem anúncio e sem abertura enviada = `siteMode`: sem
+  abertura e, dentro do horário, sem recibo; a primeira resposta é do modelo (`openingDirective` com `fromSite`: só cumprimentou → "Me
+  conta, qual a sua dúvida sobre o colete?"); o prompt troca os parágrafos do anúncio por `siteBriefing`. Lead feito pelo checkout
+  ganha `source` na primeira mensagem de anúncio (só sobre `null`).
+- Mídia a pedido no modo site: `requestedMedia` escolhe, por código, o vídeo (vídeo, foto do produto, "como fica no corpo"), as avaliações
+  ("é bom mesmo?", "funciona mesmo?", avaliação, depoimento) e os dois áudios ("manda áudio"); a tabela continua `asksSizeTable`. Negação:
+  recusou, já viu, não consegue tocar, a foto é dela (comprovante). Enviada com `sendFunnelTurn` e a retomada do n8n responde o resto.
+- Fatos do checkout: `checkoutFactLines` (o carrinho de `leads.cart` e o pedido mais novo) entram como "O QUE O CHECKOUT DA COINZZ
+  CONTOU DELA — referência sua, NUNCA formato de mensagem", sem dado pessoal.
+- `cart_recovery`: n8n "Carrinho abandonado" → `job: "cart"` (token `SALE_WEBHOOK_TOKEN` em tempo constante) → `recordCart`: acha o
+  lead por `leadForPhone` (exato, depois os 8 últimos dígitos; dois = recusa) ou cria (`checkoutLead`, sem `source`), guarda o carrinho
+  (só o primeiro nome) e arma UM toque 30 min depois (`armsCartRecovery`). **Decisão do operador: não depende do opt-in de marketing**
+  (ela digitou o telefone no nosso checkout para comprar); nunca duas vezes, nunca a opt-out, nunca sobre pedido, nunca com ela
+  conversando (última mensagem < 30 min) nem com o `checkout_reminder` esperando; de madrugada, o `business_hours` adia. Ela escreveu →
+  o turno cancela; chegou pedido → `onOrderConfirmed` cancela. Fora da janela, só o template `encorpa_carrinho_site` (MARKETING) com
+  `firstName` e o slug do `checkout_url` no botão de URL (`TemplateBinding.urlButton`, `templateMessage`, "Monta os envios").
+- `pix_pending`: o pedido com "Aguardando pagamento" E o código do Pix (`awaitsPix`) arma um toque 30 min depois; aprovado, expirado ou
+  cancelado cancela; na hora do envio a varredura relê o pedido. Template `encorpa_pix_pendente` (UTILITY): `firstName`, `orderNumber`,
+  `price`. "Reenviar o Pix" (`asksPixCode`) manda o código que o webhook trouxe (`pixResendTexts`, `orders.details`).
+- O pedido de quem nunca escreveu (o site) cria o lead e a conversa (`recordOrder`), para o Pix e a régua pós-pedido; telefone que não é
+  brasileiro segue `unknown_lead`. O turno acha o lead com ou sem o nono dígito (`phoneTwins`): o checkout grava com o 9, o WhatsApp
+  entrega quase sempre sem.
+- `silence_3` com o cupom desligado: a retomada (`encorpa_retomada`, MARKETING, com opt-in), chave própria `silence_3_retomada` —
+  o template do cupom (`en`, outras variáveis) nunca sai com esse texto. Só com o tamanho dela, frete grátis nos dois caminhos e o
+  preço do caminho igual ao da entrega.
+- Um checkout para os dois pagamentos (`oneCheckout`): `bothLinksBubbles` manda UM link com os dois jeitos de pagar; o "não apareceu
+  dia" não manda o segundo link, e a diretiva diz que o mesmo link aceita Pix e cartão.
+- Migração `0033_checkout_cart_and_order_details.sql`: `leads.cart` e `orders.details` (jsonb). `followups` não muda (unique
+  `(conversation_id, kind)`, memória `on-conflict-partial-index`).
+
+**Caminhos descartados.** Tabela própria de carrinhos (um por lead basta, e a leitura vem com o lead); inferir a origem do texto da
+saudação (o operador edita a mensagem pronta); deixar o modelo decidir a mídia (tool-calling, R11.1); declarar os templates novos no
+config antes da aprovação; usar a chave `silence_3` para a retomada (o secret declara nela o template do cupom); ler a data de entrega da
+Coinzz em `order.delivery_time`/`order.deadline_delivery` sem fixture que prove o campo.
+
+**Resíduos.**
+- A data de entrega do pedido da Coinzz continua não lida (só `date_delivery` no topo, da Logzz): sem ela, a véspera não arma.
+- `oneCheckout` no "não apareceu dia" compara os URLs de uma peça; kits com checkouts diferentes por caminho seguiriam o fluxo antigo.
+- Uma peça de kit sem estoque não é guardada na região do lead: a resposta adiada à noite pode armar a régua (o turno seguinte cancela).
+- O site cria lead para todo comprador: a régua pós-pedido (`order_confirmed` etc.) passa a valer também para quem só comprou no site,
+  quando os templates dela estiverem declarados.
+- Templates não aprovados: fora da janela, os três toques ficam bloqueados (e-mail "toque(s) da régua não saíram") até a declaração.
+
+**Guarda.** `tests/checkout-touches-2026-10-27.test.ts` (o texto de cada toque = o corpo do template em
+`docs/agente-ia/06-script/03-templates-meta.md` §5–§7, preenchido com as variáveis de `deliveryFor`; gates com o config de 27/10;
+negações de `requestedMedia` e `asksPixCode`; os normalizadores do n8n executados); `tests/n8n-workflows.test.ts` (carrinho-abandonado);
+`tests/n8n-whatsapp-send.test.ts` (botão de URL); mutações `O28-carrinho-*`, `O28-pix-*`, `O28-retomada-template-do-cupom`,
+`O28-site-sem-abertura`, `O28-midia-negacao`, `O28-um-link`, `O28-token-carrinho`, `O28-token-rota-carrinho`, `O28-botao-url`. Nove mutações antigas (`R10.4-venda`, `adiada-kit`, `O10-venda`, `TPL-antecipado-cobra`, `G66-uma-vez-por-dia-fiacao`, `E3-braco-a-de-madrugada`, `r21-taxa-da-troca-volta`, `G117-kit-com-um-tamanho-so`, `G117-kit-falha-vira-dois-links`) tiveram o texto de origem atualizado; `O10-venda` passou a exigir o 401 da rota de venda (a do carrinho repete a linha).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

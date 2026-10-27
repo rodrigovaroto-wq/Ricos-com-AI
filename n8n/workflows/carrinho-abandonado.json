@@ -1,0 +1,240 @@
+{
+  "id": "",
+  "name": "Encorpa — Carrinho abandonado",
+  "active": false,
+  "versionId": "",
+  "nodes": [
+    {
+      "id": "50125299-125a-4853-9a8d-defd23729691",
+      "name": "Carrinho recebido",
+      "webhookId": "ee8a6878-ea55-4227-bce0-eaee9e5361c7",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        96
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "encorpa-carrinho",
+        "options": {}
+      }
+    },
+    {
+      "id": "a9b3ec72-967b-4a80-ab69-77a128885225",
+      "name": "Normaliza o carrinho",
+      "notes": "Nada aqui adivinha. Sem telefone, vai cru (sem CPF, e-mail nem endereço) pro operador.",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        96
+      ],
+      "parameters": {
+        "jsCode": "// Coinzz \"Carrinho Abandonado\" postback (operator, 2026-10-27, grafo §134): `client.*`, `items` (an object or an array),\n// `postback_name`, `checkout_url`. Only what the turn keeps leaves n8n: the phone, the name (the turn keeps the first one),\n// the offer, the quantity, the price and the checkout URL — never the CPF, the e-mail or the address. What does not resolve\n// goes to the operator, with those three redacted from the raw payload.\nconst item = $input.first().json;\nconst body = item.body ?? item;\n\nconst at = (obj, path) => path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);\nconst pick = (paths) => {\n  for (const p of paths) {\n    const v = at(body, p);\n    if (v !== undefined && v !== null && String(v).trim() !== '') return v;\n  }\n  return undefined;\n};\n\nconst items = Array.isArray(body.items) ? body.items : body.items && typeof body.items === 'object' ? [body.items] : [];\nconst first = items.find((i) => i && typeof i === 'object') ?? {};\nconst quantity = items.reduce((n, i) => n + (Number.parseInt(String(i?.quantity ?? '0'), 10) || 0), 0);\nconst phoneRaw = pick(['client.client_phone', 'client_phone', 'phone']);\nconst phone = phoneRaw === undefined ? undefined : String(phoneRaw).replace(/\\D/g, '');\n\nconst cart = {\n  phone,\n  name: pick(['client.client_name', 'client_name']) ?? null,\n  offerName: first.offer_name ?? first.product_name ?? null,\n  quantity: quantity > 0 ? quantity : null,\n  offerPrice: first.offer_price ?? null,\n  checkoutUrl: pick(['checkout_url', 'checkoutUrl']) ?? null,\n};\n\nconst missing = [];\nif (!phone) missing.push('phone');\n\nconst client = body.client && typeof body.client === 'object' ? body.client : null;\nconst redacted = client\n  ? { ...body, client: { ...client, client_document: client.client_document ? '[cpf]' : null, client_email: client.client_email ? '[e-mail]' : null, client_street: client.client_street ? '[rua]' : null, client_address_number: client.client_address_number ? '[numero]' : null, client_address_comp: client.client_address_comp ? '[complemento]' : null } }\n  : body;\n\nreturn [{ json: { ok: missing.length === 0, missing: missing.join(', '), cart, raw: JSON.stringify(redacted, null, 2) } }];\n"
+      }
+    },
+    {
+      "id": "f0d7235a-47d3-4392-8fca-d1e7566f3c49",
+      "name": "Reconheceu o carrinho?",
+      "notes": "Falso significa que falta o telefone.",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        448,
+        96
+      ],
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "89ca92ca-d714-42b8-9a43-d54f6ad30896",
+      "name": "Grava o carrinho",
+      "notes": "job: \"cart\" na Edge Function: guarda o carrinho no lead e arma UM toque em 30 min (cart_recovery).",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput",
+      "position": [
+        672,
+        0
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://hbmkgakzrqmdlsvszjeo.supabase.co/functions/v1/turn",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ job: \"cart\", cart: $json.cart, token: $('Carrinho recebido').first().json.query.token ?? \"\" }) }}",
+        "options": {
+          "response": {
+            "response": {}
+          },
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uNGrb6LchX9rT743",
+          "name": "Supabase service_role"
+        }
+      }
+    },
+    {
+      "id": "dae4208b-e4a8-4eef-88c8-38e64d5d1e51",
+      "name": "Avisa a recusa do carrinho",
+      "webhookId": "b927eade-754b-4c04-8008-7179318b10cd",
+      "notes": "A Edge Function recusa com 422 quando o telefone nao e brasileiro, ou bate com dois leads.",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        896,
+        0
+      ],
+      "parameters": {
+        "fromEmail": "Malu da Encorpa <rodrigo.varoto@gmail.com>",
+        "toEmail": "rodrigo.varoto@gmail.com",
+        "subject": "=Carrinho abandonado recusado pela Edge Function — telefone final {{ String($(\"Normaliza o carrinho\").first().json.cart.phone ?? \"\").slice(-4) }}",
+        "emailFormat": "text",
+        "text": "=O carrinho abandonado foi lido, mas a Edge Function recusou gravar. O lembrete do carrinho NAO foi armado.\n\nTelefone: {{ $(\"Normaliza o carrinho\").first().json.cart.phone }}\n\nErro: {{ String($json.error?.message ?? \"erro sem mensagem\") }}\n\nPayload (sem CPF, e-mail e endereco):\n{{ $(\"Normaliza o carrinho\").first().json.raw }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "smtp": {
+          "id": "clsHlXLQ1IwxQpqE",
+          "name": "SMTP e-mail"
+        }
+      }
+    },
+    {
+      "id": "7c6e8b01-0419-4719-8d19-fd19472eeb71",
+      "name": "Avisa carrinho nao mapeado",
+      "webhookId": "bcb54a6e-d8f7-4608-82b6-1f1032d4f053",
+      "notes": "Sem telefone nao ha lead nem lembrete: o payload fecha o mapeamento.",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        672,
+        192
+      ],
+      "parameters": {
+        "fromEmail": "Malu da Encorpa <rodrigo.varoto@gmail.com>",
+        "toEmail": "rodrigo.varoto@gmail.com",
+        "subject": "=Carrinho abandonado recebido mas NAO gravado — faltou {{ $json.missing }}",
+        "emailFormat": "text",
+        "text": "=Chegou um webhook de carrinho abandonado que este workflow nao soube mapear. Nada foi gravado e o lembrete nao foi armado.\n\nFaltou: {{ $json.missing }}\n\nPayload (sem CPF, e-mail e endereco):\n{{ $json.raw }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "smtp": {
+          "id": "clsHlXLQ1IwxQpqE",
+          "name": "SMTP e-mail"
+        }
+      }
+    },
+    {
+      "id": "772e4806-9f0e-4b44-91fc-991f2d714ae9",
+      "name": "Sticky Note carrinho",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -320,
+        -64
+      ],
+      "parameters": {
+        "content": "## Carrinho abandonado — Coinzz\n\nURL na Coinzz (postback \"Carrinho Abandonado\"):\n`.../webhook/encorpa-carrinho?token=<SALE_WEBHOOK_TOKEN>`\n\nO token e o mesmo segredo do webhook de venda, conferido na Edge Function em tempo constante.\n\nA Edge Function acha (ou cria, sem origem = site) o lead pelo telefone, guarda o carrinho e arma UM toque 30 min depois. Ele cai se chegar pedido daquele telefone ou se ela escrever. Fora da janela de 24 h so sai com o template `encorpa_carrinho_site` declarado no BUSINESS_CONFIG.",
+        "height": 480,
+        "width": 288,
+        "color": 4
+      }
+    }
+  ],
+  "connections": {
+    "Carrinho recebido": {
+      "main": [
+        [
+          {
+            "node": "Normaliza o carrinho",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normaliza o carrinho": {
+      "main": [
+        [
+          {
+            "node": "Reconheceu o carrinho?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Reconheceu o carrinho?": {
+      "main": [
+        [
+          {
+            "node": "Grava o carrinho",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Avisa carrinho nao mapeado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Grava o carrinho": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Avisa a recusa do carrinho",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

@@ -267,6 +267,107 @@ retroativa dos outros três.
 
 ---
 
+## Templates novos (2026-10-27): recuperação de carrinho, Pix pendente e retomada
+
+> **Status: rascunho, a submeter pelo sócio.** Idioma **pt_BR** nos três (o `silence_3` antigo ficou em `en` por engano; não
+> repetir). Nenhum promete estoque, prazo ou desconto; preço e tamanho entram como variável, então mudar o preço não pede template
+> novo. **Não declare nenhum dos três no `BUSINESS_CONFIG` antes da aprovação:** sem a chave, `deliveryFor` bloqueia o toque fora
+> da janela (o comportamento de sempre), e dentro da janela de 24 h o mesmo texto sai como texto livre. Decisão e guarda no grafo §134.
+
+## 5. `cart_recovery`: o carrinho abandonado no checkout
+
+| Campo | Valor |
+|---|---|
+| Nome | `encorpa_carrinho_site` |
+| Categoria | `MARKETING` |
+| Idioma | `pt_BR` |
+
+Quando: 30 min depois do webhook "Carrinho abandonado" da Coinzz, se nenhum pedido daquele telefone chegou e ela não escreveu. Um
+envio só. **Não depende do opt-in de marketing** (decisão do operador, 2026-10-27: ela digitou o telefone no nosso checkout para
+comprar); nunca duas vezes, nunca a quem pediu para sair, nunca de madrugada (`armsCartRecovery`, `business_hours`).
+
+**Corpo:**
+
+```text
+Oi, {{1}}! Aqui é a Malu, da Encorpa 💛
+
+Vi que você começou seu pedido do Colete Cinta Modeladora e não chegou a finalizar. Ficou alguma dúvida sobre tamanho, entrega ou pagamento? Me responde aqui que eu te ajudo.
+```
+
+| Placeholder | Variável do código | Exemplo para a submissão |
+|---|---|---|
+| `{{1}}` | `firstName` | `Ana` |
+
+Botões:
+1. URL dinâmica — texto `Finalizar meu pedido` — `https://app.coinzz.com.br/checkout/{{1}}` (exemplo: `encorpa-0`). O `{{1}}` do botão
+   é `checkoutSlug` (o slug do `checkout_url` do carrinho), declarado em `urlButton`, não em `variables`.
+2. Resposta rápida — `Tirar uma dúvida`
+
+## 6. `pix_pending`: o Pix gerado e não pago
+
+| Campo | Valor |
+|---|---|
+| Nome | `encorpa_pix_pendente` |
+| Categoria | `UTILITY` |
+| Idioma | `pt_BR` |
+
+Quando: o pedido chega com status "Aguardando pagamento" e com o código do Pix, e não vira "Aprovado" em 30 min (cancelado também
+se o pedido for cancelado ou expirar). Um envio só.
+
+**Corpo:**
+
+```text
+Oi, {{1}}! Seu pedido {{2}} do Colete Cinta Modeladora está aguardando o pagamento do Pix de {{3}}. Se precisar, eu te reenvio o código por aqui.
+```
+
+| Placeholder | Variável do código | Exemplo para a submissão |
+|---|---|---|
+| `{{1}}` | `firstName` | `Ana` |
+| `{{2}}` | `orderNumber` | `#12345` |
+| `{{3}}` | `price` | `R$ 109,90` |
+
+Botão: resposta rápida — `Reenviar o Pix`. O toque dela (ou "manda o pix de novo") reenvia o código que o webhook trouxe
+(`asksPixCode`, `pixResendTexts`).
+
+## 7. `silence_3_retomada`: a retomada, no lugar do cupom desligado
+
+| Campo | Valor |
+|---|---|
+| Nome | `encorpa_retomada` |
+| Categoria | `MARKETING` (só com opt-in) |
+| Idioma | `pt_BR` |
+
+Quando: substitui o `silence_3` (o do cupom, desligado com o preço novo) para quem conversou, aceitou receber ofertas e sumiu. Só
+com o tamanho dela, frete grátis nos dois caminhos e o preço do caminho dela igual ao da entrega. Chave própria
+(`silence_3_retomada`): o template do cupom nunca sai com este texto, nem o contrário.
+
+**Corpo:**
+
+```text
+Oi! Aqui é a Malu, da Encorpa. Passando pra lembrar que o seu colete no tamanho {{1}} sai por {{2}}, com frete grátis. Quer que eu te mande o link pra finalizar?
+```
+
+| Placeholder | Variável do código | Exemplo para a submissão |
+|---|---|---|
+| `{{1}}` | `size` | `G` |
+| `{{2}}` | `price` | `R$ 109,90` |
+
+Botão: resposta rápida — `Quero o link`.
+
+### Declaração depois da aprovação (não antes)
+
+Acrescentar dentro de `channel.templates`, com os nomes exatamente como aprovados:
+
+```text
+"cart_recovery":      { "name": "encorpa_carrinho_site", "language": "pt_BR", "variables": ["firstName"], "urlButton": "checkoutSlug" },
+"pix_pending":        { "name": "encorpa_pix_pendente",  "language": "pt_BR", "variables": ["firstName", "orderNumber", "price"] },
+"silence_3_retomada": { "name": "encorpa_retomada",      "language": "pt_BR", "variables": ["size", "price"] }
+```
+
+O envio do botão de URL exige o workflow "Encorpa — WhatsApp envio" publicado com o `urlButton` (2026-10-27).
+
+---
+
 ## Bloco para o `BUSINESS_CONFIG`
 
 Depois de **aprovados**, com os nomes exatamente como ficaram na Meta:
@@ -335,7 +436,7 @@ mudança de corpo.
 - [ ] Exemplo preenchido para cada placeholder (a Meta exige na submissão).
 - [ ] Nenhum placeholder no começo ou no fim do corpo, e nenhum colado em outro. Os três
       respeitam isso.
-- [ ] Sem cabeçalho, rodapé nem botão. O código envia só o corpo.
+- [ ] Sem cabeçalho nem rodapé. Botão só nos das seções 5–7 (2026-10-27): o código envia o corpo e, no §5, o `{{1}}` do botão de URL; as respostas rápidas não levam parâmetro.
 - [ ] Marketing (`silence_3`; o `silence_2` não é mais template) só vai para quem deu opt-in para receber mensagem
       da marca no WhatsApp. Isso é regra da Meta, não do código, e **o código não verifica**.
 - [ ] Aprovou? Copie o nome **aprovado** para o bloco do `BUSINESS_CONFIG` acima.

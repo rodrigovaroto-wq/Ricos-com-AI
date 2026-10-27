@@ -196,7 +196,7 @@ describe("A4 — o motivo antes do cartão do antecipado, e sem 'Vamos agendar' 
   it("a pergunta do 'No M' culpa o tamanho, não a região; o turno passa o motivo ao cartão", () => {
     expect(sizeNoCodAsk("M")).not.toContain("na sua região");
     expect(turn).toContain("const noCodReason = cod ? null : noCodReasonLine(region.size ?? null, (region.otherSizesInStock?.length ?? 0) > 0);");
-    expect(turn).toContain("otherSizesInStock: regionSize ? [regionSize] : [] };");
+    expect(turn).toContain("region = kitRegion(region, regionSize, answers);");
   });
 });
 

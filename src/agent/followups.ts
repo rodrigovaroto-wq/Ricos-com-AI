@@ -21,7 +21,12 @@ export type DeferredKind = "deferred_reply";
 export type StillThereKind = "still_there";
 /** Five minutes after "paguei" with no payment on file: the receipt is asked (L2, operator 2026-10-08). */
 export type PaymentCheckKind = "payment_check";
-export type FollowupKind = SilenceKind | OrderKind | CheckoutKind | DeferredKind | StillThereKind | PaymentCheckKind;
+/**
+ * The Coinzz checkout's own touches (operator, 2026-10-27): her cart abandoned there (`cart_recovery`), and a Pix generated and not
+ * paid (`pix_pending`). One each, 30 minutes after the webhook; neither is part of the silence ruler.
+ */
+export type CheckoutPlatformKind = "cart_recovery" | "pix_pending";
+export type FollowupKind = SilenceKind | OrderKind | CheckoutKind | DeferredKind | StillThereKind | PaymentCheckKind | CheckoutPlatformKind;
 
 /** Where the conversation stopped decides what the first touch says. */
 export type StopPoint = "before_size" | "after_price" | "link_sent";
@@ -180,6 +185,60 @@ export interface RulerAnchors {
  * a paid order, a new link or the end of the conversation (opt-out, a person) takes it away.
  */
 export const CHECKOUT_REMINDER_MS = 10 * MINUTE;
+
+/** The cart touch and the Pix touch: 30 minutes after the Coinzz webhook (operator, 2026-10-27). */
+export const CART_RECOVERY_MS = 30 * MINUTE;
+export const PIX_PENDING_MS = 30 * MINUTE;
+
+/**
+ * Whether the abandoned-cart webhook arms the cart touch (operator, 2026-10-27). She typed her phone in our checkout to buy and the
+ * operator asked for this recovery, so it does NOT wait for the marketing opt-in question — the operator's decision, recorded in
+ * grafo §134. Never twice to the same woman, never to an opted-out phone, never over an order (any status: the order's own ruler
+ * speaks), never while she is talking to Malu (her last message under 30 minutes ago: the conversation handles it in the window),
+ * and never on top of the link's own touch (`checkout_reminder` waiting). The hours rule is the sweep's (`business_hours`).
+ */
+export const armsCartRecovery = (s: {
+  readonly optedOut: boolean;
+  readonly hasOrder: boolean;
+  readonly cartTouchSent: boolean;
+  readonly checkoutReminderPending: boolean;
+  readonly lastInboundAt: Date | null;
+  readonly now: Date;
+}): boolean =>
+  !s.optedOut && !s.hasOrder && !s.cartTouchSent && !s.checkoutReminderPending &&
+  !(s.lastInboundAt !== null && s.now.getTime() - s.lastInboundAt.getTime() < CART_RECOVERY_MS);
+
+/**
+ * A checkout phone as a lead's (2026-10-27): 55 + DDD + number, as typed in the Coinzz checkout ("(11) 98765-4321" →
+ * "5511987654321"). Null for anything that is not a Brazilian number: no lead is made of it.
+ */
+export const leadPhoneOf = (raw: string | null | undefined): string | null => {
+  const d = String(raw ?? "").replace(/\D/g, "");
+  const full = /^\d{10,11}$/.test(d) ? `55${d}` : d;
+  return /^55[1-9]\d9?\d{8}$/.test(full) ? full : null;
+};
+
+/**
+ * The same number with and without the ninth digit: WhatsApp hands most Brazilian mobiles over without it, the checkout with it
+ * (`buildPrefilledCheckoutLink`). A lead the cart webhook made is found again when she writes.
+ */
+export const phoneTwins = (phone: string): string[] => {
+  const m = /^55(\d{2})9?(\d{8})$/.exec(phone);
+  return m ? [`55${m[1]}${m[2]}`, `55${m[1]}9${m[2]}`] : [phone];
+};
+
+/** The checkout slug of a Coinzz URL ("https://app.coinzz.com.br/checkout/encorpa-0?x=1" → "encorpa-0"), the template button's {{1}}. */
+export const checkoutSlug = (url: string | null | undefined): string | null => {
+  const m = /^https:\/\/(?:[a-z0-9-]+\.)*coinzz\.com\.br\/checkout\/([a-z0-9][a-z0-9-]{0,79})\/?(?:[?#].*)?$/i.exec(String(url ?? "").trim());
+  return m ? m[1]! : null;
+};
+
+/** Her first name as she typed it in the checkout ("MARIA da silva" → "Maria"); null for anything that is not a name. */
+export const firstNameOf = (name: string | null | undefined): string | null => {
+  const first = String(name ?? "").trim().split(/\s+/)[0] ?? "";
+  if (!/^\p{L}{2,20}$/u.test(first)) return null;
+  return first.charAt(0).toLocaleUpperCase("pt-BR") + first.slice(1).toLocaleLowerCase("pt-BR");
+};
 
 /** "Ainda está aí?" — exactly this, once per question of hers left open (operator, 2026-10-06). */
 export const STILL_THERE_REPLY = "Ainda está aí?";
@@ -594,6 +653,35 @@ export const orderUnpaid = (status: string | null | undefined): boolean => {
 };
 
 /**
+ * A Pix generated and waiting (Coinzz "Aguardando pagamento", operator 2026-10-27): the `pix_pending` touch's status. Only that
+ * status as the payment part — not "Pedido criado", not "Expirado" (the touch is cancelled then) — and only with the Pix code in
+ * the webhook (`pix`), which is what tells a Pix from a card or a payment at the door.
+ */
+export const awaitsPix = (status: string | null | undefined, pix: boolean): boolean =>
+  pix && orderUnpaid(status) &&
+  (status ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().split("/")[0]!.replace(/\s+/g, " ").trim() === "aguardando pagamento";
+
+/**
+ * She asks for the Pix again — the Pix touch promises "eu te reenvio o código por aqui", and its button sends "Reenviar o Pix"
+ * (2026-10-27): "manda o pix de novo", "cadê o código do pix?", "perdi o copia e cola". Negation: "não precisa reenviar o pix",
+ * "já paguei o pix", "posso pagar no pix?" (a question about paying, not the code).
+ */
+export const asksPixCode = (message: string): boolean => {
+  const t = message.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (/\b(?:nao|nem|sem)\s+(?:precisa\s+)?(?:\S+\s+){0,2}(?:reenvi|mand|envi|pass)\w*|\bja\s+(?:paguei|pago|fiz)\b|\bpaguei\b/.test(t)) return false;
+  return /\b(?:reenvi\w*|mand[ae]\w*|envi[ae]\w*|passa|cade|perdi|qual|preciso\s+d[oe])\b(?:\s+\S+){0,4}?\s+(?:(?:o|do|a)\s+)?(?:pix|codigo|qr\s?code|copia\s+e\s+cola)\b/.test(t);
+};
+
+/** The Pix again, as the webhook gave it (2026-10-27): the line, then the copy-and-paste code on its own, or the Pix page's link. */
+export const pixResendTexts = (details: { orderNumber?: string | null; pixCode?: string | null; pixUrl?: string | null }): string[] => {
+  const n = details.orderNumber?.trim() ? ` ${orderNumberLabel(details.orderNumber.trim())}` : "";
+  if (details.pixCode?.trim()) {
+    return [`Aqui está o Pix do seu pedido${n} 💛 É só copiar o código abaixo e colar no app do seu banco, no Pix Copia e Cola:`, details.pixCode.trim()];
+  }
+  return details.pixUrl?.trim() ? [`Aqui está o Pix do seu pedido${n} 💛 É só abrir o link e pagar:`, details.pixUrl.trim()] : [];
+};
+
+/**
  * "Paguei" (operator, 2026-10-08, L2; reshaped 2026-10-13, R21.1): the agent tells her the payment's status
  * instead of calling a person. No paid order yet: she hears that it still shows as waiting for the
  * confirmation and is asked to wait for it to update, and the check runs for 5 minutes. Asked again
@@ -799,9 +887,17 @@ export const onOrderConfirmed = (
   orderId?: string,
   /** The delivery day in force — the webhook's, or the one stored when it brings none. */
   scheduledFor?: string | null,
+  /** The webhook carries a Pix code (`url_pix`/`qrcode_pix`): with "Aguardando pagamento", the Pix touch is armed (2026-10-27). */
+  pix = false,
 ): OrderEffect => {
   const scheduled = existing.filter((f) => f.status === "scheduled");
   const theirs = (f: ExistingFollowup) => !orderId || !f.orderId || f.orderId === orderId;
+  // Any order ends the cart touch (2026-10-27): the checkout was finished. The Pix touch lives while this order awaits the Pix.
+  const pixArm: ScheduledFollowup[] = awaitsPix(status, pix) && !existing.some((e) => e.kind === "pix_pending")
+    ? [{ kind: "pix_pending", runAt: new Date(now.getTime() + PIX_PENDING_MS) }]
+    : [];
+  const checkoutDone = (f: ExistingFollowup) =>
+    f.kind === "cart_recovery" || (f.kind === "pix_pending" && theirs(f) && !awaitsPix(status, pix));
 
   // The sale is off. Everything still waiting dies with it — the post-order touches
   // because there is no delivery to talk about, and the silence ones because chasing
@@ -811,15 +907,15 @@ export const onOrderConfirmed = (
   // per conversation, so the live order usually has none of its own: `orderTakeOver` moves
   // them to it. A row that does not say its order (before 0017) dies as before.
   if (isOrderDead(status)) {
-    return { cancel: scheduled.filter(theirs).map((f) => f.kind), arm: [], move: [] };
+    return { cancel: scheduled.filter((f) => theirs(f) || f.kind === "cart_recovery").map((f) => f.kind), arm: [], move: [] };
   }
   // A Pix generated and not paid (Coinzz "Pedido criado" / "Aguardando pagamento", L2): no "Pedido
   // confirmado! … já pago" — nothing is armed until a paid status comes. The silence stops, as for any
   // live order; the checkout touch stays, since the checkout is still open.
   if (orderUnpaid(status)) {
     return {
-      cancel: scheduled.filter((f) => inSilenceRuler(f.kind) && f.kind !== "checkout_reminder").map((f) => f.kind),
-      arm: [],
+      cancel: scheduled.filter((f) => (inSilenceRuler(f.kind) && f.kind !== "checkout_reminder") || checkoutDone(f)).map((f) => f.kind),
+      arm: pixArm,
       move: [],
     };
   }
@@ -831,7 +927,7 @@ export const onOrderConfirmed = (
   if (stageForOrder(status) === "entregue_pago") {
     return {
       cancel: scheduled
-        .filter((f) => inSilenceRuler(f.kind) || (f.kind.startsWith("order_") && theirs(f) && !orderTouchDue(f.kind, status)))
+        .filter((f) => inSilenceRuler(f.kind) || checkoutDone(f) || (f.kind.startsWith("order_") && theirs(f) && !orderTouchDue(f.kind, status)))
         .map((f) => f.kind),
       arm: plan.filter(
         (f) => !existing.some((e) => e.kind === f.kind) && orderTouchDue(f.kind, status),
@@ -850,7 +946,7 @@ export const onOrderConfirmed = (
     // Only what is still waiting can be cancelled; a touch already sent is history. An unpaid
     // order keeps the checkout touch: the Pix is generated and not paid, which is what it asks about.
     cancel: scheduled
-      .filter((f) => inSilenceRuler(f.kind) && !(f.kind === "checkout_reminder" && orderUnpaid(status)))
+      .filter((f) => (inSilenceRuler(f.kind) && !(f.kind === "checkout_reminder" && orderUnpaid(status))) || checkoutDone(f))
       .map((f) => f.kind),
     // Dedupe against EVERY row, not just the scheduled ones. A second webhook arriving
     // after `order_confirmed` already went out would otherwise re-arm a kind the table
@@ -1038,7 +1134,11 @@ export type TemplateVariable =
   | "address"
   | "couponPercent"
   | "couponCode"
-  | "weekday";
+  | "weekday"
+  // The Coinzz touches (2026-10-27): her first name from the checkout, the checkout's slug (the URL button), the order's number.
+  | "firstName"
+  | "checkoutSlug"
+  | "orderNumber";
 
 /** One template already approved by Meta, as the config declares it. */
 export interface TemplateBinding {
@@ -1046,6 +1146,8 @@ export interface TemplateBinding {
   readonly language: string;
   /** The placeholder order as approved — {{1}} is the first entry. Approval fixes it. */
   readonly variables: readonly TemplateVariable[];
+  /** The {{1}} of the template's dynamic URL button (index 0), when it has one: `encorpa_carrinho_site`'s checkout slug. */
+  readonly urlButton?: TemplateVariable;
 }
 
 /** Only what the copy reads. Declared locally so this file has zero imports and
@@ -1061,6 +1163,8 @@ export interface FollowupConfig {
     warrantyDays: number;
     prepayAvgDays?: number;
     prepayVariesByRegion?: boolean;
+    /** Free shipping on both paths (`=== true`, as the gate reads it): the retomada says "com frete grátis" only then. */
+    freeShipping?: boolean;
   };
   /**
    * OPTIONAL, and absent means no template is approved yet. That is not laziness: in
@@ -1075,7 +1179,7 @@ export interface FollowupConfig {
      * `order_eve_pago` is the prepaid eve's own template (no "Deixa R$ X separado"): absent,
      * a prepaid eve outside the window is blocked rather than sent the one that charges her.
      */
-    templates?: Partial<Record<FollowupKind | "order_eve_pago", TemplateBinding>>;
+    templates?: Partial<Record<FollowupKind | "order_eve_pago" | "silence_3_retomada", TemplateBinding>>;
   };
 }
 
@@ -1117,6 +1221,12 @@ export interface RenderContext {
    * `channel.askMarketingOptIn` is on. Absent = no consent, so no MARKETING template.
    */
   marketingOptIn?: boolean;
+  /** Her first name, from the checkout or the conversation (`firstNameOf`): the Coinzz touches open with it. */
+  firstName?: string | null;
+  /** The slug of the checkout she abandoned (`checkoutSlug`): the cart template's button. */
+  checkoutSlug?: string | null;
+  /** The Coinzz order number of the Pix waiting. */
+  orderNumber?: string | null;
 }
 
 /**
@@ -1129,6 +1239,33 @@ export const conversationCoupon = <C extends { coupon: { percent: number; active
   config: C,
   couponTouchSent: boolean,
 ): C => (config.coupon.active && !couponTouchSent ? { ...config, coupon: { ...config.coupon, active: false } } : config);
+
+/**
+ * The Coinzz touches and the retomada (operator, 2026-10-27), word for word the templates in
+ * docs/agente-ia/06-script/03-templates-meta.md (§5–§7): the text gated here is the text she reads.
+ */
+const cartRecoveryText = (first: string | null): string =>
+  `Oi${first ? `, ${first}` : ""}! Aqui é a Malu, da Encorpa 💛\n\nVi que você começou seu pedido do Colete Cinta Modeladora e não chegou a finalizar. ` +
+  `Ficou alguma dúvida sobre tamanho, entrega ou pagamento? Me responde aqui que eu te ajudo.`;
+const orderNumberLabel = (n: string): string => (n.startsWith("#") ? n : `#${n}`);
+const pixPendingText = (first: string | null, orderNumber: string, price: string): string =>
+  `Oi${first ? `, ${first}` : ""}! Seu pedido ${orderNumberLabel(orderNumber)} do Colete Cinta Modeladora está aguardando o pagamento do Pix de ${price}. ` +
+  `Se precisar, eu te reenvio o código por aqui.`;
+const retomadaText = (size: string, price: string): string =>
+  `Oi! Aqui é a Malu, da Encorpa. Passando pra lembrar que o seu colete no tamanho ${size} sai por ${price}, com frete grátis. ` +
+  `Quer que eu te mande o link pra finalizar?`;
+
+/**
+ * The retomada replaces the coupon touch while the coupon is off (operator, 2026-10-27): only with her size, free shipping on both
+ * paths, and the price of her path being the one-piece price the template says.
+ */
+const retomadaFor = (ctx: RenderContext): string | null => {
+  const size = ctx.size?.trim();
+  if (!size || size.includes(",") || ctx.config.delivery.freeShipping !== true) return null;
+  const { codBrl, prepayBrl } = ctx.config.prices;
+  if (ctx.paymentPath === "prepay" && prepayBrl !== undefined && prepayBrl !== codBrl) return null;
+  return retomadaText(size, brl(codBrl));
+};
 
 /**
  * Renders the message for a touch. Returns null when the touch must not go out —
@@ -1184,9 +1321,11 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
       );
 
     case "silence_3": {
+      // The coupon off (operator, 2026-10-27): the retomada, her size and the price, instead of nothing.
+      if (!ctx.config.coupon.active) return retomadaFor(ctx);
       // No code, no coupon touch: she would have a discount and nothing to type (R17.4 a).
       const code = ctx.config.coupon.code?.trim();
-      if (!ctx.config.coupon.active || !code) return null;
+      if (!code) return null;
       // "Super + dia da semana" — a seasonal frame with no calendar to maintain.
       const weekday = localWeekday(now);
       return (
@@ -1234,6 +1373,13 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
           ? `Se não tiver ninguém para receber, me avisa que eu tento remarcar.`
           : `Se você não estiver em casa amanhã, me avisa que eu tento remarcar.`)
       );
+
+    case "cart_recovery":
+      return cartRecoveryText(ctx.firstName ?? null);
+
+    // The order's number and total, or nothing: a Pix touch about no order is no touch.
+    case "pix_pending":
+      return ctx.orderNumber?.trim() && ctx.amountBrl ? pixPendingText(ctx.firstName ?? null, ctx.orderNumber.trim(), brl(ctx.amountBrl)) : null;
 
     case "order_delivered":
       return (
@@ -1321,6 +1467,8 @@ export type Delivery =
       readonly language: string;
       readonly variables: readonly string[];
       readonly body: string;
+      /** The URL button's {{1}}, when the template has one. */
+      readonly urlButton?: string;
     }
   | { readonly via: "blocked"; readonly reason: "no_template" | "empty_variable" | "no_opt_in" };
 
@@ -1340,6 +1488,12 @@ const resolveVariable = (variable: TemplateVariable, ctx: RenderContext): string
       return ctx.config.coupon.code?.trim() ?? "";
     case "weekday":
       return localWeekday(ctx.now ?? new Date());
+    case "firstName":
+      return ctx.firstName ?? "";
+    case "checkoutSlug":
+      return ctx.checkoutSlug ?? "";
+    case "orderNumber":
+      return ctx.orderNumber?.trim() ? orderNumberLabel(ctx.orderNumber.trim()) : "";
   }
 };
 
@@ -1369,26 +1523,32 @@ export const deliveryFor = (
   // Text only (operator, 2026-10-06): a nudge is not worth a template, whatever the config holds.
   if (kind === "still_there") return { via: "blocked", reason: "no_template" };
 
-  // `silence_2` and `silence_3` are MARKETING templates: only to someone who said yes (R15.1).
+  // `silence_2` and `silence_3` are MARKETING templates: only to someone who said yes (R15.1). The cart touch is MARKETING too, and
+  // does not wait for that question: she typed her phone in our checkout to buy, and the operator asked for it (2026-10-27).
   if ((kind === "silence_2" || kind === "silence_3") && ctx.marketingOptIn !== true) {
     return { via: "blocked", reason: "no_opt_in" };
   }
+  // The retomada (coupon off) has its own template, and nothing about a path in it: neither block below is its.
+  const retomada = kind === "silence_3" && !ctx.config.coupon.active;
 
   // The `silence_2` template is the delivery path's text ("só paga ao entregador"): on the
   // prepaid path there is no template, so the touch is blocked rather than sent that one (D3).
   if (kind === "silence_2" && ctx.paymentPath === "prepay") return { via: "blocked", reason: "no_template" };
   // Nor to a woman whose region nobody looked up: the door may not reach her (real test 2026-10-14).
-  if ((kind === "silence_2" || kind === "silence_3") && ctx.regionKnown === false) return { via: "blocked", reason: "no_template" };
+  if ((kind === "silence_2" || (kind === "silence_3" && !retomada)) && ctx.regionKnown === false) return { via: "blocked", reason: "no_template" };
   // Same for the coupon: its template says "nos dois jeitos: pagando na entrega ou antecipado".
-  if (kind === "silence_3" && ctx.paymentPath === "prepay") return { via: "blocked", reason: "no_template" };
+  if (kind === "silence_3" && !retomada && ctx.paymentPath === "prepay") return { via: "blocked", reason: "no_template" };
 
   // One template per touch, and `body` is what it says — the text the sweep gates: `silence_2`
   // leaves as its first variant (R15.2), and a prepaid eve by its own template.
-  const template = ctx.config.channel?.templates?.[kind === "order_eve" && ctx.prepaid ? "order_eve_pago" : kind];
+  // The coupon template (`silence_3`) is never sent with the retomada's text, nor the other way round: each its own key.
+  const template = ctx.config.channel?.templates?.[kind === "order_eve" && ctx.prepaid ? "order_eve_pago" : retomada ? "silence_3_retomada" : kind];
   if (!template) return { via: "blocked", reason: "no_template" };
 
   const variables = template.variables.map((v) => resolveVariable(v, ctx));
   if (variables.some((v) => v.trim() === "")) return { via: "blocked", reason: "empty_variable" };
+  const urlButton = template.urlButton ? resolveVariable(template.urlButton, ctx) : undefined;
+  if (urlButton !== undefined && urlButton.trim() === "") return { via: "blocked", reason: "empty_variable" };
 
   return {
     via: "template",
@@ -1396,5 +1556,6 @@ export const deliveryFor = (
     language: template.language,
     variables,
     body: kind === "silence_2" ? SILENCE_2(ctx.config.delivery.warrantyDays)[0] : body,
+    ...(urlButton !== undefined ? { urlButton } : {}),
   };
 };
