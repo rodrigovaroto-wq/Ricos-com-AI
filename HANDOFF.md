@@ -21,6 +21,11 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > **n8n publicado em 28/10 (operador autorizou):** `venda-confirmada` e `whatsapp-envio` atualizados (a versão no ar era a
 > da `main`, sem desvio), `Encorpa — Carrinho abandonado` criado e ativo (id `xqaepviTcGHDI5YK`, caminho `encorpa-carrinho`);
 > `pnpm dev:n8n` ok nos 8. Item 3 feito.
+> **Coinzz em 28/10:** operador recadastrou a OmniCash com frete grátis para a cliente; checkout `encorpa-0` conferido: Pix
+> R$ 109,90, Pagar na entrega R$ 109,90 com dias, sem frete; kits R$ 197,82 e R$ 263,76 sem frete. Postback de carrinho
+> cadastrado. **Nenhum pixel carrega nos 3 checkouts** (antes carregava o antigo): falta pôr o 4466808633585371 nas ofertas.
+> **Gravar o `BUSINESS_CONFIG` de 27/10 foi barrado pelo classificador** (live = 23/10, sha `546c15e6…`; novo sha
+> `b6a13293…`): o operador cola `docs/operacao/business-config-2026-10-27.min.json` ou autoriza; depois `job:"health"`.
 
 > **2026-10-28 — teste em dois braços (anúncio → WhatsApp × anúncio → site → checkout) PRONTO NA BRANCH, NÃO PUBLICADO.**
 > Branch `claude/site-whatsapp-test` (este repositório, HEAD `c53b827`, já com a v45 ao vivo mesclada) e
