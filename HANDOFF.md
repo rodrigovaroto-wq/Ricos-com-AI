@@ -18,6 +18,9 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > Encorpa-Website `main` = `1525764`, no ar no Netlify (`encorpa-fashion.com.br`): pixel 4466808633585371, R$ 109,90,
 > kits, "Frete grátis*", WhatsApp da Malu — conferido com Playwright. **Atenção:** o site já promete frete grátis e a Coinzz
 > ainda cobra (R$ 19,35–19,96 em 28/10); o operador sabia. Itens 2 e 6 abaixo feitos; seguem 1, 3, 4 e 5.
+> **n8n publicado em 28/10 (operador autorizou):** `venda-confirmada` e `whatsapp-envio` atualizados (a versão no ar era a
+> da `main`, sem desvio), `Encorpa — Carrinho abandonado` criado e ativo (id `xqaepviTcGHDI5YK`, caminho `encorpa-carrinho`);
+> `pnpm dev:n8n` ok nos 8. Item 3 feito.
 
 > **2026-10-28 — teste em dois braços (anúncio → WhatsApp × anúncio → site → checkout) PRONTO NA BRANCH, NÃO PUBLICADO.**
 > Branch `claude/site-whatsapp-test` (este repositório, HEAD `c53b827`, já com a v45 ao vivo mesclada) e
