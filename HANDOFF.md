@@ -18,6 +18,10 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > com `products`) diverge da Coinzz — **corrigido no mesmo dia: a comparação usou os códigos da Coinzz (`pro7ml00`…), que na Logzz são
 > outro produto; o produto da Logzz é `prow6pq0` e os códigos das variações ainda faltam (operador). Não é evidência.**
 > Integração de importação `orivd974` mapeada; oferta `sal0g3mo` aceita (sonda para Manaus, sem pedido criado).
+> Variações da Logzz (operador, 28/10): P `progm9w6`, M `pro37j6q`, G `projm2ov`, GG `prolm313`, XG `prox1jxp` — aceitas na
+> importação (Manaus parou em "Data de entrega indisponível"). Datas da Logzz com elas: SP/Guarulhos/Campinas/Santos G·GG·XGG;
+> BH/Contagem M·G·GG; Goiânia G·GG; Salvador G·XGG; Rio P·GG·XGG; Porto Alegre GG·XGG. **A Logzz entrega G em SP e M em BH; o
+> checkout da Coinzz não oferece pagamento na entrega para eles** — a importação pela Malu recupera essas vendas.
 > Proposta ao operador: a Malu criar o pedido da entrega pela API de importação da Logzz (sem checkout), consultando essa API.
 >
 > **2026-10-28 13:23 UTC — PUBLICADO (operador autorizou):** `turn` **v46** (função v165, commit `75408f4`), ainda com o
