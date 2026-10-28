@@ -4895,6 +4895,31 @@ correção do nome fora da lista e do resumo (`O35-correcao-sem-intro`), "30" e 
 
 **Resíduos.** "na verdade é casa 3" depois de "45" vira o número 3 (a marca de correção vence "casa N"). Os resíduos do §135 D seguem.
 
+### F. A revisão Opus do d6daa98 (reprovada num ponto, 2026-10-28)
+
+**Sintoma.** O §135 E fez `nameCandidates` ler um nome completo solto depois do resumo como correção, e uma resposta de duas palavras
+virava o nome: "Certinho amiga", "Certinho moça", "Correto amiga", "Maravilha amiga", "Joia amiga", "Top demais", "Dados corretos",
+"Aham certinho" → resumo refeito com "• Nome: Certinho Amiga", e o "sim" seguinte importava. E ainda: "na verdade é 46" depois do resumo
+não corrigia o número; "errei, é casa 2" sobre "45 (apto 12)" virava o número 2.
+
+**Causa.** Lição 3 ao contrário: depois do resumo o que ela mais manda é confirmação, e "nome plausível" é lista de proibição — não
+enumera todo elogio. Do lado do número, a palavra de correção ficava grudada no pedaço ("na verdade é 46" não abria com o número) e
+`houseNumberIn` não sabia do número do resumo, então "casa 2" era o primeiro número da rajada.
+
+**Correção.**
+- `nameCandidates`: depois do resumo, o nome solto só vale se tem uma palavra em comum com o nome do resumo ("Ana Slva" → "Ana Silva",
+  erro de digitação); qualquer outra troca só pela correção explícita (`WRONG_NAME`, `NAME_INTRO`).
+- `houseNumberIn(parts, asked, skip, known)`: o pedaço perde "na verdade/errei/ops/corrigindo" e o "é" do começo antes de ser lido;
+  `closeStep` passa o número do resumo como `known`, então "casa N" é complemento e só "número/nº N" ou a correção trocam o número
+  (sem `known`, na lista, "dia 30, casa 120" segue sendo 120). A marca "o número é 46" também passa com o "é".
+
+**Guarda.** `tests/cod-close-2026-10-28.test.ts` §16 (as oito respostas como negação, o erro de digitação e a correção explícita como
+afirmação, "na verdade é 46", "errei, é casa 2"); §15 teste 4 ajustado (nome solto sem palavra em comum não corrige); mutações `O37-*` (4)
+e `O35-ultimo-numero-vence` reescrita para o texto novo.
+
+**Resíduos.** Um nome novo inteiro depois do resumo, sem "meu nome é"/"errei o nome" e sem palavra em comum, não troca o nome: o
+resumo segue com o nome antigo até ela corrigir de forma explícita.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

@@ -934,7 +934,10 @@ describe("15. revisão Opus do 360625b", () => {
     expect((ok as { text: string }).text).toContain("Rua das Flores, 45 – Centro, São Paulo/SP");
   });
   it("4. 'errei o nome', 'o nome certo é' e um nome completo solto depois do resumo corrigem; o mesmo nome não muda nada", () => {
-    for (const parts of [["errei o nome, Maria Souza"], ["o nome certo é Maria Souza"], ["Maria Souza"]]) expect(typed(parts, summary), parts.join()).toBe("Maria Souza");
+    for (const parts of [["errei o nome, Maria Souza"], ["o nome certo é Maria Souza"]]) expect(typed(parts, summary), parts.join()).toBe("Maria Souza");
+    // A bare name with no word of the summary's name is not a correction (review of d6daa98); a typo fix is.
+    expect(typed(["Maria Souza"], summary)).toBeNull();
+    expect(typed(["Ana Silveira"], summary)).toBe("Ana Silveira");
     // Away from the list and the summary, only her correction opens the name.
     expect(typed(["o nome tá errado, é Maria Souza"], "Qualquer dúvida me chama 😊")).toBe("Maria Souza");
     expect(typed(["Maria Souza"], "Qualquer dúvida me chama 😊")).toBeNull();
@@ -948,5 +951,37 @@ describe("15. revisão Opus do 360625b", () => {
       expect(claims(t), t).not.toContain("order_claim");
     }
     for (const t of ["Pronto, agendei!", "Já agendei.", "Tá agendado!", "Já tá confirmado!", "Já garanti!"]) expect(claims(t), t).toContain("order_claim");
+  });
+});
+
+describe("16. revisão Opus do d6daa98", () => {
+  const st = { date: "2026-10-30", number: "45", complement: "apto 12", name: "Ana Silva" };
+  const summary = (step({ state: st, facts: { name: null, stored: {} } }) as { text: string }).text;
+  const typed = (parts: string[], last: string) =>
+    nameCandidates(parts, last, DATES, NOW).map((x) => extractName(x, true)).find((n) => (n ?? "").split(/\s+/).length >= 2) ?? null;
+  it("1. depois do resumo, um 'sim' de duas palavras nunca vira o nome", () => {
+    for (const p of ["Certinho amiga", "Certinho moça", "Correto amiga", "Maravilha amiga", "Joia amiga", "Top demais", "Dados corretos", "Aham certinho"]) {
+      expect(typed([p], summary), p).toBeNull();
+      const s = step({ state: st, facts: { name: null, stored: {}, typedName: typed([p], summary) }, parts: [p], lastOutbound: summary });
+      expect((s as { text?: string }).text ?? "", p).not.toContain("• Nome: " + p);
+    }
+  });
+  it("1. negação: o erro de digitação no nome (uma palavra em comum) e a correção explícita seguem corrigindo", () => {
+    expect(typed(["Ana Silveira"], summary)).toBe("Ana Silveira");
+    expect(typed(["errei o nome, Maria Souza"], summary)).toBe("Maria Souza");
+    expect(typed(["o nome certo é Maria Souza"], summary)).toBe("Maria Souza");
+    expect(typed(["Maria Souza"], summary)).toBeNull();
+  });
+  it("2. 'na verdade é 46' depois do resumo corrige o número", () => {
+    const s = step({ state: st, facts: { name: null, stored: {} }, parts: ["na verdade é 46"], lastOutbound: summary });
+    expect((s as { text: string }).text).toContain("Rua Barão do Triunfo, 46 (apto 12)");
+  });
+  it("2. 'errei, é casa 2' sobre o 45 apto 12: o 45 fica e 'casa 2' é o complemento", () => {
+    const s = step({ state: st, facts: { name: null, stored: {} }, parts: ["errei, é casa 2"], lastOutbound: summary });
+    expect((s as { text: string }).text).toContain("Rua Barão do Triunfo, 45 (casa 2)");
+    // Negation: "número 46" still replaces it; in the list, "casa 120" with no number known is the door.
+    expect((step({ state: st, facts: { name: null, stored: {} }, parts: ["errei, número 46"], lastOutbound: summary }) as { text: string }).text).toContain(", 46 (apto 12)");
+    expect(houseNumberIn(["dia 30, casa 120"], true)).toEqual({ number: "120", complement: null });
+    expect((step({ state: st, facts: { name: null, stored: {} }, parts: ["não é 45"], lastOutbound: summary }) as { text?: string }).text ?? "").not.toContain("Triunfo, 45 –");
   });
 });

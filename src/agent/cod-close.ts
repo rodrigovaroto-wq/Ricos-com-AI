@@ -205,11 +205,14 @@ export const nameCandidates = (
   });
   // "o nome tá errado, é Maria Souza", "nome errado" + "Maria Souza": her correction asks the name as the list does (review of 96b8fc7).
   const corrects = pieces.some((x) => WRONG_NAME.test(norm(x)));
-  // A bare full name right after the summary is her correction too (review of 360625b): the same name changes nothing.
+  // A bare full name right after the summary is her correction only when it shares a word with the summary's name — a typo fixed
+  // ("Ana Slva" → "Ana Silva"); "Certinho amiga", "Dados corretos" are her yes, never a name (review of d6daa98).
+  const summaryName = norm(/• Nome: ([^\n]+)/.exec(lastOutbound)?.[1] ?? "").split(/\s+/).filter((w) => w.length > 2);
+  const afterSummary = lastOutbound.includes(SUMMARY_HEAD) && !lastOutbound.includes(NAME_ITEM) && !corrects;
   const answered = !lastOutbound.includes(NAME_ITEM) && !lastOutbound.includes(SUMMARY_HEAD) && !corrects ? [] : pieces.map((x) => x.replace(/^(?:[ée]h?|sou(?:\s+a)?)\s+/i, "")).filter((x) => {
     const t = norm(x);
     return !/\d/.test(x) && pickDate([x], dates, now) === null && !confirmsOrder([x]) && !/\b(?:dia|data)\b/.test(t) && !WRONG_NAME.test(t) &&
-      isPlausibleName(x, places);
+      isPlausibleName(x, places) && (!afterSummary || t.split(/\s+/).some((w) => summaryName.includes(w)));
   });
   return [...introduced.filter((x) => x !== ""), ...answered];
 };
@@ -352,7 +355,13 @@ export const confirmsOrder = (parts: readonly string[]): boolean =>
  * segment is never a house number. After the number only a complement may follow (apto, bloco, casa…): "29/10", "30 de outubro",
  * "2 peças", "14:00" are a date, a count or a time, never the door (review of 844743b). Null when the ask did not name it.
  */
-export const houseNumberIn = (parts: readonly string[], asked: boolean, skip: readonly string[] = []): { number: string; complement: string | null } | null => {
+export const houseNumberIn = (
+  parts: readonly string[],
+  asked: boolean,
+  skip: readonly string[] = [],
+  /** The number on the summary she is correcting: kept unless she names a new one ("errei, é casa 2" is the complement). */
+  known?: string,
+): { number: string; complement: string | null } | null => {
   if (!asked) return null;
   const complementWord = new RegExp(`^(?:${COMPLEMENT})(?![\\p{L}])`, "iu");
   // The number, a letter glued or apart ("45A", "45 B"; never the "e" of "45 e apto 12", the "h" of "14h" nor the "x" of "2x"), then only a complement may follow. It opens
@@ -366,15 +375,16 @@ export const houseNumberIn = (parts: readonly string[], asked: boolean, skip: re
   // After a number, a complement piece is part of it, in this message or the next — never a second number (review of 9d247f3):
   // "45", "casa 3"; "45, bloco 2, apto 31"; "45, 2º andar". The first number is the door: a later one replaces it only when she says
   // so ("não, é 46", "errei, 46", "número 46", "nº 46") — "45" then "30" (the day) or "2" is never the door (review of 96b8fc7).
-  let number: string | null = null;
+  let number: string | null = known ?? null;
   const complements: string[] = [];
   for (const part of parts) {
     if (skip.includes(part.trim())) continue;
     const corrects = /^\s*(?:n[ãa]o|errei|ops|opa|na\s+verdade|corrigindo)\b/i.test(part);
     for (const seg of part.split(/[,;\n]+/)) {
-      const s = seg.trim();
+      // "na verdade é 46", "errei, é casa 2": the correction's own words and the "é" go; "não é 45" keeps its denial and is never read.
+      const s = seg.trim().replace(/^(?:(?:na\s+verdade|errei|ops|opa|corrigindo)\b[\s,:]*)?(?:[ée]h?\s+(?:[oa]\s+)?)?/i, "");
       if (/\d{5}-?\d{3}|\d{3}\.?\d{3}\.?\d{3}/.test(s)) continue;
-      if (number !== null && !corrects && !/^(?:o\s+)?(?:n[º°o.]|n[uú]mero|num\.?)\s*\d/i.test(s) && !(s.length <= 40 && complementWord.test(s))) continue;
+      if (number !== null && !corrects && !/^(?:o\s+)?(?:n[º°o.]|n[uú]mero|num\.?)\s*(?:da\s+casa\s*)?(?:[:.]|[ée]h?)?\s*\d/i.test(s) && !(s.length <= 40 && complementWord.test(s))) continue;
       const piece = s.length <= 40 && complementWord.test(s);
       const m: RegExpExecArray | null | undefined = number !== null && piece ? null : leads.map((re) => re.exec(s)).find((x) => x !== null);
       const rest = (m?.[4] ?? "").replace(/^(?:e\s+)/i, "").trim();
@@ -535,7 +545,7 @@ export const closeStep = (input: {
   // Over the summary, her number fixed ("o número é 46", "errei, é 46", "não é 45, é 46") is read and the summary rebuilt (review of
   // 360625b: it was ignored and her next SIM imported the old number).
   const asked = list.includes(NUMBER_ITEM) || (list.includes(SUMMARY_HEAD) && NUMBER_FIX.test(norm(parts.join("\n"))));
-  const house = houseNumberIn(parts, asked, bare ? [bare.token] : []);
+  const house = houseNumberIn(parts, asked, bare ? [bare.token] : [], list.includes(SUMMARY_HEAD) ? state.number ?? f.stored.number : undefined);
   const number = house?.number ?? f.typed.number ?? state.number ?? f.stored.number;
   const complement = (house ? house.complement : null) ?? f.typed.complement ?? state.complement ?? f.stored.complement;
   const street = f.cepStreet || (f.typed.street ?? state.street ?? f.stored.street);
