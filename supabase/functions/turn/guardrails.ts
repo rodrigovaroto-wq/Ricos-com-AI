@@ -1206,11 +1206,21 @@ const gates: readonly Gate[] = [
           if (/\?\s*$/.test(sentence)) continue;
           if (!/\b(?:antecipa\w*|adianta\w*|pix|pag\w*\s+(?:antes|agora)|a\s+vista)\b/.test(sentence)) continue;
           if (/\bna\s+entrega\b|\bna\s+porta\b|\bentregador\b|\bkits?\b|\bcupom\b|\b(?:[2-9]|duas|dois|tres)\s+(?:pecas?|unidades?|coletes?)\b/.test(sentence)) continue;
-          // The anchor's discount is true on every path ("No Pix sai por R$ 109,90, já com desconto", "de R$ 216,50 por R$ 109,90 no
-          // Pix"): said with "já com desconto" or the anchor's own price, it is not the prepaid's (dev:gates review of ecea0c3).
-          if (/\bja\s+com\s+(?:o\s+)?desconto\b/.test(sentence) || moneyMatches(sentence).some((mm) => mm.value === anchorBrl)) continue;
-          const claim = /\b(?:desconto|mais\s+barat\w*|mais\s+em\s+conta|sai\s+menos|abatimento)\b/.exec(sentence);
-          if (claim && !negatedAt(sentence, claim.index)) return "claims a prepaid discount; there is none — the prepaid price is the same";
+          // The anchor's discount is true on every path ("No Pix sai por R$ 109,90, já com desconto", "de R$ 216,50 por R$ 109,90, com
+          // desconto"): only THAT occurrence of the bare word is exempt — "mais barato", "mais em conta", "mais desconto", "desconto extra"
+          // beside it are still read (review of 2474091; Lição 1: an exemption is a loosening).
+          const anchored = moneyMatches(sentence).some((mm) => mm.value === anchorBrl);
+          for (const claim of sentence.matchAll(/\b(?:desconto|mais\s+barat\w*|mais\s+em\s+conta|sai\s+menos|abatimento)\b/g)) {
+            const at = claim.index ?? 0;
+            if (negatedAt(sentence, at)) continue;
+            if (claim[0] === "desconto") {
+              const before = sentence.slice(Math.max(0, at - 24), at);
+              const after = sentence.slice(at + claim[0].length, at + claim[0].length + 16);
+              const more = /\b(?:mais|ainda|outro|extra|adiciona\w*)\s+(?:um\s+)?$/.test(before) || /^\s+(?:extra|adiciona\w*|a\s+mais|especial)\b/.test(after);
+              if (!more && (/\bja\s+com\s+(?:o\s+)?$/.test(before) || anchored)) continue;
+            }
+            return "claims a prepaid discount; there is none — the prepaid price is the same";
+          }
         }
       }
 

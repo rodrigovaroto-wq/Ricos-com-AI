@@ -671,13 +671,19 @@ export const awaitsPix = (status: string | null | undefined, pix: boolean): bool
  * "não precisa reenviar o pix" refuses it.
  */
 export const asksPixCode = (message: string): boolean => {
-  // Her "não paguei" / "paguei não" is no payment claim: "Não, paguei não. Manda o pix de novo" asks for it.
-  const t = message.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\bnao\s+paguei\b|\bpaguei\s+nao\b/g, " ");
-  if (/\b(?:nao|nem|sem)\s+(?:precisa\s+)?(?:\S+\s+){0,2}(?:reenvi|mand|envi|pass)\w*/.test(t)) return false;
+  // Her payment NOT made is no payment claim (review of 2474091): "Não, paguei não. Manda o pix de novo", "não fiz o pix ainda, me manda o
+  // código", "não consegui pagar, manda o qr code" ask for it.
+  const t = message.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+    .replace(/\b(?:nao|nem)\s+(?:paguei|fiz|consegui\s+(?:pagar|fazer))\b|\b(?:paguei|fiz)\s+nao\b/g, " ");
+  // A refusal in the same clause, before ("não precisa mandar o pix") or after the request ("manda o pix não").
+  if (/\b(?:nao|nem|sem)\s+(?:precisa\s+)?(?:[^\s,.;!?]+\s+){0,2}(?:reenvi|mand|envi|pass)\w*/.test(t)) return false;
+  if (/\b(?:reenvi\w*|manda|mande|envia|envie|passa|passe)\b[^,.;!?]*\bnao\s*(?:[,.;!?]|$)/.test(t)) return false;
   if (/\b(?:paguei|mandei|enviei|passei|fiz|transferi|comprovante|rastreio|boleto|barras)\b/.test(t)) return false;
-  // The code itself, named: "código do pix", "pix copia e cola", "copia e cola", "qr code".
-  const code = /\b(?:codigo\s+(?:do\s+|de\s+)?pix|pix\s+copia\s+e\s+cola|copia\s+e\s+cola|qr\s?code|codigo\s+(?:do\s+)?qr)\b/;
+  // The code itself, named: "código do pix", "pix copia e cola", "copia e cola", "qr code" — or "o código" in a message about the Pix.
+  const code = /\b(?:codigo\s+(?:do\s+|de\s+)?pix|pix\s+copia\s+e\s+cola|copia\s+e\s+cola|qr\s?code|codigo\s+(?:do\s+)?qr)\b|\bcodigo\b(?=[\s\S]*\bpix\b)|\bpix\b[\s\S]*\bcodigo\b/;
   const ask = /\b(?:reenvi(?:a|e|ar)|(?:me\s+)?(?:manda|mande|envia|envie|passa|passe)|cade|perdi|nao\s+(?:recebi|chegou|achei|veio|aparece\w*)|preciso\s+d[oe]|qual\s+(?:e\s+)?o)\b/;
+  // The Pix expired or lapsed, and she asks for another: "o pix expirou, manda outro".
+  if (/\b(?:pix|codigo|qr\s?code)\b[^.!?]*\b(?:expir\w*|venc\w*)\b/.test(t) && /\b(?:manda|mande|envia|envie|gera|gere|reenvi\w*)\s+(?:\S+\s+)?(?:outro|novo|de\s+novo)\b/.test(t)) return true;
   if (ask.test(t) && code.test(t)) return true;
   // "manda o pix (de novo)", "reenvia o pix": the request verb right before the Pix itself.
   return /\b(?:reenvi(?:a|e|ar)|(?:me\s+)?(?:manda|mande|envia|envie|passa|passe))\s+(?:(?:me|de\s+novo|novamente)\s+)?(?:o\s+)?pix\b/.test(t);

@@ -261,7 +261,10 @@ describe("revisão do v3: os furos que ela achou", () => {
 
 describe("copy v4 (operador, 2026-10-20): o que já estava no ar continua reconhecido", () => {
   it("a abertura e as ofertas de antes ainda contam como mandadas", () => {
-    expect(openingWasSent([LEGACY_SIZE_ASK])).toBe(true);
+    // Since the review of 2474091 the opening is proved by its first line (the R28 one too), never by the size ask, which other
+    // bubbles also send.
+    expect(openingWasSent(["Olá, tudo bem?\nMeu nome é Malu, vou te explicar tudo sobre a nossa cinta modeladora 🥰"], "Malu")).toBe(true);
+    expect(openingWasSent([LEGACY_SIZE_ASK], "Malu")).toBe(false);
     expect(lastOfferKind(["⭐ DE R$ 216,50 POR R$ 129,90 ⭐\n🚛 FRETE GRÁTIS: …"], config)).toBe("cod");
     expect(lastOfferKind(["Pra sua cidade o colete vai pelos Correios, com código de rastreio 📦\n…"], config)).toBe("prepay");
     expect(lastOfferKind(["⭐ DE R$ 216,50 POR R$ 129,90 ⭐\nCampinas costuma ter pagamento na entrega, mas…"], config)).toBe("both");

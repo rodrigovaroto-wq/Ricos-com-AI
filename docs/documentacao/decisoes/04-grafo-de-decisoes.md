@@ -4558,6 +4558,33 @@ olharam só o seu próprio pedido, não os da cliente.
 **Guarda.** `tests/review-ecea0c3.test.ts`; mutações `O29-*` (16). `pnpm dev:gates`: 0 afrouxados; os 16 endurecidos são títulos de
 teste, frases dela ou a promessa falsa do desconto do antecipado — nenhuma linha verdadeira da agente.
 
+### D. A revisão Opus do 2474091 (reprovada, 2026-10-28)
+
+**Sintoma.**
+- A isenção do desconto do preço cheio em `price_promise` pulava a FRASE inteira: com "já com desconto" ou o R$ 216,50 nela, passavam
+  "No Pix sai mais barato, já com desconto.", "De R$ 216,50 por R$ 109,90, e no Pix ainda tem mais desconto.", "Pagando antecipado sai
+  mais em conta que na hora, de R$ 216,50 por R$ 109,90." e "Pagando no Pix você ganha desconto extra, já com desconto do site".
+- `openingSent` (turno) e `openingWasSent` provavam a abertura pelo `SIZE_ASK`, que também fecha `sizeFirstBubbles` e `offerAsk`: a lead
+  do site que mandou o CEP antes do tamanho saía do modo site, e o prompt dizia "A ABERTURA JÁ FOI".
+- `asksPixCode` não lia "não consegui pagar, manda o qr code", "o pix expirou, manda outro", "não fiz o pix ainda, me manda o código", e lia
+  "manda o pix não" como pedido; `requestedMedia("tem video? nao precisa")` mandava o vídeo.
+
+**Causa.** A Lição 1 de novo: a isenção foi escrita para a frase, não para a palavra, e a mentira ao lado dela passou. E a prova da
+abertura foi um balão que a abertura compartilha com outros.
+
+**Correção.**
+- `price_promise`: cada ocorrência é lida; só a palavra "desconto" sozinha é isenta, e só dentro de "já com desconto" ou numa frase com o
+  preço cheio — nunca com "mais / ainda / outro / extra / adicional" antes ou "extra / adicional / a mais / especial" depois. "mais
+  barato", "mais em conta", "sai menos" nunca são isentos.
+- `OPENING_FIRST` (e `LEGACY_OPENING_FIRST`, a do R28): a primeira linha da abertura, que só ela manda, prova a abertura em
+  `openingWasSent(outbound, agentName)` e no `openingSent` do turno. Nenhum outro chamador de `openingWasSent`.
+- `asksPixCode`: "não paguei / não fiz / não consegui pagar" não é pagamento; a recusa vale só na mesma oração, antes ou depois do pedido
+  ("manda o pix não"); "o código" vale numa mensagem sobre o Pix; "expirou / venceu" com "manda outro / novo" é pedido.
+- `requestedMedia`: a recusa depois do pedido ("não precisa", "não quero", "deixa pra lá", "esquece") cala a mídia.
+
+**Guarda.** `tests/review-2474091.test.ts` (as quatro mentiras e uma quinta vetadas, as verdades passando; a abertura negada pelo
+`sizeFirstBubbles` e pelo `offerAsk`); mutações `O30-*` (8); `O29-desconto-do-preco-cheio` atualizada.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

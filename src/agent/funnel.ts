@@ -68,6 +68,11 @@ const media = (url: string | undefined, kind: MediaKind, text: string): FunnelBu
 
 /** The question that closes the opening, and the one asked again when the size is still missing at the offer. */
 export const SIZE_ASK = "Qual o número da calça que você veste?\nAssim eu te indico o tamanho certinho 😉";
+/** The opening's first line (copy v4, 2026-10-20): only the opening sends it, so it is how the history proves the opening went. */
+export const OPENING_FIRST = (agentName: string): string => `Oi, tudo bem? Aqui é a ${agentName}..\nVou te mostrar rapidinho como o colete funciona 💛`;
+/** The opening's first line from R28 (2026-10-19) to the copy v4: conversations of those days carry it. */
+export const LEGACY_OPENING_FIRST = (agentName: string): string =>
+  `Olá, tudo bem?\nMeu nome é ${agentName}, vou te explicar tudo sobre a nossa cinta modeladora 🥰`;
 /** The size ask before the copy v4 (2026-10-20): conversations already open carry it. */
 export const LEGACY_SIZE_ASK = "Qual o número da calça que você veste? Assim eu te indico o tamanho certinho 😉";
 
@@ -87,7 +92,7 @@ export const openingBubbles = (config: FunnelConfig): FunnelBubble[] => {
   const m = config.funnel?.media ?? {};
   return [
     // Copy v4 (operator, 2026-10-20, grafo §119).
-    { text: `Oi, tudo bem? Aqui é a ${config.agentName}..\nVou te mostrar rapidinho como o colete funciona 💛` },
+    { text: OPENING_FIRST(config.agentName) },
     ...media(m.audio1, "audio", FUNNEL_LABELS.audio1),
     ...media(m.audio2, "audio", FUNNEL_LABELS.audio2),
     { text: "É só vestir, fechar os colchetes e o zíper e ajustar a alça, o corpo fica *Fininho em Segundos!!*" },
@@ -122,8 +127,9 @@ export const requestedMedia = (message: string, config: FunnelConfig): FunnelBub
   const t = message.replace(/\[[^\]]*\]/g, " ").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
   const m = config.funnel?.media ?? {};
   // Refused, or she cannot play it: nothing goes.
+  // Postposed too (review of 2474091): "tem vídeo? não precisa".
   const off = (word: string): boolean =>
-    new RegExp(`\\b(?:nao|sem|nem|nunca)\\s+(?:\\S+\\s+){0,3}${word}|${word}\\w*\\s+(?:nao|nem)\\b`).test(t);
+    new RegExp(`\\b(?:nao|sem|nem|nunca)\\s+(?:\\S+\\s+){0,3}${word}|${word}\\w*\\s+(?:nao|nem)\\b|${word}[\\s\\S]*\\b(?:nao\\s+precisa|nao\\s+quer\\w*|deixa\\s+pra\\s+la|esquece)\\b`).test(t);
   // An explicit ask, in the present, right before the thing (review of ecea0c3, 3): "tem vídeo?", "manda um áudio", "pode me mostrar
   // as avaliações?", "quero ver o vídeo". Never her past ("vi o vídeo no site", "assisti o vídeo", "li as avaliações") nor a mention
   // of it ("a moça do vídeo", "no vídeo ela tá com a bege", "desculpa o áudio").
@@ -321,8 +327,12 @@ export const lastOfferKind = (outbound: readonly string[], config: FunnelConfig)
 /** The offer went out already: its first line is in the history (either path). */
 export const offerWasSent = (outbound: readonly string[], config: FunnelConfig): boolean => lastOfferKind(outbound, config) !== null;
 
-/** The opening went out already: its last line is in the history. */
-export const openingWasSent = (outbound: readonly string[]): boolean => outbound.some((m) => m === SIZE_ASK || m === LEGACY_SIZE_ASK);
+/**
+ * The opening went out already: its FIRST line is in the history, the only bubble nothing else sends (review of 2474091: `SIZE_ASK`
+ * also closes `sizeFirstBubbles` and `offerAsk`, so a site lead who gave her CEP first read as having had the opening).
+ */
+export const openingWasSent = (outbound: readonly string[], agentName: string): boolean =>
+  outbound.some((m) => m === OPENING_FIRST(agentName) || m === LEGACY_OPENING_FIRST(agentName));
 
 /** Etapa 4, the link: the address is the checkout's, and the kits ride along as an option, never a question before it. */
 export const funnelLinkMessage = (

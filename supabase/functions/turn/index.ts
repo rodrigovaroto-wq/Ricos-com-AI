@@ -214,7 +214,8 @@ import {
   sizeNoCodAsk,
   ADDRESS_NO_COD_ASK,
   SIZE_ASK,
-  LEGACY_SIZE_ASK,
+  OPENING_FIRST,
+  LEGACY_OPENING_FIRST,
   skipsOpening,
   funnelLinkMessage,
   type FunnelBubble,
@@ -2719,7 +2720,7 @@ const handleTurn = async (
   // Since the review of ecea0c3 (7), site mode is "no opening was ever sent", whatever `source` says now: a site lead who comes back by
   // an ad has `source` filled and still saw nothing. A new lead from an ad gets the opening below, before anything reads this.
   const openingSent = !isNewLead && ((await db(
-    `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&body=in.(${[SIZE_ASK, LEGACY_SIZE_ASK].map((b) => encodeURIComponent(`"${b}"`)).join(",")})&select=id&limit=1`,
+    `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&body=in.(${[OPENING_FIRST(CONFIG.agentName), LEGACY_OPENING_FIRST(CONFIG.agentName)].map((b) => encodeURIComponent(`"${b}"`)).join(",")})&select=id&limit=1`,
   ).catch(() => null)) ?? [null]).length > 0;
   // The first message of a new lead from an ad keeps today's path (opening, or the receipt when it is skipped).
   const siteMode = !openingSent && !(isNewLead && fromAd);
