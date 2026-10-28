@@ -13,6 +13,15 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-28 20:07 UTC — NO AR: `turn` v47 (função v171, commit `329cb31`) + `BUSINESS_CONFIG` de 28/10** (operador colou; sha
+> `98213272…` conferido pelo cofre). Alarme de cobertura 20:11 UTC: `healthy` (boot com o config novo ok). A venda na entrega pela
+> importação da Logzz está LIGADA (`logzzImport` + `LOGZZ_API_TOKEN`). **Não provada de ponta a ponta:** falta o pedido de teste do
+> operador pela Malu (CPF e endereço dele), cancelando depois na Logzz — confere `variations[].hash` e a idempotência por `external_id`.
+> Decisões do operador (28/10): `rescheduled` = manter (a Malu avisa a cliente e manda e-mail). Pendências com o operador/sócio:
+> pixel 4466808633585371 nas 3 ofertas da Coinzz (operador aplica quando o sócio mandar o token da API de Conversões), templates
+> `encorpa_carrinho_site`/`encorpa_pix_pendente`/`encorpa_retomada` (sócio), conversa com o fornecedor sobre o estoque Coinzz × Logzz
+> (operador devolve o resultado). Falta também: PRs para a `main` dos dois repositórios e o teste A/B de 5 dias.
+
 > **2026-10-28 (noite) — venda na entrega pela importação da Logzz: APROVADA pela revisão Opus, NÃO publicada.**
 > Branch `claude/site-whatsapp-test` HEAD `d67e83e` (checklist único do operador: dia + nome + CPF + número numa lista, depois só o que
 > falta, depois o resumo, e o pedido só no SIM puro ao resumo atual; gate `order_claim`; nome checado por `isPlausibleName`;
