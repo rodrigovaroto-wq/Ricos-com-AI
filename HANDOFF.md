@@ -22,6 +22,9 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > importação (Manaus parou em "Data de entrega indisponível"). Datas da Logzz com elas: SP/Guarulhos/Campinas/Santos G·GG·XGG;
 > BH/Contagem M·G·GG; Goiânia G·GG; Salvador G·XGG; Rio P·GG·XGG; Porto Alegre GG·XGG. **A Logzz entrega G em SP e M em BH; o
 > checkout da Coinzz não oferece pagamento na entrega para eles** — a importação pela Malu recupera essas vendas.
+> Comparação Logzz × Coinzz por cidade e tamanho (28/10): `docs/operacao/estoque-logzz-x-coinzz-2026-10-28.json`. Causa
+> provável: são dois cadastros do colete (Coinzz `pro7ml00`… e Logzz `prow6pq0`/`projm2ov`…), cada um com o seu estoque nas mesmas
+> unidades. A Coinzz também oferece entrega onde a Logzz não tem o tamanho (BH XGG, Goiânia XGG, Salvador GG).
 > Proposta ao operador: a Malu criar o pedido da entrega pela API de importação da Logzz (sem checkout), consultando essa API.
 >
 > **2026-10-28 13:23 UTC — PUBLICADO (operador autorizou):** `turn` **v46** (função v165, commit `75408f4`), ainda com o
