@@ -203,19 +203,33 @@ export const nameCandidates = (
     const m = NAME_INTRO.exec(x);
     return m ? [x.slice((m.index ?? 0) + m[0].length).trim()] : [];
   });
-  const placeNames = places.map((p) => norm(p).trim()).filter((p) => p !== "");
-  const answered = !lastOutbound.includes(NAME_ITEM) ? [] : pieces.filter((x) => {
+  // "o nome tá errado, é Maria Souza", "nome errado" + "Maria Souza": her correction asks the name as the list does (review of 96b8fc7).
+  const corrects = pieces.some((x) => WRONG_NAME.test(norm(x)));
+  const answered = !lastOutbound.includes(NAME_ITEM) && !corrects ? [] : pieces.map((x) => x.replace(/^(?:[ée]h?|sou(?:\s+a)?)\s+/i, "")).filter((x) => {
     const t = norm(x);
-    return !/\d/.test(x) && pickDate([x], dates, now) === null && !confirmsOrder([x]) && !/\b(?:dia|data)\b/.test(t) &&
-      !new RegExp(`^(?:${COMPLEMENT})(?![\\p{L}])`, "iu").test(x) && !NOT_A_NAME.test(t) && !PLACE_FIRST.test(t) &&
-      !placeNames.includes(t);
+    return !/\d/.test(x) && pickDate([x], dates, now) === null && !confirmsOrder([x]) && !/\b(?:dia|data)\b/.test(t) && !WRONG_NAME.test(t) &&
+      isPlausibleName(x, places);
   });
   return [...introduced.filter((x) => x !== ""), ...answered];
 };
+/**
+ * The one check every name read during the close goes through — the list's answer, her identity from the burst, the name kept
+ * (review of 96b8fc7: the identity path skipped it and "Bela Vista", "Dinheiro mesmo" reached the order): never a complement ("Bloco B"),
+ * a payment, product, colour or landmark ("Cartão de crédito", "Kit duas", "Cor preta", "Portão azul"), a place ("Santa Cruz",
+ * "Cidade Nova") nor her CEP's street, neighbourhood or town (`places`).
+ */
+export const isPlausibleName = (name: string, places: readonly string[] = []): boolean => {
+  const t = norm(name).trim();
+  return !new RegExp(`^(?:${COMPLEMENT})(?![\\p{L}])`, "iu").test(t) && !NOT_A_NAME_FIRST.test(t) && !NOT_A_NAME_LAST.test(t) &&
+    !places.some((p) => norm(p).trim() === t);
+};
+const WRONG_NAME = /\bnome\b[^.!?]{0,20}\b(?:errad[oa]|trocad[oa]|incorret[oa]|nao\s+e\s+esse)\b|\bcorrig\w*\s+(?:o\s+|meu\s+)?nome\b/;
 const NAME_INTRO = /\b(?:meu\s+nome\s+(?:completo\s+)?(?:[eé]|eh)|o\s+nome\s+(?:completo\s+)?(?:[eé]|eh)|nome\s*(?:completo\s*)?[:=]|me\s+chamo)(?=\s|$)/i;
-const NOT_A_NAME =
-  /\b(?:cartao|credito|debito|dinheiro|pix|boleto|mesmo|cor|pret[ao]|branc[ao]|bege|nude|kit|colete|cinta|tamanho|pecas?|duas|tres|mercado|padaria|posto|farmacia|igreja|escola|azul|verde|amarel[ao]|vermelh[ao]|portao|lado|perto|proximo|esquina|frente|fundos|vista|manha|tarde|noite|portaria|porteiro)\b/;
-const PLACE_FIRST = /^(?:santa|santo|sao|vila|jardim|parque|cidade|bairro|conjunto|residencial|alto|morro|nova|novo|ao|em|na|no|perto|proximo)\b/;
+// The word that opens it (a payment, a product, a colour's noun, a landmark, a place) or closes it ("… mesmo", "Bela Vista", "Kit
+// duas"): a surname like Branco, Preto, Rosa or Verde in the middle or the end of a real name is never read as either.
+const NOT_A_NAME_FIRST =
+  /^(?:cartao|credito|debito|dinheiro|pix|boleto|cor|kit|colete|cinta|tamanho|pecas?|mercado|padaria|posto|farmacia|igreja|escola|portao|lado|perto|proximo|esquina|frente|fundos|manha|tarde|noite|portaria|porteiro|pago|pagar|prefiro|santa|santo|sao|vila|jardim|parque|cidade|bairro|conjunto|residencial|alto|morro|nova|novo|boa|bom|ao|em|na|no)\b/;
+const NOT_A_NAME_LAST = /\b(?:mesmo|vista|duas|tres|azul|amarel[ao]|vermelh[ao])$/;
 
 /**
  * "como funciona?", "como faço pra pagar na entrega?": how the sale on delivery works, asked — the checklist answers it (operator,
@@ -293,6 +307,18 @@ export const pickDate = (
 };
 
 /**
+ * "30" alone, to the list that offered "sexta (30/10)": the day of one offered date, never the door (review of 96b8fc7). Only a segment
+ * that is the bare number; the turn reads it only when nothing else in her words named a day.
+ */
+export const bareDay = (parts: readonly string[], dates: readonly CodDate[]): { date: string; token: string } | null => {
+  for (const s of parts.flatMap((p) => p.split(/[,;\n]+/)).map((x) => x.trim())) {
+    const d = /^\d{1,2}$/.test(s) ? dates.slice(0, CLOSE_OFFERED).find((x) => Number(x.date.slice(8, 10)) === Number(s)) : undefined;
+    if (d) return { date: d.date, token: s };
+  }
+  return null;
+};
+
+/**
  * "muda a data", "quero outro dia", "troca o dia": the date asked again, without a new one named. Not denied in its clause ("não
  * quero mudar a data", "não precisa trocar o dia"), and "outro dia" only as a day wanted ("outro dia eu compro" is "some day").
  */
@@ -323,7 +349,7 @@ export const confirmsOrder = (parts: readonly string[]): boolean =>
  * segment is never a house number. After the number only a complement may follow (apto, bloco, casa…): "29/10", "30 de outubro",
  * "2 peças", "14:00" are a date, a count or a time, never the door (review of 844743b). Null when the ask did not name it.
  */
-export const houseNumberIn = (parts: readonly string[], asked: boolean): { number: string; complement: string | null } | null => {
+export const houseNumberIn = (parts: readonly string[], asked: boolean, skip: readonly string[] = []): { number: string; complement: string | null } | null => {
   if (!asked) return null;
   const complementWord = new RegExp(`^(?:${COMPLEMENT})(?![\\p{L}])`, "iu");
   // The number, a letter glued or apart ("45A", "45 B"; never the "e" of "45 e apto 12", the "h" of "14h" nor the "x" of "2x"), then only a complement may follow. It opens
@@ -331,17 +357,20 @@ export const houseNumberIn = (parts: readonly string[], asked: boolean): { numbe
   // casa 120". A bare count in a sentence is never the door.
   const TAIL = String.raw`(\d{1,5}|s\/?n)(?:([A-GI-WYZa-gi-wyz])|\s+(?![eE]\s)([A-GI-WYZa-gi-wyz]))?(?![\p{L}\d/:])\s*[-–]?\s*(.*)$`;
   const leads = [
-    new RegExp(String.raw`^(?:(?:o\s+)?n(?:[º°o.]|u|ú)?(?:mero)?\s*(?:da\s+casa\s*)?(?:[:.]|[ée]\s+)?\s*)?${TAIL}`, "iu"),
+    new RegExp(String.raw`^(?:[ée]h?\s+(?:o\s+)?)?(?:(?:o\s+)?n(?:[º°o.]|u|ú)?(?:mero)?\s*(?:da\s+casa\s*)?(?:[:.]|[ée]\s+)?\s*)?${TAIL}`, "iu"),
     new RegExp(String.raw`(?:^|\s)(?:n[º°o.]|n[uú]mero|num\.?|casa)\s*(?:da\s+casa\s*)?[:.]?\s*(?:[ée]\s+)?${TAIL}`, "iu"),
   ];
   // After a number, a complement piece is part of it, in this message or the next — never a second number (review of 9d247f3):
-  // "45", "casa 3"; "45, bloco 2, apto 31"; "45, 2º andar". Another bare number later is her correction ("45", "46").
+  // "45", "casa 3"; "45, bloco 2, apto 31"; "45, 2º andar". The first number is the door: a later one replaces it only when she says
+  // so ("não, é 46", "errei, 46", "número 46", "nº 46") — "45" then "30" (the day) or "2" is never the door (review of 96b8fc7).
   let number: string | null = null;
   const complements: string[] = [];
   for (const part of parts) {
+    const corrects = /^\s*(?:n[ãa]o|errei|ops|opa|na\s+verdade|corrigindo)\b/i.test(part);
     for (const seg of part.split(/[,;\n]+/)) {
       const s = seg.trim();
-      if (/\d{5}-?\d{3}|\d{3}\.?\d{3}\.?\d{3}/.test(s)) continue;
+      if (/\d{5}-?\d{3}|\d{3}\.?\d{3}\.?\d{3}/.test(s) || skip.includes(s)) continue;
+      if (number !== null && !corrects && !/^(?:o\s+)?(?:n[º°o.]|n[uú]mero|num\.?)\s*\d/i.test(s) && !(s.length <= 40 && complementWord.test(s))) continue;
       const piece = s.length <= 40 && complementWord.test(s);
       const m: RegExpExecArray | null | undefined = number !== null && piece ? null : leads.map((re) => re.exec(s)).find((x) => x !== null);
       const rest = (m?.[4] ?? "").replace(/^(?:e\s+)/i, "").trim();
@@ -355,6 +384,22 @@ export const houseNumberIn = (parts: readonly string[], asked: boolean): { numbe
 };
 
 const COMPLEMENT = "apto|apt|ap|apartamento|bloco|bl|casa|cs|fundos|frente|sobrado|loja|sala|andar|torre|lote|quadra|qd|conjunto|cj|\\d{1,3}\\s*[º°o]?\\s*andar";
+
+/**
+ * "Rua das Flores 45, Centro": on a town's general CEP, the piece right after her street is her neighbourhood — letters only, not a
+ * day, not her name, not a complement.
+ */
+const hoodAfterStreet = (parts: readonly string[], street: string | undefined, name: string | null | undefined): string | null => {
+  if (!street) return null;
+  for (const part of parts) {
+    const segs = part.split(/[,;\n]+/).map((x) => x.trim());
+    const at = segs.findIndex((x) => norm(x).includes(norm(street)));
+    const next = at >= 0 ? segs[at + 1] : undefined;
+    if (next && /^[\p{L}\s'.-]{2,40}$/u.test(next) && !new RegExp(`^(?:${COMPLEMENT})(?![\\p{L}])`, "iu").test(next) &&
+      !/\b(?:segunda|terca|quarta|quinta|sexta|sabado|domingo|dia)\b/.test(norm(next)) && norm(next) !== norm(name ?? "")) return next;
+  }
+  return null;
+};
 
 /** A cell phone in her answer to `PHONE_ASK`: DDD + 9 + 8 digits, national form. */
 export const cellIn = (parts: readonly string[]): string | null => {
@@ -385,6 +430,8 @@ export interface CloseFacts {
   readonly name: string | null;
   /** The name she wrote in answer to the checklist this burst (`nameCandidates` + `extractName`), over any earlier one. */
   readonly typedName?: string | null;
+  /** Her CEP's street, neighbourhood and town, and the address she typed: never her name (`isPlausibleName`). */
+  readonly places?: readonly string[];
   /** Her valid CPF, digits. */
   readonly cpf: string | null;
   /** The CPF she sent this burst does not check out (`sentInvalidCpf`). */
@@ -470,30 +517,34 @@ export const closeStep = (input: {
   const list = input.lastList ?? lastOutbound;
   let state: CloseState = { ...input.state };
   const change = asksDateChange(parts);
-  const pick = input.datesAsked || change ? pickDate(parts, f.dates, now) : null;
+  const picked = input.datesAsked || change ? pickDate(parts, f.dates, now) : null;
+  const bare = list.includes(DAY_ITEM) && picked === null ? bareDay(parts, f.dates) : null;
+  const pick = bare ? { kind: "pick" as const, date: bare.date } : picked;
   if (pick?.kind === "pick") state = { ...state, date: pick.date };
   else if (change || pick?.kind === "unavailable") state = withoutDate(state);
   // A day the Logzz no longer offers is asked again, said as such.
   const gone = state.date !== undefined && !f.dates.some((d) => d.date === state.date) ? state.date : null;
   if (gone) state = withoutDate(state);
   const asked = list.includes(NUMBER_ITEM);
-  const house = houseNumberIn(parts, asked);
+  const house = houseNumberIn(parts, asked, bare ? [bare.token] : []);
   const number = house?.number ?? f.typed.number ?? state.number ?? f.stored.number;
   const complement = (house ? house.complement : null) ?? f.typed.complement ?? state.complement ?? f.stored.complement;
   const street = f.cepStreet || (f.typed.street ?? state.street ?? f.stored.street);
-  const neighborhood = f.cepNeighborhood || (f.typed.neighborhood ?? state.neighborhood ?? f.stored.neighborhood ?? "");
+  const neighborhood = f.cepNeighborhood ||
+    (f.typed.neighborhood ?? (list.includes(STREET_ITEM) ? hoodAfterStreet(parts, f.typed.street, f.typedName) : null) ?? state.neighborhood ?? f.stored.neighborhood ?? "");
   const phone = [list.includes(PHONE_ASK) ? cellIn(parts) : null, state.phone, f.phone].find((p) => p && p !== state.badPhone) ?? null;
   state = Object.fromEntries(
     Object.entries({ ...state, number, complement, street: f.cepStreet ? undefined : street, neighborhood: f.cepNeighborhood ? undefined : neighborhood || undefined, phone: phone !== f.phone ? phone : undefined })
       .filter(([, v]) => v !== undefined && v !== null && v !== ""),
   ) as CloseState;
   const cpf = f.cpf && f.cpf !== state.badCpf ? f.cpf : null;
-  const named = [f.typedName, state.name, f.name].find((n) => n && n.trim().split(/\s+/).length >= 2) ?? null;
+  const named = [f.typedName, state.name, f.name].find((n) => n && n.trim().split(/\s+/).length >= 2 && isPlausibleName(n, f.places)) ?? null;
   const fullName = named ? named.trim() : null;
   if (f.typedName && fullName === f.typedName.trim()) state = { ...state, name: fullName };
   const date = f.dates.find((d) => d.date === state.date) ?? null;
-  // On a town's general CEP the street AND the neighbourhood are hers to give (review of 9d247f3).
-  const place = Boolean(street) && (Boolean(f.cepStreet) || neighborhood !== "");
+  // The Logzz needs the CEP, the street, the town and the UF ("Endereço inválido"); the neighbourhood goes when read, never blocks
+  // (operator's call on the review of 96b8fc7: "Centro" alone was never read and held the close forever).
+  const place = Boolean(street);
 
   const missing = [
     ...(fullName ? [] : ["seu nome completo"]),

@@ -4809,6 +4809,53 @@ o que o prompt e a diretiva do fechamento ensinam" (toda frase do prompt, do bri
 seu pedido", "já tá agendadinho", "Fica pra quinta então! 💛", "Seu pedido já tá no sistema", "Seu pedido entrou!" — viram gate só com
 frase vista em conversa. Um nome de duas palavras fora das listas que não é nome ainda aparece no resumo, onde ela corrige antes do SIM.
 
+### D. A revisão Opus do 96b8fc7 (reprovada, 2026-10-28)
+
+**Sintoma.**
+- A. CEP geral travava o fechamento: o bairro só era lido com a palavra "bairro"; "quinta, Rua das Flores 45, Centro" voltava "Só
+  falta: 📍 Rua e bairro", e "Rua das Flores, Centro" ou "Centro" nunca completavam.
+- B. O nome errado ainda chegava ao pedido por `f.name` (`extractIdentityBurst` → `mergeIdentity` → `identityDraft`, gravado no lead):
+  "Bela Vista", "Santa Cruz", "Cidade Nova", "Nova Esperança", "Portão azul", "Casa amarela", "Dinheiro mesmo", "Débito mesmo", "Pix
+  mesmo", "Kit duas", "Cor preta". E a correção sem "meu nome é" ("o nome tá errado, é Maria Souza"; "nome errado" + "Maria Souza")
+  não vencia o `state.name`.
+- C. "Último número solto vence" em `houseNumberIn`: ["45","30"] → 30 (a resposta ao dia "sexta (30/10)"), ["45","2"] → 2,
+  ["45","1"] → 1, ["45 apto 12","13"] → 13.
+- D. `order_claim` deixava passar "Já está agendado!", "Tá agendado!", "Já tá confirmado!", "Pronto, agendei!", "Já agendei.",
+  "Feito! Agendei pra você.", "Ficou agendado pra quinta (29/10)", "Deixei agendado pra quinta", e "Sim, sua entrega fica pra quinta
+  (29/10)!" (o "sim" do começo era lido como condição).
+
+**Causa.** (A) Uma exigência que o destino não tem: a Logzz exige CEP, rua, cidade e UF ("Endereço inválido" = faltou um deles), não o
+bairro. (B) O filtro de nome estava num dos dois caminhos que dão nome ao pedido (Lição: conserto na raiz, onde todos passam). (C) O
+§135 C trocou "primeiro vence" por "último vence" para cobrir a correção dela, sem distinguir correção de número solto. (D) A lista do §135
+C cobriu as frases com sujeito, não as soltas; e "sim" na lista de condições casava o eco do sim dela.
+
+**Correção.**
+- A (decisão do operador): só a rua é exigida no CEP geral; o bairro vai quando lido — `typed.neighborhood`, ou o pedaço logo depois da
+  rua na resposta à lista (`hoodAfterStreet`: só letras, nunca um dia nem o nome dela, nem complemento) — e nunca segura o resumo.
+- B: `isPlausibleName(name, places)` é a única checagem, usada por `nameCandidates`, por `closeStep` nas três fontes (`typedName`,
+  `state.name`, `f.name`, com `CloseFacts.places`) e por `handleTurn` antes de gravar o nome da rajada no lead (`addressPlaces`). Recusa a
+  primeira palavra de pagamento, produto, cor-substantivo, referência ou lugar (`NOT_A_NAME_FIRST`), a última "mesmo/vista/duas/azul…"
+  (`NOT_A_NAME_LAST`), complemento e o que é igual à rua, bairro ou cidade do CEP. Sobrenomes como Branco, Preto, Rosa, Verde, Santa
+  Rosa no meio ou no fim passam (o filtro do §135 C barrava "Leticia Castelo Branco"). A correção sem "meu nome é" (`WRONG_NAME`:
+  "nome … errado/trocado/incorreto", "corrige o nome") abre a leitura do nome como a lista faz; "é Maria Souza" perde o "é".
+- C: o primeiro número da rajada é a porta; outro só com marca de correção no começo da mensagem ("não, é 46", "errei, 46", "ops") ou
+  com "número/nº" (`houseNumberIn`). "casa N" depois de um número continua complemento (a revisão do 9d247f3 pediu ["45","casa 3"] → 45
+  "casa 3"; a do 96b8fc7 listou "casa 46" como correção — as duas não cabem juntas, ficou a primeira). `bareDay`: um "30" sozinho à
+  lista que ofereceu "sexta (30/10)" é o dia, lido só quando nada mais na mensagem nomeou um dia, e então nunca vai ao número.
+  `pickDate` não mudou: a leitura do número solto como dia é de `closeStep`, que sabe se a lista pediu o dia.
+- D: `order_claim` ganha "(já) está/tá/ficou <particípio> (pra <dia>)" solto no começo da oração (condicional: "Respondendo SIM, tá
+  agendado pra quinta" passa), "(já) agendei/confirmei/marquei/registrei/lancei… " solto no fim da frase ou com "pra você", e "deixei
+  (tudo) agendado"; a condição deixa de ler "sim" sozinho — só "seu/o SIM", "fala/diz/manda/responde SIM".
+
+**Guarda.** `tests/cod-close-2026-10-28.test.ts` §14 (frases da revisão nos dois sentidos) e o teste 6 do §13 reescrito para a decisão
+A; o canto do `tests/prompt.test.ts` segue passando; mutações `O35-*` (14), `O33-nome-do-complemento`, `O34-nome-lugar` e
+`O34-nome-do-cep` reescritas, e `O34-bairro-cep-geral` substituída por `O35-bairro-bloqueia` (a guarda agora é do contrário).
+
+**Resíduos (R21.6).** Passam ainda: "Confirmado!", "Prontinho, confirmado!", "Agendadinho!", "Pronto, tá tudo certo pra quinta!",
+"Prontinho! Agora é só aguardar o entregador na quinta (29/10)", "Combinado então, quinta (29/10) o entregador passa aí!", "Seu colete
+chega quinta (29/10)!", "Já anotei tudo, chega quinta!". Um nome raro que começa com uma palavra da lista ("Santo Antônio Silva") é
+recusado e a lista pede o nome de novo. O nome errado já gravado no lead antes deste conserto continua lá; o fechamento não o usa.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

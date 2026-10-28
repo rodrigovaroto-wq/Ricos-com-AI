@@ -17,6 +17,7 @@ import {
   SUMMARY_HEAD,
   asksDateChange,
   asksHowItWorks,
+  bareDay,
   cachedCodDates,
   closeConfirmed,
   closeDirective,
@@ -30,6 +31,7 @@ import {
   importPayload,
   importedTwin,
   isCloseMessage,
+  isPlausibleName,
   lookupCodDates,
   nameCandidates,
   nationalPhone,
@@ -662,6 +664,7 @@ describe("12. a lista única (operador, 2026-10-28) e a revisão Opus do c72b56e
       "Combinado, sua entrega fica pra quinta (29/10) 💛",
       "Seu colete já está garantido pra quinta (29/10)!",
       "Seu pedido, que não tem frete, está confirmado!",
+      "Seu pedido, que não tem frete, está confirmado pra quinta e chega cedo",
       "Seu pedido está confirmado, quer mais alguma coisa?",
       "Sua entrega fica pra quinta (29/10) 💛",
       "Ótimo, sua entrega é na quinta (29/10).",
@@ -726,9 +729,9 @@ describe("13. revisão Opus do 9d247f3", () => {
     expect(typed(["sexta, Maria Souza, 529.982.247-25, 45"], LIST)).toBe("Maria Souza");
   });
   it("1. a correção dela sempre vence o nome guardado e refaz o resumo; o sim seguinte leva o nome certo", () => {
-    const wrong = { date: "2026-10-30", number: "45", name: "Cartao Credito" };
+    const wrong = { date: "2026-10-30", number: "45", name: "Ana Silva" };
     const old = (step({ facts: { ...empty, cpf: "52998224725" }, state: wrong }) as { text: string }).text;
-    expect(old).toContain("• Nome: Cartao Credito");
+    expect(old).toContain("• Nome: Ana Silva");
     const name = typed(["meu nome é Maria Souza"], old);
     expect(name).toBe("Maria Souza");
     const fix = step({ facts: { ...empty, cpf: "52998224725", typedName: name }, state: wrong, parts: ["meu nome é Maria Souza"], lastOutbound: old });
@@ -809,11 +812,80 @@ describe("13. revisão Opus do 9d247f3", () => {
   it("5. sem a trava duas vezes seguidas: o operador avisado uma vez, o resumo segue", () => {
     expect(turn).toContain('if (resends >= 2) extraNotify = extraNotify ?? "pedido na entrega: o sim chegou sem a trava da conversa duas vezes seguidas";');
   });
-  it("6. CEP geral: a rua e o bairro antes do resumo", () => {
+  it("6. CEP geral: a rua basta (a Logzz exige CEP, rua, cidade e UF); o bairro vai quando lido (revisão do 96b8fc7, A)", () => {
     const generic = { cepStreet: "", cepNeighborhood: "", stored: {} };
     const noHood = step({ parts: ["quinta"], facts: { ...generic, typed: { street: "Rua das Flores", number: "45" } } });
-    expect((noHood as { text: string }).text).toBe("Pra eu agendar sua entrega, me manda:\n📍 Rua e bairro");
+    expect((noHood as { text: string }).text.startsWith(SUMMARY_HEAD)).toBe(true);
+    expect((noHood as { text: string }).text).toContain("• Endereço: Rua das Flores, 45 – São Paulo/SP");
     const ok = step({ parts: ["quinta"], facts: { ...generic, typed: { street: "Rua das Flores", number: "45", neighborhood: "Centro" } } });
     expect((ok as { text: string }).text.startsWith(SUMMARY_HEAD)).toBe(true);
+  });
+});
+
+describe("14. revisão Opus do 96b8fc7", () => {
+  const LIST =
+    "Pra eu agendar sua entrega, me manda:\n📅 Dia: quinta (29/10), sexta (30/10) ou sábado (31/10)\n👤 Nome completo\n🪪 CPF\n📍 Rua e bairro\n🏠 Número da casa (e complemento, se tiver)";
+  const generic = { cepStreet: "", cepNeighborhood: "", stored: {}, name: "Maria Souza" };
+  it("A. CEP geral: 'Rua das Flores 45, Centro' completa com o bairro; sem bairro também fecha", () => {
+    const s = step({ facts: { ...generic, typed: { street: "Rua das Flores", number: "45" } }, parts: ["quinta, Rua das Flores 45, Centro"], lastOutbound: LIST });
+    expect((s as { text: string }).text).toContain("• Endereço: Rua das Flores, 45 – Centro, São Paulo/SP");
+    const t = step({ facts: { ...generic, typed: { street: "Rua das Flores" } }, state: { date: "2026-10-29", number: "45" }, parts: ["Rua das Flores, Centro"], lastOutbound: LIST });
+    expect((t as { text: string }).text).toContain("Rua das Flores, 45 – Centro, São Paulo/SP");
+    // Negation: a day or her name after the street is never the neighbourhood.
+    const u = step({ facts: { ...generic, typed: { street: "Rua das Flores", number: "45" }, typedName: "Maria Souza" }, parts: ["Rua das Flores 45, Maria Souza, quinta"], lastOutbound: LIST });
+    expect((u as { text: string }).text).toContain("• Endereço: Rua das Flores, 45 – São Paulo/SP");
+  });
+  it("B. nenhum caminho põe lugar, pagamento, produto ou cor como nome: nem o da identidade (f.name) nem o guardado", () => {
+    for (const n of ["Bela Vista", "Santa Cruz", "Cidade Nova", "Nova Esperança", "Portão azul", "Casa amarela", "Dinheiro mesmo", "Débito mesmo", "Pix mesmo", "Kit duas", "Cor preta"]) {
+      expect(isPlausibleName(n), n).toBe(false);
+      const s = step({ facts: { name: n }, state: { date: "2026-10-29", number: "45" }, lastOutbound: LIST });
+      expect((s as { text: string }).text, n).toBe("Anotado! Só falta me mandar:\n👤 Nome completo");
+      const kept = step({ facts: { name: null }, state: { date: "2026-10-29", number: "45", name: n }, lastOutbound: LIST });
+      expect((kept as { text: string }).text, n).toBe("Anotado! Só falta me mandar:\n👤 Nome completo");
+    }
+    expect(isPlausibleName("Brooklin Paulista", ["Rua Barão do Triunfo", "Brooklin Paulista"])).toBe(false);
+    expect(turn).toContain("...(typedName && isPlausibleName(typedName, addressPlaces) ? { name: typedName } : {})");
+  });
+  it("B. negação: sobrenomes de cor ou de lugar no meio ou no fim de um nome de verdade passam", () => {
+    for (const n of ["Leticia Castelo Branco", "Ana Branco", "Maria Rosa Preto", "Lúcia Verde", "Paula Santa Rosa", "Maria da Cruz", "Juliana Posto"]) expect(isPlausibleName(n), n).toBe(true);
+  });
+  it("B. a correção sem 'meu nome é' vence o nome guardado", () => {
+    const summary = (step({ state: { date: "2026-10-30", number: "45", name: "Ana Silva" }, facts: { name: null } }) as { text: string }).text;
+    for (const parts of [["o nome tá errado, é Maria Souza"], ["nome errado", "Maria Souza"]]) {
+      const name = nameCandidates(parts, summary, DATES, NOW).map((x) => extractName(x, true)).find((n) => (n ?? "").split(/\s+/).length >= 2) ?? null;
+      expect(name, parts.join("|")).toBe("Maria Souza");
+      const s = step({ state: { date: "2026-10-30", number: "45", name: "Ana Silva" }, facts: { name: null, typedName: name }, parts, lastOutbound: summary });
+      expect((s as { text: string }).text, parts.join("|")).toContain("• Nome: Maria Souza");
+    }
+    // Negation: "nome errado" itself is never the name, and without a correction the list's name is not read after the summary.
+    expect(nameCandidates(["nome errado"], summary, DATES, NOW).map((x) => extractName(x, true)).filter(Boolean)).toEqual([]);
+    expect(nameCandidates(["Maria Souza"], summary, DATES, NOW)).toEqual([]);
+  });
+  it("C. o primeiro número vence; outro só com 'não, é', 'errei', 'número', 'nº'", () => {
+    for (const p of [["45", "30"], ["45", "2"], ["45", "1"], ["45", "46"]]) expect(houseNumberIn(p, true)?.number, p.join()).toBe("45");
+    expect(houseNumberIn(["45 apto 12", "13"], true)).toEqual({ number: "45", complement: "apto 12" });
+    for (const p of [["45", "não, é 46"], ["45", "errei, 46"], ["45", "número 46"], ["45", "nº 46"]]) expect(houseNumberIn(p, true)?.number, p.join()).toBe("46");
+  });
+  it("C. '30' sozinho à lista que ofereceu sexta (30/10) é o dia, nunca o número", () => {
+    expect(bareDay(["30"], DATES)).toEqual({ date: "2026-10-30", token: "30" });
+    expect(bareDay(["45"], DATES)).toBeNull();
+    const s = step({ facts: { stored: {} }, parts: ["30", "45"], lastOutbound: LIST });
+    expect(s.state).toMatchObject({ date: "2026-10-30", number: "45" });
+    // Negation: with the day already named, the bare number is not read as the day; without the day asked, never.
+    const named = step({ facts: { stored: {} }, parts: ["quinta, 30"], lastOutbound: LIST });
+    expect(named.state).toMatchObject({ date: "2026-10-29", number: "30" });
+    expect(step({ facts: { stored: {} }, state: { date: "2026-10-29" }, parts: ["30"], lastOutbound: "Anotado! Só falta me mandar:\n🏠 Número da casa (e complemento, se tiver)" }).state).toMatchObject({ date: "2026-10-29", number: "30" });
+  });
+  const claims = (t: string) =>
+    runGates(t, ctx({ config: prod, closeOpen: true, codDates: ISO })).traces.filter((x) => x.verdict === "block").map((x) => x.gate);
+  it("D. order_claim veta o 'já está' solto e o 'agendei' solto; um 'Sim,' na frente não é condição", () => {
+    for (const t of ["Já está agendado!", "Tá agendado!", "Já tá confirmado!", "Pronto, agendei!", "Já agendei.", "Feito! Agendei pra você.", "Ficou agendado pra quinta (29/10)", "Deixei agendado pra quinta", "Sim, sua entrega fica pra quinta (29/10)!"]) {
+      expect(claims(t), t).toContain("order_claim");
+    }
+  });
+  it("D. negação: a condição dela e a explicação seguem passando", () => {
+    for (const t of ["Respondendo SIM, tá agendado pra quinta (29/10)!", "É só responder SIM que eu deixo agendado pra quinta", "Com o seu SIM, deixo tudo agendado pra quinta (29/10)", "Ainda não agendei, preciso do seu SIM", "Me responde SIM e seu pedido fica agendado pra quinta (29/10)", "Com seu SIM, sua entrega fica pra quinta (29/10).", "Tá agendado?", "Depois que o pedido estiver confirmado, o entregador te chama"]) {
+      expect(claims(t), t).not.toContain("order_claim");
+    }
   });
 });

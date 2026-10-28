@@ -107,6 +107,7 @@ import {
   importPayload,
   asksHowItWorks,
   isCloseMessage,
+  isPlausibleName,
   type LogzzOrderConfig,
   lookupCodDates,
   nameCandidates,
@@ -4357,7 +4358,10 @@ const handleTurn = async (
   const rawParts: string[] = unanswered.length > 0 ? unanswered.map((m) => m.body ?? "") : [inbound.body ?? ""];
   const { name: anyName, ...burstRest } = extractIdentityBurst(parts, askedNameNow);
   const typedName = askedNameNow ? anyName : extractIdentityBurst(parts.filter((_, i) => !rawParts[i]?.startsWith(TRANSCRIBED)), false).name;
-  const burstIdentity = { ...burstRest, ...(typedName ? { name: typedName } : {}) };
+  // Never a place of her address, a payment, product, colour or landmark as her name (review of 96b8fc7: "Bela Vista", "Dinheiro
+  // mesmo" were saved on the lead and reached the order) — the same check the close reads with (`isPlausibleName`).
+  const addressPlaces = [addressDraft.street ?? "", addressDraft.neighborhood ?? "", addressDraft.city ?? "", storedAddress.street ?? "", storedAddress.neighborhood ?? ""];
+  const burstIdentity = { ...burstRest, ...(typedName && isPlausibleName(typedName, addressPlaces) ? { name: typedName } : {}) };
   // The name on the first line above her street, only right after the agent asked for the name and
   // with none known (persona round of 2026-10-07, Cleide; review of dad2ae2: never on its own).
   const firstLineName =
@@ -4668,8 +4672,9 @@ const handleTurn = async (
   // question beside it went after (review of 9d247f3). The order still needs the summary as the very last message (`closeStep`).
   const lastList: string = [...recentOutbound].reverse().find(isCloseMessage) ?? lastOutbound;
   // Her name in her answer to the list, or her "meu nome é…" at any time; never her CEP's street, neighbourhood or town.
+  const closePlaces = [cepBody?.logradouro ?? "", cepBody?.bairro ?? "", region?.place.city ?? "", foundAddress.fields.street ?? "", foundAddress.fields.neighborhood ?? "", ...addressPlaces];
   const typedCloseName = closeOn
-    ? nameCandidates(parts, lastList, codDates, new Date(), [cepBody?.logradouro ?? "", cepBody?.bairro ?? "", region?.place.city ?? "", foundAddress.fields.street ?? "", foundAddress.fields.neighborhood ?? "", storedAddress.street ?? "", storedAddress.neighborhood ?? ""])
+    ? nameCandidates(parts, lastList, codDates, new Date(), closePlaces)
       .map((x) => extractName(x, true)).find((n) => (n ?? "").split(/\s+/).length >= 2) ?? null
     : null;
   const closeFacts = closeOn && closePkg && region
@@ -4680,6 +4685,7 @@ const handleTurn = async (
       cpfInvalid: parts.some(sentInvalidCpf),
       // Her name in her answer to the checklist, beside the day, the CPF and the number ("quinta, Maria Souza, 529…, 45").
       typedName: typedCloseName ? titleCaseName(typedCloseName) : null,
+      places: closePlaces,
       cep: addressDraft.cep!,
       cepStreet: typeof cepBody?.logradouro === "string" ? cepBody.logradouro : "",
       cepNeighborhood: typeof cepBody?.bairro === "string" ? cepBody.bairro : "",
