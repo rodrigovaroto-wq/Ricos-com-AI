@@ -4704,6 +4704,59 @@ antigas e `O31-negacao-do-dia` atualizada. `pnpm dev:gates`: 0 afrouxados (o `or
 **Resíduos.** O "sim" segue texto, não botão (§25). Com a trava falhada ou na nova tentativa da varredura, o sim não importa naquele
 turno: o modelo responde e o próximo sim importa.
 
+### B. A lista única (decisão do operador, 2026-10-28) e a revisão Opus do c72b56e (reprovada)
+
+**Decisão do operador.** O dia perguntado sozinho (§135 A) dá uma mensagem a mais por dado; o operador trocou por **uma lista
+única**: depois do tamanho e do CEP com datas da Logzz, quando ela diz que quer pagar na entrega ou pergunta como funciona, a Malu manda
+UMA mensagem com tudo ("Pra eu agendar sua entrega, me manda:" + 📅 Dia com as datas reais, 👤 Nome completo, 🪪 CPF, 🏠 Número da casa
+(e complemento), 📍 Rua e bairro só no CEP geral da cidade). Ela responde em qualquer ordem, numa mensagem ou em várias; depois de cada
+resposta, só o que ainda falta ("Anotado! Só falta me mandar:", mesmo formato, nunca o que ela já deu); com tudo, só o resumo
+consolidado ("📝 Confere se está tudo certo:" … "Responda *SIM*…"); no SIM explícito (`confirmsOrder`), a importação.
+
+**Sintoma (revisão Opus do c72b56e).**
+- `order_claim` deixava passar, com o fechamento aberto e sem pedido: "Agora é só aguardar, seu pedido está confirmado!", "Se precisar
+  de algo me chama, seu pedido está agendado pra quinta (29/10).", "Seu pedido está confirmado, quando o entregador chegar você paga.",
+  "Tudo certo, já agendei sua entrega pra quinta (29/10)!", "Fechado! Sua entrega é quinta (29/10).", "Combinado, sua entrega fica pra
+  quinta (29/10) 💛", "Seu colete já está garantido pra quinta (29/10)!".
+- O sim num turno sem a trava da conversa (`holdsConversation` falso) caía no modelo: a resposta dele virava a última mensagem e o
+  "sim" seguinte não tinha resumo a confirmar.
+- Com a lista pedindo tudo junto, `houseNumberIn` tinha de ler o número ao lado do dia e do nome ("quinta, Maria Souza, 529.982.247-25,
+  45 apto 12", "29/10 número 45", "dia 30, casa 120") e a letra da casa ("45A", "45 B").
+
+**Causa.** As isenções do `order_claim` olhavam a oração inteira até o fim da afirmação: um "só" ("só aguardar"), um "se" ("se precisar")
+ou um "quando" ("quando o entregador chegar") em outra oração isentavam (Lição 1); e só "pedido" era a coisa afirmada — "entrega",
+"colete" e "compra" escapavam, assim como "sua entrega é/fica pra quinta" sem particípio.
+
+**Caminhos que falharam.** O primeiro rascunho (branch `wip/checklist-close-2026-10-28`) ainda isentava um "não" em qualquer lugar da
+afirmação ("Seu pedido, que não tem frete, está confirmado!") e um "?" em outra oração ("…está confirmado, quer mais alguma coisa?");
+mandava "Anotado!" a uma pergunta que não trazia dado nenhum; lia o "e" de "45 e apto 12" como a letra da casa, o "x" de "2x" também, e
+"45, casa 2" trocava o 45 pelo 2; disparava a lista com qualquer palavra de pagamento (`asksPayment`: "dá pra pagar no cartão?").
+
+**Correção.**
+- `closeStep` (espelhado): `CHECKLIST_HEAD`/`MISSING_HEAD` e os itens (`DAY_ITEM`, `NAME_ITEM`, `CPF_ITEM`, `STREET_ITEM`,
+  `NUMBER_ITEM`); só o que falta depois de uma resposta; nada novo à lista (uma pergunta) → o modelo responde sob a diretiva, nunca
+  "Anotado!". O nome dado à lista (`nameCandidates` + `extractName` em `handleTurn`, `CloseFacts.typedName`) fica em `CloseState.name`.
+  `nameCandidates`: só com a lista pedindo o nome; nunca pedaço com dígito, dia, sim ou complemento ("Bloco B").
+- `houseNumberIn`: o número abre o pedaço, ou vem logo depois de "número", "nº" ou "casa"; letra colada ou separada vira complemento
+  ("45A" → 45 "A"), nunca o "e", o "h" ou o "x"; "45, casa 2" na mesma mensagem é o complemento do 45.
+- `asksHowItWorks` (com "já sei como funciona" fora) e `interpretation.payment_choice === "cod"` disparam a lista em `handleTurn`.
+- `order_claim`: coisas `pedido|entrega|colete|compra`; particípios + "marcado"; "agendei/marquei/garanti … sua entrega"; "fechado/
+  combinado, sua entrega"; "sua entrega é/fica/vai ser pra <dia>". Isenta só a condição colada: negação logo antes do particípio ou da
+  afirmação ("ainda não está confirmado", "ainda não confirmei"), "só fica/será/vai ser confirmado", "vai ser/será/fica agendado assim
+  que/quando você responder…", a oração que abre com "se/assim que/quando você responder…" com a afirmação logo depois, e a pergunta na
+  mesma oração.
+- `handleTurn`: o sim (`confirm`) sem `holdsConversation` reenvia o resumo como linha fixa (`sendFixed`), antes de qualquer resposta do
+  modelo; o próximo "sim" com a trava importa (o mesmo `closeOrderId`).
+- Inalterados: `closeOrderId` idempotente, 409 em processamento com o mesmo id, reagendado avisado e por e-mail, `maskPii`, negação em
+  `pickDate`/`asksDateChange`, consulta falhada nunca lida como sem entrega, nada muda sem `logzzImport`.
+
+**Guarda.** `tests/cod-close-2026-10-28.test.ts` §12 (as frases da decisão e da revisão, nos dois sentidos); mutações `O33-*` (16) e
+`O32-numero-da-data` com o texto novo; `O32-datas-e-dados-juntos` saiu (a decisão do operador substituiu o dia perguntado sozinho; a
+guarda equivalente é `O33-lista-repete`).
+
+**Resíduos.** Um nome de duas palavras que não é nome e passa o `extractName` aparece no resumo, onde ela corrige antes do SIM. A
+pergunta "como funciona" só dispara a lista com o fechamento ligado (`closeOn`); fora dele nada muda.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

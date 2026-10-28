@@ -158,19 +158,54 @@ export interface CloseState {
   readonly badCpf?: string;
   /** A phone the Logzz refused: never sent again. */
   readonly badPhone?: string;
+  /** Her full name, read from her answer to the checklist. */
+  readonly name?: string;
 }
 
 const withoutDate = (s: CloseState): CloseState => Object.fromEntries(Object.entries(s).filter(([k]) => k !== "date")) as CloseState;
 
-/** The marks of the close's own messages: the summary, the asks, the phone ask. */
-const DATES_HEAD = "📅 Posso agendar sua entrega pra ";
-const DATA_HEAD = "Pra registrar seu pedido, me manda ";
-export const SUMMARY_HEAD = "📝 Confere seu pedido:";
-export const SUMMARY_ASK = "Tá tudo certo? Responda *SIM* pra eu confirmar o pedido.";
+/**
+ * The close's own messages (operator, 2026-10-28): ONE checklist with everything the order needs — the day among the real dates,
+ * full name, CPF, house number (and street and neighbourhood on a town's general CEP) — answered in any order, in one message or
+ * many; after her answer, only what is still missing, in the same format; then only the summary.
+ */
+export const CHECKLIST_HEAD = "Pra eu agendar sua entrega, me manda:";
+export const MISSING_HEAD = "Anotado! Só falta me mandar:";
+export const DAY_ITEM = "📅 Dia: ";
+export const NAME_ITEM = "👤 Nome completo";
+export const CPF_ITEM = "🪪 CPF";
+export const STREET_ITEM = "📍 Rua e bairro";
+export const NUMBER_ITEM = "🏠 Número da casa (e complemento, se tiver)";
+export const SUMMARY_HEAD = "📝 Confere se está tudo certo:";
+export const SUMMARY_ASK = "Responda *SIM* pra eu confirmar o pedido.";
 export const PHONE_ASK =
   "📞 O sistema da entrega não aceitou o número deste WhatsApp pro entregador. Me manda um celular com DDD pra ele falar com você?";
-export const isCloseMessage = (m: string): boolean =>
-  m.includes(DATES_HEAD) || m.includes(DATA_HEAD) || m.includes(SUMMARY_HEAD) || m.includes(PHONE_ASK);
+const isChecklist = (m: string): boolean => m.includes(CHECKLIST_HEAD) || m.includes(MISSING_HEAD);
+export const isCloseMessage = (m: string): boolean => isChecklist(m) || m.includes(SUMMARY_HEAD) || m.includes(PHONE_ASK);
+
+/**
+ * The pieces of her answer that may be her name (the turn reads each with `extractName`): only after the checklist asked it, and
+ * never a piece with a digit (CPF, number, date), a day ("quinta", "dia 30"), a bare yes or a complement ("Bloco B").
+ */
+export const nameCandidates = (parts: readonly string[], lastOutbound: string, dates: readonly CodDate[], now: Date): string[] =>
+  !lastOutbound.includes(NAME_ITEM)
+    ? []
+    : parts
+      .flatMap((p) => p.split(/[,;\n]+/))
+      .map((x) => x.trim())
+      .filter((x) => x !== "" && !/\d/.test(x) && pickDate([x], dates, now) === null && !confirmsOrder([x]) && !/\b(?:dia|data)\b/i.test(x) &&
+        !new RegExp(`^(?:${COMPLEMENT})(?![\\p{L}])`, "iu").test(x));
+
+/**
+ * "como funciona?", "como faço pra pagar na entrega?": how the sale on delivery works, asked — the checklist answers it (operator,
+ * 2026-10-28). Not a question about anything else ("como funciona o tamanho?", "como faço pra lavar?").
+ */
+export const asksHowItWorks = (parts: readonly string[]): boolean =>
+  parts.some((p) =>
+    // "já sei como funciona", "entendi como faz": told, not asked.
+    !/\b(?:sei|entendi|conheco|sabia|vi)\s+como\b/.test(norm(p)) &&
+    /\bcomo\s+(?:(?:e\s+)?que\s+)?(?:eu\s+)?(?:funciona|faco|faz|pago)\b(?:\s*$|\s*[?!.,]|\s+(?:(?:o|a|na|no|esse|essa)\s+)?(?:(?:pra|para)\s+)?(?:pagamento|entrega|pedido|compra|pagar|comprar|receber|pedir|agendar)\b)/.test(norm(p).trim()),
+  );
 
 /**
  * Her day, from her words, against the dates the Logzz has. The last day she named and did not deny wins ("pode ser sexta? não,
@@ -269,16 +304,35 @@ export const confirmsOrder = (parts: readonly string[]): boolean =>
  */
 export const houseNumberIn = (parts: readonly string[], asked: boolean): { number: string; complement: string | null } | null => {
   if (!asked) return null;
-  let found: { number: string; complement: string | null } | null = null;
+  const complementWord = new RegExp(`^(?:${COMPLEMENT})(?![\\p{L}])`, "iu");
+  // The number, a letter glued or apart ("45A", "45 B"; never the "e" of "45 e apto 12", the "h" of "14h" nor the "x" of "2x"), then only a complement may follow. It opens
+  // the piece, or comes right after "número", "nº" or "casa" beside the day (the checklist asks both): "29/10 número 45", "dia 30,
+  // casa 120". A bare count in a sentence is never the door.
+  const TAIL = String.raw`(\d{1,5}|s\/?n)(?:([A-GI-WYZa-gi-wyz])|\s+(?![eE]\s)([A-GI-WYZa-gi-wyz]))?(?![\p{L}\d/:])\s*[-–]?\s*(.*)$`;
+  const leads = [
+    new RegExp(String.raw`^(?:(?:o\s+)?n(?:[º°o.]|u|ú)?(?:mero)?\s*(?:da\s+casa\s*)?(?:[:.]|[ée]\s+)?\s*)?${TAIL}`, "iu"),
+    new RegExp(String.raw`(?:^|\s)(?:n[º°o.]|n[uú]mero|num\.?|casa)\s*(?:da\s+casa\s*)?[:.]?\s*(?:[ée]\s+)?${TAIL}`, "iu"),
+  ];
+  let found = null as { number: string; complement: string | null } | null;
   for (const part of parts) {
+    let inPart = false;
     for (const seg of part.split(/[,;\n]+/)) {
       const s = seg.trim();
       if (/\d{5}-?\d{3}|\d{3}\.?\d{3}\.?\d{3}/.test(s)) continue;
-      const m = /^(?:(?:o\s+)?n(?:[º°o.]|u|ú)?(?:mero)?\s*(?:da\s+casa\s*)?(?:[:.]|[ée]\s+)?\s*)?(\d{1,5}|s\/?n)\b\s*[-–]?\s*(.*)$/i.exec(s);
-      if (!m) continue;
-      const rest = m[2]!.replace(/^(?:e\s+)/i, "").trim();
-      if (rest !== "" && !(rest.length <= 40 && new RegExp(`^(?:${COMPLEMENT})(?![\\p{L}])`, "iu").test(rest))) continue;
-      found = { number: m[1]!.toLowerCase().replace(/^s\/?n$/, "s/n"), complement: rest || null };
+      // "45, casa 2": the house in the lot, after the number of the same message — never a second number.
+      if (inPart && found && !found.complement && s.length <= 40 && complementWord.test(s)) {
+        found = { number: found.number, complement: s };
+        continue;
+      }
+      for (const re of leads) {
+        const m = re.exec(s);
+        const rest = (m?.[4] ?? "").replace(/^(?:e\s+)/i, "").trim();
+        if (!m || (rest !== "" && !(rest.length <= 40 && complementWord.test(rest)))) continue;
+        const letter = (m[2] ?? m[3] ?? "").toUpperCase();
+        found = { number: m[1]!.toLowerCase().replace(/^s\/?n$/, "s/n"), complement: [letter, rest].filter(Boolean).join(" ") || null };
+        inPart = true;
+        break;
+      }
     }
   }
   return found;
@@ -313,6 +367,8 @@ export interface CloseFacts {
   readonly dates: readonly CodDate[];
   /** Her name as it would go on the order; one word is not a full name. */
   readonly name: string | null;
+  /** The name she wrote in answer to the checklist this burst (`nameCandidates` + `extractName`), over any earlier one. */
+  readonly typedName?: string | null;
   /** Her valid CPF, digits. */
   readonly cpf: string | null;
   /** The CPF she sent this burst does not check out (`sentInvalidCpf`). */
@@ -399,7 +455,7 @@ export const closeStep = (input: {
   // A day the Logzz no longer offers is asked again, said as such.
   const gone = state.date !== undefined && !f.dates.some((d) => d.date === state.date) ? state.date : null;
   if (gone) state = withoutDate(state);
-  const asked = lastOutbound.includes(DATA_HEAD) && /número da casa/.test(lastOutbound);
+  const asked = lastOutbound.includes(NUMBER_ITEM);
   const house = houseNumberIn(parts, asked);
   const number = house?.number ?? f.typed.number ?? state.number ?? f.stored.number;
   const complement = (house ? house.complement : null) ?? f.typed.complement ?? state.complement ?? f.stored.complement;
@@ -411,7 +467,9 @@ export const closeStep = (input: {
       .filter(([, v]) => v !== undefined && v !== null && v !== ""),
   ) as CloseState;
   const cpf = f.cpf && f.cpf !== state.badCpf ? f.cpf : null;
-  const fullName = f.name && f.name.trim().split(/\s+/).length >= 2 ? f.name.trim() : null;
+  const named = [f.typedName, state.name, f.name].find((n) => n && n.trim().split(/\s+/).length >= 2) ?? null;
+  const fullName = named ? named.trim() : null;
+  if (f.typedName && fullName === f.typedName.trim()) state = { ...state, name: fullName };
   const date = f.dates.find((d) => d.date === state.date) ?? null;
 
   const missing = [
@@ -421,6 +479,13 @@ export const closeStep = (input: {
     ...(number ? [] : ["o número da casa (e o complemento, se tiver)"]),
   ];
   const labels = offeredLabels(f.dates);
+  const items = [
+    ...(date ? [] : [`${DAY_ITEM}${joined(labels, "ou")}`]),
+    ...(fullName ? [] : [NAME_ITEM]),
+    ...(cpf ? [] : [CPF_ITEM]),
+    ...(street ? [] : [STREET_ITEM]),
+    ...(number ? [] : [NUMBER_ITEM]),
+  ];
   if (date && missing.length === 0 && phone) {
     const order: ClosedOrder = { date, name: fullName!, cpf: cpf!, phone, street: street!, number: number!, complement: complement ?? "", neighborhood };
     const summary = closeSummary(f, order);
@@ -432,18 +497,16 @@ export const closeStep = (input: {
     return { kind: "send", text: summary, state, reason: "pedido na entrega: resumo para ela confirmar" };
   }
   if (date && missing.length === 0) return { kind: "send", text: PHONE_ASK, state, reason: "pedido na entrega: celular para o entregador" };
-  const datesLine = date
-    ? null
-    : `${gone ? `${dateLabel(gone)} acabou de lotar 😕 ` : pick?.kind === "unavailable" ? `${pick.said[0]!.toUpperCase()}${pick.said.slice(1)} não tenho entrega aí 😕 ` : ""}` +
-      `${DATES_HEAD}${joined(labels, "ou")}. Qual dia fica melhor pra você?`;
-  const dataLine = missing.length === 0
-    ? null
-    : `${f.cpfInvalid && !cpf ? "Esse CPF não confere, algum número pode ter saído trocado 😕 " : ""}${DATA_HEAD}${joined(missing, "e")} 😊`;
-  // The day first, on its own; her data after it (review of 844743b: asked together, "29/10" was read as the house number).
-  const text = (datesLine ?? dataLine)!;
-  return text === lastOutbound
+  // One checklist with everything (operator, 2026-10-28); after her answer, only what is missing, never what she already gave.
+  const notes = [
+    gone ? `${dateLabel(gone)} acabou de lotar 😕` : pick?.kind === "unavailable" ? `${pick.said[0]!.toUpperCase()}${pick.said.slice(1)} não tenho entrega aí 😕` : null,
+    f.cpfInvalid && !cpf ? "Esse CPF não confere, algum número pode ter saído trocado 😕" : null,
+  ].filter(Boolean);
+  const text = [...notes, isChecklist(lastOutbound) || lastOutbound.includes(SUMMARY_HEAD) ? MISSING_HEAD : CHECKLIST_HEAD, ...items].join("\n");
+  // She gave nothing new to the list above (a question, a remark): the model answers under the directive, never "Anotado!".
+  return text === lastOutbound || (notes.length === 0 && isChecklist(lastOutbound) && lastOutbound.endsWith(`:\n${items.join("\n")}`))
     ? { kind: "model", state, directive: closeDirective(f.dates, missing, false) }
-    : { kind: "send", text, state, reason: date ? "pedido na entrega: dados que faltam" : "pedido na entrega: datas da entrega" };
+    : { kind: "send", text, state, reason: isChecklist(lastOutbound) ? "pedido na entrega: o que falta" : "pedido na entrega: a lista do pedido" };
 };
 
 /** The order's id at the Logzz: the conversation and the summary she said yes to. The same summary, the same order. */
