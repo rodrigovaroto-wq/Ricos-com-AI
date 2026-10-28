@@ -109,6 +109,7 @@ import {
   isCloseMessage,
   type LogzzOrderConfig,
   lookupCodDates,
+  nameCandidates,
   nationalPhone,
   PHONE_ASK,
   placeOrder,
@@ -151,6 +152,7 @@ import {
   extractEmail,
   refusedDatum,
   sentInvalidCpf,
+  extractName,
   type Identity,
 } from "./identity.ts";
 import {
@@ -4668,6 +4670,8 @@ const handleTurn = async (
       name: identityDraft.name ? titleCaseName(identityDraft.name) : null,
       cpf: identityDraft.document ?? null,
       cpfInvalid: parts.some(sentInvalidCpf),
+      // Her name in her answer to the checklist, beside the day, the CPF and the number ("quinta, Maria Souza, 529…, 45").
+      typedName: nameCandidates(parts, lastOutbound, codDates, new Date()).map((x) => extractName(x, true)).find((n) => (n ?? "").split(/\s+/).length >= 2) ?? null,
       cep: addressDraft.cep!,
       cepStreet: typeof cepBody?.logradouro === "string" ? cepBody.logradouro : "",
       cepNeighborhood: typeof cepBody?.bairro === "string" ? cepBody.bairro : "",
@@ -5063,7 +5067,9 @@ const handleTurn = async (
 
   // Grafo §135: the sale on delivery, closed here — the next ask or the summary, fixed and gated, her question beside it answered
   // after (n8n's resume); the order only on `confirm`: her bare yes to the summary that is the agent's last message.
-  const closeReady = close !== null && !withdrew && !declined && (isCloseMessage(lastOutbound) || lastOutbound === NAME_ASK || linkReady || linkDue || pressed);
+  // The checklist goes when she wants to buy on delivery or asks how it works (operator, 2026-10-28).
+  const closeReady = close !== null && !withdrew && !declined &&
+    (isCloseMessage(lastOutbound) || lastOutbound === NAME_ASK || linkReady || linkDue || pressed || parts.some(asksPayment) || parts.some((p: string) => /\bcomo\s+(?:funciona|(?:eu\s+)?fa[cç]o|que\s+fa[cç]o|faz)\b/i.test(p)));
   if (closeReady && guides.length === 0 && openNow && !farewell) {
     if (close?.kind === "send" && (await closeGated(close.text))) {
       const sent = await sendFunnelTurn([{ text: opening(close.text) }], close.reason, {}, (askedBeside || saidBeside) && !isResume && !close.text.startsWith(SUMMARY_HEAD));
@@ -5072,6 +5078,12 @@ const handleTurn = async (
     // Only the turn that holds the conversation imports (`replying_since`, grafo §61): a revision runs inside its hold; the sweep's
     // retry and a turn whose claim failed hold nothing, and two "sim" turns racing would both reach the import (review of 844743b).
     const holdsConversation = isRevise || (internal.claimed?.id === conversation.id && !claimFailed);
+    // Her plain yes in a turn that cannot import: the summary again, fixed, so it stays her last message and her next "sim" imports
+    // (review of c72b56e: a model reply here made the summary not the last message, and the yes after it had nothing to confirm).
+    if (close?.kind === "confirm" && closePkg && LOGZZ_TOKEN && !holdsConversation) {
+      const sent = await sendFixed(close.summary, "pedido na entrega: sim sem a trava da conversa, o resumo de novo", "cod", {}, false, closePkg.units);
+      if (sent) return sent;
+    }
     if (close?.kind === "confirm" && closePkg && LOGZZ_TOKEN && holdsConversation) {
       const chosen = close.order.date.date;
       // The day re-checked right before the import: it may have filled since the summary.

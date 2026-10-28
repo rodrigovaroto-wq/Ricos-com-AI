@@ -1661,22 +1661,30 @@ const gates: readonly Gate[] = [
     check: (text, ctx) => {
       if (ctx.closeOpen !== true) return null;
       const t = norm(text);
-      const PARTICIPLE = String.raw`(?:confirmad|agendad|registrad|feit|criad|finalizad|fechad|realizad|garantid|reservad)[oa]s?`;
+      const PARTICIPLE = String.raw`(?:confirmad|agendad|registrad|feit|criad|finalizad|fechad|realizad|garantid|reservad|marcad)[oa]s?`;
+      const THING = String.raw`(?:pedido|entrega|colete|compra)`;
+      const DAY = String.raw`(?:(?:segunda|terca|quarta|quinta|sexta)(?:[\s-]*feira)?|sabado|domingo|dia\s+\d{1,2}|\d{1,2}\/\d{1,2})`;
       const claims = [
-        new RegExp(String.raw`\bpedido\b[^.!?;\n]{0,40}?\b${PARTICIPLE}\b`, "g"),
-        new RegExp(String.raw`\b(?:confirmei|agendei|registrei|criei|finalizei|fechei|fiz|reservei)\b[^.!?;\n]{0,30}\bpedido\b`, "g"),
-        new RegExp(String.raw`\b(?:prontinho|pronto|feito|confirmado|agendado)\s*[!,.]?\s*(?:seu|o)\s+pedido\b`, "g"),
+        new RegExp(String.raw`\b${THING}\b[^.!?;\n]{0,40}?\b${PARTICIPLE}\b`, "g"),
+        new RegExp(String.raw`\b(?:confirmei|agendei|registrei|criei|finalizei|fechei|fiz|reservei|marquei|garanti)\b[^.!?;\n]{0,30}\b${THING}\b`, "g"),
+        new RegExp(String.raw`\b(?:prontinho|pronto|feito|confirmado|agendado|fechado|combinado)\s*[!,.]?\s*(?:seu|sua|o|a)\s+${THING}\b`, "g"),
+        new RegExp(String.raw`\b(?:sua|a)\s+entrega\s+(?:e|fica|ficou|esta|ta|vai\s+ser)\s+(?:(?:pra|para|na|no|em)\s+)?${DAY}`, "g"),
         new RegExp(String.raw`\b(?:entrega|tudo)\s+(?:esta|ta|ficou|foi|ja\s+esta)\s+${PARTICIPLE}\b`, "g"),
       ];
+      // Only a condition or a denial glued to the claim is the truth (review of c72b56e): "só fica confirmado", "ainda não está",
+      // "fica confirmado assim que você…", "se você responder SIM, …". A "só aguardar" or ", quando o entregador chegar" elsewhere in the
+      // sentence is another clause, never an excuse.
+      const WHEN_SHE = String.raw`(?:assim\s+que|quando|depois\s+que|se)\s+(?:voce|vc)\s+(?:me\s+)?(?:responder|disser|confirmar|mandar|falar|respond\w*)`;
       for (const re of claims) {
         for (const m of t.matchAll(re)) {
           const at = m.index ?? 0;
           const from = Math.max(t.lastIndexOf(".", at), t.lastIndexOf("!", at), t.lastIndexOf("?", at), t.lastIndexOf(";", at), t.lastIndexOf("\n", at)) + 1;
-          // Denied or conditioned before it in its sentence ("ainda não está confirmado", "só fica confirmado…"), or conditioned right
-          // after it ("fica confirmado assim que você disser SIM"). A "só" or "quando" further on is another clause, never an excuse.
-          const head = t.slice(from, at + m[0].length);
-          const tail = t.slice(at + m[0].length, at + m[0].length + 20);
-          if (/\b(?:nao|nunca|nem|so|somente|apenas|assim\s+que|quando|depois\s+que|se|antes\s+de)\b/.test(head) || /^\s*,?\s*(?:assim\s+que|quando|depois\s+que|se|so\s+(?:quando|depois))\b/.test(tail)) continue;
+          const head = t.slice(from, at);
+          const tail = t.slice(at + m[0].length, at + m[0].length + 40);
+          if (/\b(?:nao|nunca|nem)\b/.test(m[0]) || /\b(?:nao|nunca|ainda\s+nao)\s+(?:\w+\s+)?$/.test(head)) continue;
+          if (/\b(?:so|somente|apenas)\s+(?:fica|sera|vai\s+ser|e|esta)\b/.test(m[0])) continue;
+          if (/\b(?:vai\s+ser|sera|fica)\s+\S+$/.test(m[0]) && new RegExp(String.raw`^\s*${WHEN_SHE}`).test(tail)) continue;
+          if (new RegExp(String.raw`^\s*${WHEN_SHE}\b[^,]*,\s*`).test(head)) continue;
           // Asked, not claimed: "posso confirmar o pedido?", "o pedido ficou confirmado?" is hers to answer.
           if (/\?/.test(t.slice(at + m[0].length).split(/[.!\n]/)[0] ?? "")) continue;
           return "claims the order is confirmed before the import made it";
