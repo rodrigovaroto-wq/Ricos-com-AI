@@ -4757,6 +4757,58 @@ guarda equivalente é `O33-lista-repete`).
 **Resíduos.** Um nome de duas palavras que não é nome e passa o `extractName` aparece no resumo, onde ela corrige antes do SIM. A
 pergunta "como funciona" só dispara a lista com o fechamento ligado (`closeOn`); fora dele nada muda.
 
+### C. A revisão Opus do 9d247f3 (reprovada, 2026-10-28)
+
+**Sintoma.**
+1. Nome errado travado no pedido: `nameCandidates` + `extractName` aceitavam "Cartão de crédito", "Dinheiro mesmo", "Cor preta", "Kit
+   duas", "Bela Vista", "Santa Cruz", "Cidade Nova", "Perto do mercado", "Portão azul", "Ao lado da padaria"; e em `closeStep`
+   `[f.typedName, state.name, f.name]` deixava o nome guardado vencer a correção dela ("meu nome é Maria Souza") — o sim seguinte
+   importava "Cartão de crédito".
+2. O `order_claim` do §135 B vetava frases VERDADEIRAS durante todo o fechamento: "Você paga ao entregador quando a entrega for
+   realizada.", "A entrega é feita pelo entregador da Logzz…", "A entrega fica marcada pro dia que você escolher", a própria diretiva
+   ("O pagamento na entrega é fechado aqui na conversa…"), a linha do prompt "…com pagamento na entrega, agendada", "Depois do seu SIM o
+   pedido fica confirmado", "Me responde SIM e seu pedido fica agendado pra quinta (29/10)", "Sua entrega fica pra quinta (29/10) se
+   você confirmar".
+3. Depois de "como funciona o pagamento na entrega?" (`asksHowItWorks`) a lista ia com a resposta do modelo depois (o resume do n8n);
+   a resposta do modelo virava `lastOutbound` e a resposta inteira dela ("quinta, Maria Souza, 529.982.247-25, 45 apto 12") se perdia:
+   `closeStep` só olhava a última mensagem. E a diretiva do modelo, quando a linha fixa não saía, ia sem os itens que faltam.
+4. `houseNumberIn`: ["45","casa 3"] → 3; ["45, 2 andar"] → 2; ["45","apto 12"] perdia o apto; ["45, bloco 2, apto 31"] perdia o "apto 31".
+5. O sim sem a trava repetido reenviava o resumo calado, sem aviso.
+6. No CEP geral da cidade o resumo saía só com a rua, sem o bairro.
+
+**Causa.** (1) Uma lista de proibição de nome sem os lugares do próprio CEP, e a precedência pelo estado em vez da palavra mais nova
+dela. (2) O §135 B leu a COISA ("entrega", "pedido") com qualquer particípio, em vez do estado do pedido DELA já feito (Lição 1 ao
+contrário: um aperto sem a lista do que é verdade). (3) Estado da conversa lido do texto da última mensagem, não da mensagem do
+fechamento (Lição 4). (4) "Último número vence" sem saber o que é complemento.
+
+**Correção.**
+- `nameCandidates(parts, lastOutbound, dates, now, places)`: o que vem depois de "meu nome é", "o nome é", "nome:", "me chamo" vale a
+  qualquer momento e primeiro; a resposta à lista só sem dígito, dia, sim, complemento, pagamento/produto/cor/referência (`NOT_A_NAME`),
+  lugar no começo (`PLACE_FIRST`: santa, são, vila, jardim, cidade, nova, perto, ao…) e nunca igual à rua, ao bairro ou à cidade do CEP
+  (`places`, de ViaCEP e do endereço digitado/guardado, em `handleTurn`). `typedName` passa por `titleCaseName`. Em `closeStep` a palavra
+  dela desta rajada vence o nome guardado; o resumo refeito muda e o sim ao antigo não importa (`lastOutbound.endsWith(summary)`).
+- `order_claim`: só o pedido DELA já feito — "seu/o pedido|entrega|colete|compra|encomenda … está/foi/ficou/já está <particípio>";
+  "agendei/confirmei/marquei/lancei/cadastrei/gerei/efetuei… seu pedido | pra <dia>"; "Pedido confirmado!", "Confirmado pra quinta!",
+  "Tá agendado pra quinta!", "Tudo agendado!" no começo da frase (um "Feito!" solto não); "sua entrega é/fica pra <dia>" só sem
+  condição na frase (se, quando, assim que, depois do, caso, responder, confirmar, escolher, SIM); "já está tudo agendado". Isenções:
+  negação logo antes, a condição dela abrindo a frase ou colada depois, a pergunta na mesma oração.
+- `closeStep({ …, lastList })`: a resposta é lida contra a mensagem mais nova do fechamento na janela (`lastList` em `handleTurn`:
+  `[...recentOutbound].reverse().find(isCloseMessage)`), também `datesAsked` e `closeReady`; o pedido continua exigindo o resumo como
+  ÚLTIMA mensagem. Todo passo leva `directive` com o que falta de verdade, e a diretiva do turno é `close.directive`.
+- `houseNumberIn`: depois de um número, um pedaço de complemento (casa N, apto N, bloco N, "2º andar") entra no complemento, nesta
+  mensagem ou na seguinte, juntos; "N andar" nunca é o número. Um número solto depois é a correção dela ("45", "46") — não segui o
+  "primeiro número vence" sugerido: ele erraria ["30","45"] e a correção, e os casos da revisão ficam certos pelo complemento.
+- O sim sem a trava pela segunda vez seguida (`resends >= 2`): `extraNotify` (uma vez por conversa, `notifyOnce`) e o resumo de novo.
+- CEP geral: rua E bairro antes do resumo (`place`).
+
+**Guarda.** `tests/cod-close-2026-10-28.test.ts` §13 (as frases da revisão nos dois sentidos); `tests/prompt.test.ts` "order_claim ×
+o que o prompt e a diretiva do fechamento ensinam" (toda frase do prompt, do briefing e das três diretivas, com `closeOpen`); mutações
+`O34-*` (16) e as `O32`/`O33` reescritas para o texto novo.
+
+**Resíduos (R21.6, sem frase real ainda).** Passam sem pedido: "Pronto, tá tudo certo pra quinta!", "Prontinho, já está tudo certo com
+seu pedido", "já tá agendadinho", "Fica pra quinta então! 💛", "Seu pedido já tá no sistema", "Seu pedido entrou!" — viram gate só com
+frase vista em conversa. Um nome de duas palavras fora das listas que não é nome ainda aparece no resumo, onde ela corrige antes do SIM.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

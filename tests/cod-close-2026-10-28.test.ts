@@ -97,12 +97,13 @@ const facts = (over: Partial<CloseFacts> = {}): CloseFacts => ({
   freeShipping: true,
   ...over,
 });
-const step = (over: { facts?: Partial<CloseFacts>; state?: object; parts?: string[]; lastOutbound?: string; datesAsked?: boolean } = {}) =>
+const step = (over: { facts?: Partial<CloseFacts>; state?: object; parts?: string[]; lastOutbound?: string; lastList?: string; datesAsked?: boolean } = {}) =>
   closeStep({
     facts: facts(over.facts),
     state: over.state ?? {},
     parts: over.parts ?? [],
     lastOutbound: over.lastOutbound ?? "",
+    ...(over.lastList !== undefined ? { lastList: over.lastList } : {}),
     datesAsked: over.datesAsked ?? true,
     now: NOW,
   });
@@ -696,10 +697,123 @@ describe("12. a lista única (operador, 2026-10-28) e a revisão Opus do c72b56e
   it("D. o sim num turno sem a trava: o resumo de novo, fixo, antes de qualquer resposta do modelo", () => {
     const noLock = turn.indexOf('if (close?.kind === "confirm" && closePkg && LOGZZ_TOKEN && !holdsConversation) {');
     expect(noLock).toBeGreaterThan(0);
-    expect(turn.slice(noLock, noLock + 300)).toContain("await sendFixed(close.summary,");
+    expect(turn.slice(noLock, noLock + 700)).toContain("await sendFixed(close.summary,");
     expect(noLock).toBeLessThan(turn.indexOf('if (close?.kind === "confirm" && closePkg && LOGZZ_TOKEN && holdsConversation) {'));
     // The summary sent again is the one her next "sim" confirms.
     const summary = (step({ parts: ["quinta"] }) as { text: string }).text;
     expect(step({ state: { date: "2026-10-29", number: "100" }, parts: ["sim"], lastOutbound: summary }).kind).toBe("confirm");
+  });
+});
+
+describe("13. revisão Opus do 9d247f3", () => {
+  const LIST =
+    "Pra eu agendar sua entrega, me manda:\n📅 Dia: quinta (29/10), sexta (30/10) ou sábado (31/10)\n👤 Nome completo\n🪪 CPF\n🏠 Número da casa (e complemento, se tiver)";
+  const empty = { name: null, cpf: null, stored: {} };
+  const PLACES = ["Rua Barão do Triunfo", "Brooklin Paulista", "São Paulo"];
+  const typed = (parts: string[], last: string, places: string[] = PLACES) =>
+    nameCandidates(parts, last, DATES, NOW, places).map((x) => extractName(x, true)).find((n) => (n ?? "").split(/\s+/).length >= 2) ?? null;
+  it("1. nome: lugar, pagamento, produto, cor e referência nunca viram o nome do pedido", () => {
+    for (const p of ["Cartão de crédito", "Dinheiro mesmo", "Cor preta", "Kit duas", "Bela Vista", "Santa Cruz", "Cidade Nova", "Perto do mercado", "Portão azul", "Ao lado da padaria", "São José", "Nova Esperança", "Santa Rita"]) {
+      expect(typed([p], LIST), p).toBeNull();
+      expect(typed([`sexta, ${p}, 45`], LIST), p).toBeNull();
+    }
+    // Her CEP's own neighbourhood and town, as ViaCEP says them.
+    expect(typed(["Brooklin Paulista"], LIST)).toBeNull();
+    expect(typed(["Vila Mariana"], LIST, ["Vila Mariana"])).toBeNull();
+  });
+  it("1. negação: nomes de verdade passam, inclusive com sobrenome de lugar", () => {
+    for (const p of ["Maria Souza", "Ana Paula Lima", "Maria da Cruz", "Joana Paulista Santos"]) expect(typed([p], LIST), p).not.toBeNull();
+    expect(typed(["sexta, Maria Souza, 529.982.247-25, 45"], LIST)).toBe("Maria Souza");
+  });
+  it("1. a correção dela sempre vence o nome guardado e refaz o resumo; o sim seguinte leva o nome certo", () => {
+    const wrong = { date: "2026-10-30", number: "45", name: "Cartao Credito" };
+    const old = (step({ facts: { ...empty, cpf: "52998224725" }, state: wrong }) as { text: string }).text;
+    expect(old).toContain("• Nome: Cartao Credito");
+    const name = typed(["meu nome é Maria Souza"], old);
+    expect(name).toBe("Maria Souza");
+    const fix = step({ facts: { ...empty, cpf: "52998224725", typedName: name }, state: wrong, parts: ["meu nome é Maria Souza"], lastOutbound: old });
+    expect(fix.kind).toBe("send");
+    expect((fix as { text: string }).text).toContain("• Nome: Maria Souza");
+    // Her yes to the OLD summary never imports the old name.
+    expect(step({ facts: { ...empty, cpf: "52998224725", typedName: name }, state: wrong, parts: ["sim"], lastOutbound: old }).kind).not.toBe("confirm");
+    const yes = step({ facts: { ...empty, cpf: "52998224725" }, state: fix.state, parts: ["sim"], lastOutbound: (fix as { text: string }).text });
+    expect((yes as { order: { name: string } }).order.name).toBe("Maria Souza");
+    for (const p of ["o nome é Maria Souza", "nome: Maria Souza", "Me chamo Maria Souza"]) expect(typed([p], "Qual o seu CEP?"), p).toBe("Maria Souza");
+    // The turn title-cases it and passes her CEP's places.
+    expect(turn).toContain("typedName: typedCloseName ? titleCaseName(typedCloseName) : null,");
+  });
+  it("2. order_claim: a explicação verdadeira passa durante todo o fechamento", () => {
+    const claims = (t: string) =>
+      runGates(t, ctx({ config: prod, closeOpen: true, codDates: ISO })).traces.filter((x) => x.verdict === "block").map((x) => x.gate);
+    for (const t of [
+      "Você paga ao entregador quando a entrega for realizada.",
+      "No pagamento na entrega você só paga quando a entrega for feita 😊",
+      "A entrega é feita pelo entregador da Logzz e você paga na hora",
+      "A entrega fica marcada pro dia que você escolher",
+      "O pagamento na entrega é fechado aqui na conversa, sem checkout e sem link.",
+      "Entrega em 1 a 3 dias nas regiões com pagamento na entrega, agendada — quem escolhe o dia é ela.",
+      "Depois do seu SIM o pedido fica confirmado",
+      "O pedido é confirmado depois que você responder SIM",
+      "Me responde SIM e seu pedido fica agendado pra quinta (29/10)",
+      "Se você escolher quinta, sua entrega fica pra quinta (29/10)",
+      "Sua entrega fica pra quinta (29/10) se você confirmar",
+      "Feito! Anotei seu CPF.",
+      "Nunca diga que o pedido está confirmado.",
+    ]) expect(claims(t), t).not.toContain("order_claim");
+  });
+  it("2. order_claim: o pedido dela dado como já feito é vetado", () => {
+    const claims = (t: string) =>
+      runGates(t, ctx({ config: prod, closeOpen: true, codDates: ISO })).traces.filter((x) => x.verdict === "block").map((x) => x.gate);
+    for (const t of [
+      "Já está tudo agendado",
+      "Agendei pra quinta (29/10)!",
+      "Confirmado pra quinta (29/10)!",
+      "Seu pedido foi gerado",
+      "Seu pedido foi efetuado",
+      "Já lancei seu pedido",
+      "Pedido gerado!",
+      "Tá agendado pra quinta (29/10)!",
+      "Sua compra foi concluída",
+      "Sua encomenda está agendada pra quinta",
+      "Prontinho, agora tudo já está confirmado 😊",
+    ]) expect(claims(t), t).toContain("order_claim");
+  });
+  it("3. 'como funciona?' → a lista, a resposta do modelo depois: a resposta dela inteira é lida contra a lista", () => {
+    const answer = "Funciona assim: você escolhe o dia e paga ao entregador na hora, em dinheiro, pix ou cartão 😊";
+    const parts = ["quinta, Maria Souza, 529.982.247-25, 45 apto 12"];
+    const s = step({ facts: { ...empty, cpf: "52998224725", typedName: typed(parts, LIST) }, parts, lastOutbound: answer, lastList: LIST });
+    expect(s.kind).toBe("send");
+    expect((s as { text: string }).text.startsWith(SUMMARY_HEAD)).toBe(true);
+    expect(s.state).toMatchObject({ date: "2026-10-29", number: "45", complement: "apto 12", name: "Maria Souza" });
+    // A question after it: the model answers with the REAL missing items, never the whole list again.
+    const q = step({ facts: { ...empty, cpf: "52998224725" }, state: { date: "2026-10-29" }, parts: ["e se eu não estiver em casa?"], lastOutbound: answer, lastList: "Anotado! Só falta me mandar:\n👤 Nome completo\n🏠 Número da casa (e complemento, se tiver)" });
+    expect(q.kind).toBe("model");
+    expect(q.directive).toContain("seu nome completo e o número da casa");
+    expect(turn).toContain("const lastList: string = [...recentOutbound].reverse().find(isCloseMessage) ?? lastOutbound;");
+    expect(turn).toContain("datesAsked: isCloseMessage(lastList) || lastOutbound === NAME_ASK");
+    expect(turn).toContain("    ? close.directive\n");
+  });
+  it("3. negação: o sim só confirma com o resumo como ÚLTIMA mensagem, nunca pela lista de antes", () => {
+    const summary = (step({ parts: ["quinta"] }) as { text: string }).text;
+    expect(step({ state: { date: "2026-10-29", number: "100" }, parts: ["sim"], lastOutbound: "Qualquer dúvida me chama 😊", lastList: summary }).kind).not.toBe("confirm");
+  });
+  it("4. o número: os complementos juntados, a casa do lote, o andar; nunca um segundo número de complemento", () => {
+    expect(houseNumberIn(["45", "casa 3"], true)).toEqual({ number: "45", complement: "casa 3" });
+    expect(houseNumberIn(["45, 2 andar"], true)).toEqual({ number: "45", complement: "2 andar" });
+    expect(houseNumberIn(["45, 2º andar"], true)).toEqual({ number: "45", complement: "2º andar" });
+    expect(houseNumberIn(["45", "apto 12"], true)).toEqual({ number: "45", complement: "apto 12" });
+    expect(houseNumberIn(["45, bloco 2, apto 31"], true)).toEqual({ number: "45", complement: "bloco 2 apto 31" });
+    // Negation: a date or a count after the number is no complement and no number.
+    expect(houseNumberIn(["45", "29/10", "2 peças"], true)).toEqual({ number: "45", complement: null });
+  });
+  it("5. sem a trava duas vezes seguidas: o operador avisado uma vez, o resumo segue", () => {
+    expect(turn).toContain('if (resends >= 2) extraNotify = extraNotify ?? "pedido na entrega: o sim chegou sem a trava da conversa duas vezes seguidas";');
+  });
+  it("6. CEP geral: a rua e o bairro antes do resumo", () => {
+    const generic = { cepStreet: "", cepNeighborhood: "", stored: {} };
+    const noHood = step({ parts: ["quinta"], facts: { ...generic, typed: { street: "Rua das Flores", number: "45" } } });
+    expect((noHood as { text: string }).text).toBe("Pra eu agendar sua entrega, me manda:\n📍 Rua e bairro");
+    const ok = step({ parts: ["quinta"], facts: { ...generic, typed: { street: "Rua das Flores", number: "45", neighborhood: "Centro" } } });
+    expect((ok as { text: string }).text.startsWith(SUMMARY_HEAD)).toBe(true);
   });
 });

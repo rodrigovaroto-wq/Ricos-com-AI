@@ -184,17 +184,38 @@ const isChecklist = (m: string): boolean => m.includes(CHECKLIST_HEAD) || m.incl
 export const isCloseMessage = (m: string): boolean => isChecklist(m) || m.includes(SUMMARY_HEAD) || m.includes(PHONE_ASK);
 
 /**
- * The pieces of her answer that may be her name (the turn reads each with `extractName`): only after the checklist asked it, and
- * never a piece with a digit (CPF, number, date), a day ("quinta", "dia 30"), a bare yes or a complement ("Bloco B").
+ * The pieces of her answer that may be her name (the turn reads each with `extractName`). Her own "meu nome é…", "o nome é…",
+ * "nome: …" at any time, first: a correction always wins over the name kept. Else only while the list asks the name, and never a piece
+ * with a digit (CPF, number, date), a day ("quinta", "dia 30"), a bare yes, a complement ("Bloco B"), her CEP's street, neighbourhood
+ * or town (`places`), a place ("Santa Cruz", "Cidade Nova", "Perto do mercado") or a payment, product or colour ("Cartão de crédito",
+ * "Kit duas", "Cor preta") — review of 9d247f3: each of those became the name on the order.
  */
-export const nameCandidates = (parts: readonly string[], lastOutbound: string, dates: readonly CodDate[], now: Date): string[] =>
-  !lastOutbound.includes(NAME_ITEM)
-    ? []
-    : parts
-      .flatMap((p) => p.split(/[,;\n]+/))
-      .map((x) => x.trim())
-      .filter((x) => x !== "" && !/\d/.test(x) && pickDate([x], dates, now) === null && !confirmsOrder([x]) && !/\b(?:dia|data)\b/i.test(x) &&
-        !new RegExp(`^(?:${COMPLEMENT})(?![\\p{L}])`, "iu").test(x));
+export const nameCandidates = (
+  parts: readonly string[],
+  lastOutbound: string,
+  dates: readonly CodDate[],
+  now: Date,
+  places: readonly string[] = [],
+): string[] => {
+  const pieces = parts.flatMap((p) => p.split(/[,;\n]+/)).map((x) => x.trim()).filter((x) => x !== "");
+  // Only what follows her "meu nome é", "o nome é", "nome:".
+  const introduced = pieces.flatMap((x) => {
+    const m = NAME_INTRO.exec(x);
+    return m ? [x.slice((m.index ?? 0) + m[0].length).trim()] : [];
+  });
+  const placeNames = places.map((p) => norm(p).trim()).filter((p) => p !== "");
+  const answered = !lastOutbound.includes(NAME_ITEM) ? [] : pieces.filter((x) => {
+    const t = norm(x);
+    return !/\d/.test(x) && pickDate([x], dates, now) === null && !confirmsOrder([x]) && !/\b(?:dia|data)\b/.test(t) &&
+      !new RegExp(`^(?:${COMPLEMENT})(?![\\p{L}])`, "iu").test(x) && !NOT_A_NAME.test(t) && !PLACE_FIRST.test(t) &&
+      !placeNames.includes(t);
+  });
+  return [...introduced.filter((x) => x !== ""), ...answered];
+};
+const NAME_INTRO = /\b(?:meu\s+nome\s+(?:completo\s+)?(?:[eé]|eh)|o\s+nome\s+(?:completo\s+)?(?:[eé]|eh)|nome\s*(?:completo\s*)?[:=]|me\s+chamo)(?=\s|$)/i;
+const NOT_A_NAME =
+  /\b(?:cartao|credito|debito|dinheiro|pix|boleto|mesmo|cor|pret[ao]|branc[ao]|bege|nude|kit|colete|cinta|tamanho|pecas?|duas|tres|mercado|padaria|posto|farmacia|igreja|escola|azul|verde|amarel[ao]|vermelh[ao]|portao|lado|perto|proximo|esquina|frente|fundos|vista|manha|tarde|noite|portaria|porteiro)\b/;
+const PLACE_FIRST = /^(?:santa|santo|sao|vila|jardim|parque|cidade|bairro|conjunto|residencial|alto|morro|nova|novo|ao|em|na|no|perto|proximo)\b/;
 
 /**
  * "como funciona?", "como faço pra pagar na entrega?": how the sale on delivery works, asked — the checklist answers it (operator,
@@ -313,32 +334,27 @@ export const houseNumberIn = (parts: readonly string[], asked: boolean): { numbe
     new RegExp(String.raw`^(?:(?:o\s+)?n(?:[º°o.]|u|ú)?(?:mero)?\s*(?:da\s+casa\s*)?(?:[:.]|[ée]\s+)?\s*)?${TAIL}`, "iu"),
     new RegExp(String.raw`(?:^|\s)(?:n[º°o.]|n[uú]mero|num\.?|casa)\s*(?:da\s+casa\s*)?[:.]?\s*(?:[ée]\s+)?${TAIL}`, "iu"),
   ];
-  let found = null as { number: string; complement: string | null } | null;
+  // After a number, a complement piece is part of it, in this message or the next — never a second number (review of 9d247f3):
+  // "45", "casa 3"; "45, bloco 2, apto 31"; "45, 2º andar". Another bare number later is her correction ("45", "46").
+  let number: string | null = null;
+  const complements: string[] = [];
   for (const part of parts) {
-    let inPart = false;
     for (const seg of part.split(/[,;\n]+/)) {
       const s = seg.trim();
       if (/\d{5}-?\d{3}|\d{3}\.?\d{3}\.?\d{3}/.test(s)) continue;
-      // "45, casa 2": the house in the lot, after the number of the same message — never a second number.
-      if (inPart && found && !found.complement && s.length <= 40 && complementWord.test(s)) {
-        found = { number: found.number, complement: s };
-        continue;
-      }
-      for (const re of leads) {
-        const m = re.exec(s);
-        const rest = (m?.[4] ?? "").replace(/^(?:e\s+)/i, "").trim();
-        if (!m || (rest !== "" && !(rest.length <= 40 && complementWord.test(rest)))) continue;
-        const letter = (m[2] ?? m[3] ?? "").toUpperCase();
-        found = { number: m[1]!.toLowerCase().replace(/^s\/?n$/, "s/n"), complement: [letter, rest].filter(Boolean).join(" ") || null };
-        inPart = true;
-        break;
-      }
+      const piece = s.length <= 40 && complementWord.test(s);
+      const m: RegExpExecArray | null | undefined = number !== null && piece ? null : leads.map((re) => re.exec(s)).find((x) => x !== null);
+      const rest = (m?.[4] ?? "").replace(/^(?:e\s+)/i, "").trim();
+      if (m && !/^andar\b/i.test(rest) && (rest === "" || (rest.length <= 40 && complementWord.test(rest)))) {
+        number = m[1]!.toLowerCase().replace(/^s\/?n$/, "s/n");
+        complements.push(...[(m[2] ?? m[3] ?? "").toUpperCase(), rest].filter(Boolean));
+      } else if (piece) complements.push(s);
     }
   }
-  return found;
+  return number === null ? null : { number, complement: complements.join(" ") || null };
 };
 
-const COMPLEMENT = "apto|apt|ap|apartamento|bloco|bl|casa|cs|fundos|frente|sobrado|loja|sala|andar|torre|lote|quadra|qd|conjunto|cj";
+const COMPLEMENT = "apto|apt|ap|apartamento|bloco|bl|casa|cs|fundos|frente|sobrado|loja|sala|andar|torre|lote|quadra|qd|conjunto|cj|\\d{1,3}\\s*[º°o]?\\s*andar";
 
 /** A cell phone in her answer to `PHONE_ASK`: DDD + 9 + 8 digits, national form. */
 export const cellIn = (parts: readonly string[]): string | null => {
@@ -402,8 +418,8 @@ export interface ClosedOrder {
 }
 
 export type CloseStep =
-  | { readonly kind: "send"; readonly text: string; readonly state: CloseState; readonly reason: string }
-  | { readonly kind: "confirm"; readonly state: CloseState; readonly summary: string; readonly order: ClosedOrder }
+  | { readonly kind: "send"; readonly text: string; readonly state: CloseState; readonly reason: string; readonly directive: string }
+  | { readonly kind: "confirm"; readonly state: CloseState; readonly summary: string; readonly order: ClosedOrder; readonly directive: string }
   | { readonly kind: "model"; readonly state: CloseState; readonly directive: string };
 
 const offeredLabels = (dates: readonly CodDate[]): string[] => dates.slice(0, CLOSE_OFFERED).map((d) => dateLabel(d.date));
@@ -437,16 +453,21 @@ export const closeDirective = (dates: readonly CodDate[], missing: readonly stri
  * The next step of the close. Pure: the turn sends what it says, stores `state`, and imports only on `confirm`.
  * `datesAsked`: the agent's last message asked the day (the dates line, the summary, or the offer's ask) — only then is a day in
  * her words a pick ("dia 5 cai meu salário" to the CPF ask is no day).
+ * `lastList`: the newest of the close's own messages in the recent outbound (`isCloseMessage`). Her answer is read against it even
+ * when the model's answer to her question beside it went after (review of 9d247f3: "como funciona?" → the list, then the model's
+ * answer as the last message, and her whole answer was lost). The order still needs the summary as the very last message.
  */
 export const closeStep = (input: {
   readonly facts: CloseFacts;
   readonly state: CloseState;
   readonly parts: readonly string[];
   readonly lastOutbound: string;
+  readonly lastList?: string;
   readonly datesAsked: boolean;
   readonly now: Date;
 }): CloseStep => {
   const { facts: f, parts, lastOutbound, now } = input;
+  const list = input.lastList ?? lastOutbound;
   let state: CloseState = { ...input.state };
   const change = asksDateChange(parts);
   const pick = input.datesAsked || change ? pickDate(parts, f.dates, now) : null;
@@ -455,13 +476,13 @@ export const closeStep = (input: {
   // A day the Logzz no longer offers is asked again, said as such.
   const gone = state.date !== undefined && !f.dates.some((d) => d.date === state.date) ? state.date : null;
   if (gone) state = withoutDate(state);
-  const asked = lastOutbound.includes(NUMBER_ITEM);
+  const asked = list.includes(NUMBER_ITEM);
   const house = houseNumberIn(parts, asked);
   const number = house?.number ?? f.typed.number ?? state.number ?? f.stored.number;
   const complement = (house ? house.complement : null) ?? f.typed.complement ?? state.complement ?? f.stored.complement;
   const street = f.cepStreet || (f.typed.street ?? state.street ?? f.stored.street);
   const neighborhood = f.cepNeighborhood || (f.typed.neighborhood ?? state.neighborhood ?? f.stored.neighborhood ?? "");
-  const phone = [lastOutbound.includes(PHONE_ASK) ? cellIn(parts) : null, state.phone, f.phone].find((p) => p && p !== state.badPhone) ?? null;
+  const phone = [list.includes(PHONE_ASK) ? cellIn(parts) : null, state.phone, f.phone].find((p) => p && p !== state.badPhone) ?? null;
   state = Object.fromEntries(
     Object.entries({ ...state, number, complement, street: f.cepStreet ? undefined : street, neighborhood: f.cepNeighborhood ? undefined : neighborhood || undefined, phone: phone !== f.phone ? phone : undefined })
       .filter(([, v]) => v !== undefined && v !== null && v !== ""),
@@ -471,11 +492,13 @@ export const closeStep = (input: {
   const fullName = named ? named.trim() : null;
   if (f.typedName && fullName === f.typedName.trim()) state = { ...state, name: fullName };
   const date = f.dates.find((d) => d.date === state.date) ?? null;
+  // On a town's general CEP the street AND the neighbourhood are hers to give (review of 9d247f3).
+  const place = Boolean(street) && (Boolean(f.cepStreet) || neighborhood !== "");
 
   const missing = [
     ...(fullName ? [] : ["seu nome completo"]),
     ...(cpf ? [] : ["seu CPF"]),
-    ...(street ? [] : ["o nome da sua rua e o bairro"]),
+    ...(place ? [] : ["o nome da sua rua e o bairro"]),
     ...(number ? [] : ["o número da casa (e o complemento, se tiver)"]),
   ];
   const labels = offeredLabels(f.dates);
@@ -483,7 +506,7 @@ export const closeStep = (input: {
     ...(date ? [] : [`${DAY_ITEM}${joined(labels, "ou")}`]),
     ...(fullName ? [] : [NAME_ITEM]),
     ...(cpf ? [] : [CPF_ITEM]),
-    ...(street ? [] : [STREET_ITEM]),
+    ...(place ? [] : [STREET_ITEM]),
     ...(number ? [] : [NUMBER_ITEM]),
   ];
   if (date && missing.length === 0 && phone) {
@@ -491,22 +514,25 @@ export const closeStep = (input: {
     const summary = closeSummary(f, order);
     if (lastOutbound.endsWith(summary)) {
       return confirmsOrder(parts)
-        ? { kind: "confirm", state, summary, order }
+        ? { kind: "confirm", state, summary, order, directive: closeDirective(f.dates, [], true) }
         : { kind: "model", state, directive: closeDirective(f.dates, [], true) };
     }
-    return { kind: "send", text: summary, state, reason: "pedido na entrega: resumo para ela confirmar" };
+    return { kind: "send", text: summary, state, reason: "pedido na entrega: resumo para ela confirmar", directive: closeDirective(f.dates, [], false) };
   }
-  if (date && missing.length === 0) return { kind: "send", text: PHONE_ASK, state, reason: "pedido na entrega: celular para o entregador" };
+  if (date && missing.length === 0) {
+    return { kind: "send", text: PHONE_ASK, state, reason: "pedido na entrega: celular para o entregador", directive: closeDirective(f.dates, ["um celular com DDD"], false) };
+  }
   // One checklist with everything (operator, 2026-10-28); after her answer, only what is missing, never what she already gave.
   const notes = [
     gone ? `${dateLabel(gone)} acabou de lotar 😕` : pick?.kind === "unavailable" ? `${pick.said[0]!.toUpperCase()}${pick.said.slice(1)} não tenho entrega aí 😕` : null,
     f.cpfInvalid && !cpf ? "Esse CPF não confere, algum número pode ter saído trocado 😕" : null,
   ].filter(Boolean);
-  const text = [...notes, isChecklist(lastOutbound) || lastOutbound.includes(SUMMARY_HEAD) ? MISSING_HEAD : CHECKLIST_HEAD, ...items].join("\n");
+  const text = [...notes, isChecklist(list) || list.includes(SUMMARY_HEAD) ? MISSING_HEAD : CHECKLIST_HEAD, ...items].join("\n");
+  const directive = closeDirective(f.dates, [...(date ? [] : ["o dia da entrega"]), ...missing], false);
   // She gave nothing new to the list above (a question, a remark): the model answers under the directive, never "Anotado!".
-  return text === lastOutbound || (notes.length === 0 && isChecklist(lastOutbound) && lastOutbound.endsWith(`:\n${items.join("\n")}`))
-    ? { kind: "model", state, directive: closeDirective(f.dates, missing, false) }
-    : { kind: "send", text, state, reason: isChecklist(lastOutbound) ? "pedido na entrega: o que falta" : "pedido na entrega: a lista do pedido" };
+  return text === list || (notes.length === 0 && isChecklist(list) && list.endsWith(`:\n${items.join("\n")}`))
+    ? { kind: "model", state, directive }
+    : { kind: "send", text, state, reason: isChecklist(list) ? "pedido na entrega: o que falta" : "pedido na entrega: a lista do pedido", directive };
 };
 
 /** The order's id at the Logzz: the conversation and the summary she said yes to. The same summary, the same order. */

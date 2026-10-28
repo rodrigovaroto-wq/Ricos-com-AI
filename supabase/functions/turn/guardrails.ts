@@ -1650,8 +1650,8 @@ const gates: readonly Gate[] = [
     /**
      * The order on delivery exists only after the import answered (grafo §135, review of 844743b): "Prontinho, seu pedido está
      * confirmado pra quinta (29/10)! 🎉", "Seu pedido foi agendado", "Seu pedido está registrado" passed the whole chain while it
-     * waited for her SIM. Idle unless `closeOpen`. A denial or a condition in the same clause is the truth ("ainda não está
-     * confirmado", "só fica confirmado quando você responder SIM", "assim que você disser SIM eu confirmo").
+     * waited for her SIM. Idle unless `closeOpen`. Only her order already done is read (review of 9d247f3); a denial, a condition
+     * glued to it, or a question is the truth ("ainda não está confirmado", "assim que você disser SIM eu confirmo").
      */
     name: "order_claim",
     remedy: "rewrite",
@@ -1661,35 +1661,44 @@ const gates: readonly Gate[] = [
     check: (text, ctx) => {
       if (ctx.closeOpen !== true) return null;
       const t = norm(text);
-      const PARTICIPLE = String.raw`(?:confirmad|agendad|registrad|feit|criad|finalizad|fechad|realizad|garantid|reservad|marcad)[oa]s?`;
-      const THING = String.raw`(?:pedido|entrega|colete|compra)`;
+      // Only HER order ALREADY done is the lie (review of 9d247f3): "a entrega é feita pelo entregador", "quando a entrega for
+      // realizada", "o pedido é confirmado depois do seu SIM", "seu pedido fica agendado se você responder SIM" are the truth.
+      const DONE = String.raw`(?:confirmad|agendad|registrad|feit|criad|finalizad|fechad|realizad|garantid|reservad|marcad|efetuad|gerad|lancad|cadastrad|concluid)(?:[oa]s?|inh[oa]s?)`;
+      const THING = String.raw`(?:pedido|entrega|colete|compra|encomenda)`;
       const DAY = String.raw`(?:(?:segunda|terca|quarta|quinta|sexta)(?:[\s-]*feira)?|sabado|domingo|dia\s+\d{1,2}|\d{1,2}\/\d{1,2})`;
-      const claims = [
-        new RegExp(String.raw`\b${THING}\b[^.!?;\n]{0,40}?\b${PARTICIPLE}\b`, "g"),
-        new RegExp(String.raw`\b(?:confirmei|agendei|registrei|criei|finalizei|fechei|fiz|reservei|marquei|garanti)\b[^.!?;\n]{0,30}\b${THING}\b`, "g"),
-        new RegExp(String.raw`\b(?:prontinho|pronto|feito|confirmado|agendado|fechado|combinado)\s*[!,.]?\s*(?:seu|sua|o|a)\s+${THING}\b`, "g"),
-        new RegExp(String.raw`\b(?:sua|a)\s+entrega\s+(?:e|fica|ficou|esta|ta|vai\s+ser)\s+(?:(?:pra|para|na|no|em)\s+)?${DAY}`, "g"),
-        new RegExp(String.raw`\b(?:entrega|tudo)\s+(?:esta|ta|ficou|foi|ja\s+esta)\s+${PARTICIPLE}\b`, "g"),
+      const claims: Array<[RegExp, boolean]> = [
+        // "seu pedido está/foi/já está confirmado", "o pedido ficou agendado", "seu colete já está garantido"
+        [new RegExp(String.raw`\b(?:seu|sua|o|a)\s+${THING}\b[^.!?;\n]{0,40}?\b(?:esta|ta|foi|ficou)\s+(?:(?:ja|todo|toda|bem)\s+)?${DONE}\b`, "g"), false],
+        // "já agendei sua entrega", "confirmei seu pedido", "agendei pra quinta", "lancei seu pedido"
+        [new RegExp(String.raw`\b(?:confirmei|agendei|registrei|criei|finalizei|fechei|fiz|reservei|marquei|garanti|lancei|cadastrei|gerei|efetuei)\b(?:\s+(?:o\s+|a\s+)?(?:(?:seu|sua)\s+)?${THING}\b|\s+(?:\w+\s+){0,3}?(?:pra|para|na|no)\s+${DAY})`, "g"), false],
+        // "Pedido confirmado!", "Confirmado pra quinta (29/10)!", "Tá agendado pra quinta!", "Tudo agendado!", "Pedido gerado!" — a bare
+        // "Feito!" or "Confirmado!" names no order nor day
+        [new RegExp(String.raw`(?:^|[.!?\n])\s*(?:(?:prontinho|pronto|tudo\s+certo|combinado|fechado|perfeito|otimo)\s*[!,.]*\s*)?(?:(?:ja\s+)?(?:esta|ta)\s+)?(?:(?:(?:seu\s+)?pedido|tudo)\s+${DONE}\b(?:\s+(?:pra|para|na|no)\s+${DAY})?|${DONE}\s+(?:pra|para|na|no)\s+${DAY})(?=\s*(?:$|com\s+sucesso|[^\w\s?]))`, "g"), false],
+        // "Sua entrega é/fica pra quinta (29/10)", "seu pedido fica agendado pra quinta": only with no condition in the sentence
+        [new RegExp(String.raw`\b(?:seu|sua|o|a)\s+${THING}\s+(?:e|fica|ficou|vai\s+ser|vai\s+ficar|sera)\s+(?:${DONE}\s+)?(?:(?:pra|para|na|no|em)\s+(?:a\s+|o\s+)?)?${DAY}`, "g"), true],
+        // "Já está tudo agendado", "tudo já está confirmado"
+        [new RegExp(String.raw`\b(?:esta|ta|ficou|foi)\s+tudo\s+${DONE}\b|\btudo\s+(?:ja\s+)?(?:esta|ta|ficou|foi)\s+${DONE}\b`, "g"), false],
       ];
-      // Only a condition or a denial glued to the claim is the truth (review of c72b56e): "só fica confirmado", "ainda não está",
-      // "fica confirmado assim que você…", "se você responder SIM, …". A "só aguardar" or ", quando o entregador chegar" elsewhere in the
-      // sentence is another clause, never an excuse.
       const WHEN_SHE = String.raw`(?:assim\s+que|quando|depois\s+que|se)\s+(?:voce|vc)\s+(?:me\s+)?(?:responder|disser|confirmar|mandar|falar|respond\w*)`;
-      for (const re of claims) {
+      const CONDITION = /\b(?:se|quando|assim\s+que|depois\s+(?:que|do|da|de)|caso|respond\w*|confirm(?:ar|ando|e|ou)|escolh\w*|sim)\b/;
+      for (const [re, conditional] of claims) {
         for (const m of t.matchAll(re)) {
-          const at = m.index ?? 0;
-          const from = Math.max(t.lastIndexOf(".", at), t.lastIndexOf("!", at), t.lastIndexOf("?", at), t.lastIndexOf(";", at), t.lastIndexOf("\n", at)) + 1;
+          const at = (m.index ?? 0) + (/^[.!?\n]/.test(m[0]) ? 1 : 0);
+          const end = (m.index ?? 0) + m[0].length;
+          const from = Math.max(t.lastIndexOf(".", at - 1), t.lastIndexOf("!", at - 1), t.lastIndexOf("?", at - 1), t.lastIndexOf(";", at - 1), t.lastIndexOf("\n", at - 1)) + 1;
           const head = t.slice(from, at);
-          const tail = t.slice(at + m[0].length, at + m[0].length + 40);
-          // The denial right before the participle ("pedido ainda não está confirmado"), or right before the claim ("ainda não confirmei
-          // seu pedido"); a "não" further away is another clause ("seu pedido, que não tem frete, está confirmado").
-          if (/\b(?:nao|nunca|nem)\s+(?:\w+\s+){0,2}\S+$/.test(m[0]) || /\b(?:nao|nunca|ainda\s+nao)\s+(?:\w+\s+)?$/.test(head)) continue;
-          if (/\b(?:so|somente|apenas)\s+(?:fica|sera|vai\s+ser|e|esta)(?:\s+\w+)?\s+\S+$/.test(m[0])) continue;
-          if (/\b(?:vai\s+ser|sera|fica)\s+\S+$/.test(m[0]) && new RegExp(String.raw`^\s*${WHEN_SHE}`).test(tail)) continue;
-          // Her answer as the sentence's opening condition, the claim right after it ("Se você responder SIM, seu pedido fica…").
+          const rest = t.slice(end);
+          const sentence = head + t.slice(at, end) + (rest.split(/[.!?;\n]/)[0] ?? "");
+          // Denied right before the participle ("pedido ainda não está confirmado") or before the claim ("ainda não confirmei seu
+          // pedido", "nunca diga que o pedido está confirmado"); a "não" further away is another clause.
+          if (/\b(?:nao|nunca|nem)\s+(?:\w+\s+){0,2}\S+$/.test(m[0]) || /\b(?:nao|nunca|ainda\s+nao)\s+(?:\w+\s+){0,2}$/.test(head)) continue;
+          // "Sua entrega fica pra quinta se você confirmar", "Me responde SIM e seu pedido fica agendado pra quinta": a condition.
+          if (conditional && CONDITION.test(sentence)) continue;
+          // Her answer as the condition glued to it: "Se você responder SIM, seu pedido…", "…confirmado assim que você responder".
           if (new RegExp(String.raw`^\s*${WHEN_SHE}\b[^,:;]*(?:,\s*)?(?:\w+\s+){0,2}$`).test(head)) continue;
-          // Asked, not claimed: "posso confirmar o pedido?", "o pedido ficou confirmado?" is hers to answer — in the claim's own clause.
-          if (/^[^,.!\n]*\?/.test(t.slice(at + m[0].length))) continue;
+          if (new RegExp(String.raw`^\s*,?\s*${WHEN_SHE}`).test(rest)) continue;
+          // Asked, not claimed: "o pedido ficou confirmado?" — in the claim's own clause.
+          if (/^[^,.!\n]*\?/.test(rest)) continue;
           return "claims the order is confirmed before the import made it";
         }
       }

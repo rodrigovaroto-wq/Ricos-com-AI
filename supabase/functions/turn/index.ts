@@ -95,7 +95,6 @@ import {
   CLOSE_CPF_REFUSED,
   CLOSE_OPEN_ORDER,
   closeConfirmed,
-  closeDirective,
   closeNoCodLine,
   closeOrderId,
   closeProcessing,
@@ -4665,6 +4664,14 @@ const handleTurn = async (
     ? ((await regionFetcher(REGION_TIMEOUT_MS)(`${VIACEP_ENDPOINT}/${addressDraft.cep!.replace(/\D/g, "")}/json/`).catch(() => null)) as { logradouro?: string; bairro?: string } | null)
     : null;
   const closeState: CloseState = storedAddress.codClose ?? {};
+  // The newest of the close's own messages in the window: her answer is read against the list even when the model's answer to her
+  // question beside it went after (review of 9d247f3). The order still needs the summary as the very last message (`closeStep`).
+  const lastList: string = [...recentOutbound].reverse().find(isCloseMessage) ?? lastOutbound;
+  // Her name in her answer to the list, or her "meu nome é…" at any time; never her CEP's street, neighbourhood or town.
+  const typedCloseName = closeOn
+    ? nameCandidates(parts, lastList, codDates, new Date(), [cepBody?.logradouro ?? "", cepBody?.bairro ?? "", region?.place.city ?? "", foundAddress.fields.street ?? "", foundAddress.fields.neighborhood ?? "", storedAddress.street ?? "", storedAddress.neighborhood ?? ""])
+      .map((x) => extractName(x, true)).find((n) => (n ?? "").split(/\s+/).length >= 2) ?? null
+    : null;
   const closeFacts = closeOn && closePkg && region
     ? {
       dates: codDates,
@@ -4672,7 +4679,7 @@ const handleTurn = async (
       cpf: identityDraft.document ?? null,
       cpfInvalid: parts.some(sentInvalidCpf),
       // Her name in her answer to the checklist, beside the day, the CPF and the number ("quinta, Maria Souza, 529…, 45").
-      typedName: nameCandidates(parts, lastOutbound, codDates, new Date()).map((x) => extractName(x, true)).find((n) => (n ?? "").split(/\s+/).length >= 2) ?? null,
+      typedName: typedCloseName ? titleCaseName(typedCloseName) : null,
       cep: addressDraft.cep!,
       cepStreet: typeof cepBody?.logradouro === "string" ? cepBody.logradouro : "",
       cepNeighborhood: typeof cepBody?.bairro === "string" ? cepBody.bairro : "",
@@ -4687,7 +4694,7 @@ const handleTurn = async (
     }
     : null;
   const close = closeFacts
-    ? closeStep({ facts: closeFacts, state: closeState, parts, lastOutbound, datesAsked: isCloseMessage(lastOutbound) || lastOutbound === NAME_ASK, now: new Date() })
+    ? closeStep({ facts: closeFacts, state: closeState, parts, lastOutbound, lastList, datesAsked: isCloseMessage(lastList) || lastOutbound === NAME_ASK, now: new Date() })
     : null;
   const saveAddress = (extra: Record<string, unknown>) =>
     db(`leads?id=eq.${lead.id}`, { method: "PATCH", body: JSON.stringify({ address: { ...addressRow, ...extra }, updated_at: new Date().toISOString() }) }).catch(() => undefined);
@@ -5070,7 +5077,7 @@ const handleTurn = async (
   // after (n8n's resume); the order only on `confirm`: her bare yes to the summary that is the agent's last message.
   // The checklist goes when she wants to buy on delivery or asks how it works (operator, 2026-10-28).
   const closeReady = close !== null && !withdrew && !declined &&
-    (isCloseMessage(lastOutbound) || lastOutbound === NAME_ASK || linkReady || linkDue || pressed || interpretation.payment_choice === "cod" || asksHowItWorks(parts));
+    (isCloseMessage(lastList) || lastOutbound === NAME_ASK || linkReady || linkDue || pressed || interpretation.payment_choice === "cod" || asksHowItWorks(parts));
   if (closeReady && guides.length === 0 && openNow && !farewell) {
     if (close?.kind === "send" && (await closeGated(close.text))) {
       const sent = await sendFunnelTurn([{ text: opening(close.text) }], close.reason, {}, (askedBeside || saidBeside) && !isResume && !close.text.startsWith(SUMMARY_HEAD));
@@ -5082,6 +5089,9 @@ const handleTurn = async (
     // Her plain yes in a turn that cannot import: the summary again, fixed, so it stays her last message and her next "sim" imports
     // (review of c72b56e: a model reply here made the summary not the last message, and the yes after it had nothing to confirm).
     if (close?.kind === "confirm" && closePkg && LOGZZ_TOKEN && !holdsConversation) {
+      // The second resend in a row (the lock failing turn after turn): the operator is told once, and the summary still goes.
+      const resends = recentOutbound.length - 1 - recentOutbound.findLastIndex((m: string) => !m.endsWith(close.summary));
+      if (resends >= 2) extraNotify = extraNotify ?? "pedido na entrega: o sim chegou sem a trava da conversa duas vezes seguidas";
       const sent = await sendFixed(close.summary, "pedido na entrega: sim sem a trava da conversa, o resumo de novo", "cod", {}, false, closePkg.units);
       if (sent) return sent;
     }
@@ -5240,7 +5250,7 @@ const handleTurn = async (
       `Responda curto e gentil, sem pedir dado nenhum, sem oferta e sem link.`
     // Grafo §135: closed here — only the lookup's dates, no link, nothing "confirmado" before her yes to the summary.
     : close !== null && !closeDone
-    ? close.kind === "model" ? close.directive : closeDirective(codDates, [], lastOutbound.includes(SUMMARY_HEAD))
+    ? close.directive
     // Her size out of stock (review of 481f2d3): no name nor CPF for a sale that cannot close.
     : sizeOut !== null || linkNow || linkAlreadySent || kitOfferNow || !(missing === "name" || missing === "email" || missing === "document")
       ? null

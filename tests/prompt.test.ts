@@ -17,6 +17,8 @@ import {
   type PromptConfig,
 } from "@/agent/prompt.js";
 import { config as base, ctx } from "./fixtures.js";
+import { loadBusinessConfig } from "@/config/business.js";
+import { closeDirective } from "@/agent/cod-close.js";
 
 /**
  * The system prompt is the text that decides the most behaviour and, until 2026-09-22,
@@ -1399,5 +1401,21 @@ describe("turnFacts: o estoque e o frete lidos no turno, a mesma promessa no pro
 
   it.each(corners)("sem turnFacts, o prompt é o de hoje ($name)", ({ config }) => {
     expect(systemPrompt(config, gateBriefing(config), null, null, null, {})).toBe(build(config));
+  });
+});
+
+describe("order_claim × o que o prompt e a diretiva do fechamento ensinam (revisão do 9d247f3)", () => {
+  // Prompt and gate are the same promise: with the close open, nothing the prompt, the gates' briefing or the close directive teaches
+  // may read as "her order is already done".
+  const c = loadBusinessConfig("docs/operacao/business-config-2026-10-28.min.json") as unknown as PromptConfig;
+  const dates = [{ date: "2026-10-29", typeCode: "x" }, { date: "2026-10-30", typeCode: "x" }];
+  it("nenhuma frase ensinada é vetada pelo order_claim com o fechamento aberto", () => {
+    for (const directive of [closeDirective(dates, ["seu CPF"], false), closeDirective(dates, [], true), closeDirective(dates, [], false)]) {
+      const text = systemPrompt(c, gateBriefing(c), null, directive, null);
+      const pieces = [...[...text.matchAll(/["“]([^"”]{8,300})["”]/g)].map((m) => m[1]!), ...text.split(/(?<=[.!?])\s+|\n+/)];
+      const vetoed = pieces.filter((s) =>
+        runGates(s, ctx({ config: c as never, closeOpen: true, codDates: ["2026-10-29", "2026-10-30"] })).traces.some((t) => t.verdict === "block" && t.gate === "order_claim"));
+      expect(vetoed).toEqual([]);
+    }
   });
 });
