@@ -13,6 +13,16 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-28 (noite) — venda na entrega pela importação da Logzz: APROVADA pela revisão Opus, NÃO publicada.**
+> Branch `claude/site-whatsapp-test` HEAD `d67e83e` (checklist único do operador: dia + nome + CPF + número numa lista, depois só o que
+> falta, depois o resumo, e o pedido só no SIM puro ao resumo atual; gate `order_claim`; nome checado por `isPlausibleName`;
+> correções de nome e número depois do resumo; CEP geral só com a rua). Validado: 9.357 testes, typecheck, `typecheck:function`,
+> `dev:conversas` 1655/1655, `dev:gates` 0 afrouxados, mutações O31–O37 81/81. Grafo §135 A–F. O "Interrompido no meio" e o item 1
+> do quadro abaixo estão FEITOS (a branch `wip/checklist-close-2026-10-28` está superada).
+> **Falta:** (1) `pnpm deploy:turn` (v47) — barrado pelo classificador, precisa do "pode publicar" do operador; sem o config de 28/10
+> o fechamento fica desligado (comportamento de hoje). (2) Operador cola `docs/operacao/business-config-2026-10-28.min.json` no
+> `BUSINESS_CONFIG` (`LOGZZ_API_TOKEN` já está no Supabase). (3) Pedido de teste do operador pela Malu, cancelar na Logzz.
+
 > **2026-10-28 (fim do dia) — EXECUÇÃO PARADA PELO OPERADOR. Estado exato para retomar sem refazer.**
 >
 > **No ar (produção):** `turn` **v46** (commit `75408f4`: origem anúncio/site, modo site, carrinho e Pix da Coinzz, retomada);
