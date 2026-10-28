@@ -271,6 +271,6 @@ describe("o M sem estoque: a Coinzz responde 404 pelo M e o checkout não vende 
   it("a turn: com o tamanho dela sem estoque, a linha honesta vai, uma vez com e-mail ao operador, e nenhum link sai", () => {
     expect(turn).toContain("const sizeOut = region?.sizeOutOfStock === true ? region.size ?? regionSize : null;");
     expect(turn).toContain("sizeOutOfStockLine(sizeOut)");
-    expect(turn).toContain("const linkReady = sendLinkNow({ ...linkData, yesBesideQuestion }) && sizeOut === null;");
+    expect(turn).toContain("const linkReady = sendLinkNow({ ...linkData, yesBesideQuestion }) && sizeOut === null && !prepayOut;");
   });
 });

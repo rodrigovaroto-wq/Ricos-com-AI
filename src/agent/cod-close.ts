@@ -1,0 +1,565 @@
+/**
+ * The pay-on-delivery sale, closed inside the conversation (operator, 2026-10-28, grafo §135).
+ *
+ * The Coinzz checkout and the Logzz disagree on where the door is: the Logzz delivery-days API (asked with HER package) said
+ * São Paulo has the G and the XGG, Belo Horizonte the M and the G; the Coinzz checkout said São Paulo GG/XGG, BH G/GG/XGG, and
+ * the M nowhere. The Logzz is who delivers. So on the WhatsApp arm the door is the Logzz answer for her package, and the sale is
+ * closed by the Logzz Order Import API — no checkout for her: dates, then her data, then a summary, then her explicit "SIM".
+ *
+ * Every successful import is a real order (no manual approval), and a wrong one costs R$ 9,99 at the door. So the order is only
+ * ever created by `handleTurn` on `closeStep` answering `confirm`: the last message the agent sent IS the summary of what will be
+ * ordered, re-built from the current facts, and every message of her burst is a bare yes (`confirmsOrder`). The model never
+ * decides it (R11.1). The same summary gives the same `external_id` (`closeOrderId`), and the Logzz answers the same id with the
+ * same order: a retry or a second "sim" never makes a second order.
+ *
+ * Mirrored byte for byte into the Edge Function: type imports only.
+ */
+import type { Size } from "./availability.ts";
+
+/**
+ * `BusinessConfig.logzzImport`. OPTIONAL, every key: absent (the secret before 2026-10-28), the Coinzz link closes both paths as
+ * before. `offers`: the Logzz offer code per number of pieces ("1": "sal0g3mo") — the offer sets product, quantity and price.
+ * `productCode`: the Logzz parent product ("prow6pq0", id 165378). `variations`: the Logzz variation code of each size — the
+ * dates' `variants` and the import's `variations[].hash`. NOT the Coinzz product codes (pro4gpo2…): the Logzz answers those
+ * "A variação do pedido é diferente do produto" (coordinator's probe, 2026-10-28). Any of them absent: the close is off.
+ */
+export interface LogzzOrderConfig {
+  readonly importUrl?: string;
+  readonly productCode?: string;
+  readonly offers?: Readonly<Record<string, string>>;
+  readonly variations?: Readonly<Partial<Record<Size, string>>>;
+}
+
+/** Her package as the Logzz reads it: one item per size, with its quantity. */
+export interface CodPackage {
+  readonly units: number;
+  readonly sizes: readonly Size[];
+  readonly offer: string;
+  readonly productCode: string;
+  /** One per size, its Logzz variation code and how many pieces of it. */
+  readonly items: ReadonlyArray<{ readonly code: string; readonly quantity: number }>;
+  /** The sizes, sorted: the dates' cache key. */
+  readonly key: string;
+}
+
+/** Null when anything is missing — the URL, the product, the offer for this many pieces, a size's variation: the close is off. */
+export const codPackage = (cfg: LogzzOrderConfig | undefined, sizes: readonly Size[], units: number): CodPackage | null => {
+  if (!cfg?.importUrl?.startsWith("https://") || !cfg.productCode || !Number.isInteger(units) || units < 1 || sizes.length !== units) return null;
+  const offer = cfg.offers?.[String(units)];
+  if (!offer) return null;
+  const counts = new Map<string, number>();
+  for (const s of sizes) {
+    const code = cfg.variations?.[s];
+    if (!code) return null;
+    counts.set(code, (counts.get(code) ?? 0) + 1);
+  }
+  return { units, sizes: [...sizes], offer, productCode: cfg.productCode, items: [...counts].map(([code, quantity]) => ({ code, quantity })), key: [...sizes].sort().join("+") };
+};
+
+/**
+ * The public delivery-days query, no token: with `products` — the parent product and her sizes as `variants`, each with its
+ * quantity — the dates of a unit that holds the WHOLE package and serves the CEP.
+ */
+export const LOGZZ_DATES_ENDPOINT = "https://app.logzz.com.br/api/delivery-day/options/zip-code";
+
+export interface CodDate {
+  /** ISO, "2026-10-29". */
+  readonly date: string;
+  /** The modality (`type_code`), sent back as the import's `delivery_type`. */
+  readonly typeCode: string;
+}
+
+export type CodDatesLookup =
+  | { readonly kind: "dates"; readonly dates: readonly CodDate[] }
+  | { readonly kind: "none"; readonly reason: string }
+  | { readonly kind: "failed" };
+
+/** A POST that answers status and parsed body (null when not JSON), and throws only on the network. */
+export type Poster = (url: string, body: unknown, headers?: Readonly<Record<string, string>>) => Promise<{ status: number; body: unknown }>;
+
+/**
+ * The Logzz's own "no door here" (2026-10-28, real answers): CEP unknown to it, area without a cash-on-delivery unit, or no unit
+ * with the package's stock serving the city. Anything else that is not a date list — a 429, a 5xx, "Erro ao buscar opções de
+ * entrega", a field error — is a lookup that FAILED, never "no delivery" (L2).
+ */
+const NO_COD = /cep n[aã]o encontrado|[aá]rea n[aã]o dispon[ií]vel para entrega|sem estoque dispon[ií]vel/i;
+
+export const readCodDates = (status: number, body: unknown): CodDatesLookup => {
+  const b = body as {
+    type?: string;
+    message?: unknown;
+    errors?: unknown;
+    response?: { dates_available?: unknown };
+  } | null;
+  if (status === 200 && b?.type === "success" && Array.isArray(b.response?.dates_available)) {
+    const all = b.response.dates_available as Array<{ date?: unknown; type_code?: unknown; type_name?: unknown }>;
+    if (all.length === 0) return { kind: "none", reason: "sem data" };
+    const good = all.filter((d) => typeof d?.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d.date) && typeof d.type_code === "string" && d.type_code !== "");
+    // A list none of which can be read is not "no date": unknown.
+    if (good.length === 0) return { kind: "failed" };
+    // One modality a day, the standard one before an Express (the shop sells no same-day delivery, R13.5).
+    const byDay = new Map<string, CodDate>();
+    for (const d of [...good].sort((x, y) => Number(/express/i.test(String(x.type_name ?? ""))) - Number(/express/i.test(String(y.type_name ?? ""))))) {
+      if (!byDay.has(d.date as string)) byDay.set(d.date as string, { date: d.date as string, typeCode: d.type_code as string });
+    }
+    return { kind: "dates", dates: [...byDay.values()].sort((x, y) => x.date.localeCompare(y.date)) };
+  }
+  const message = [b?.message, ...(Array.isArray(b?.errors) ? b.errors : [])].filter((m): m is string => typeof m === "string").join(" ");
+  return status >= 400 && status < 500 && status !== 429 && NO_COD.test(message) ? { kind: "none", reason: message } : { kind: "failed" };
+};
+
+/** Never throws: the worst answer is `failed`. */
+export const lookupCodDates = async (post: Poster, cep: string, pkg: CodPackage, neighborhood = ""): Promise<CodDatesLookup> => {
+  try {
+    const r = await post(`${LOGZZ_DATES_ENDPOINT}/${cep.replace(/\D/g, "")}`, { products: [{ code: pkg.productCode, quantity: pkg.units, variants: pkg.items }], ...(neighborhood ? { neighborhood } : {}) });
+    return readCodDates(r.status, r.body);
+  } catch {
+    return { kind: "failed" };
+  }
+};
+
+/** The dates move during the day (a unit fills, a cutoff passes): kept ten minutes, the same São Paulo day, the same CEP and package. */
+export const COD_DATES_CACHE_MS = 10 * 60 * 1000;
+export interface CachedCodDates {
+  readonly cep: string;
+  readonly key: string;
+  readonly checkedAt: string;
+  readonly result: Exclude<CodDatesLookup, { kind: "failed" }>;
+}
+const brtDay = (ms: number): string => new Date(ms - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+export const cachedCodDates = (c: CachedCodDates | null | undefined, cep: string, key: string, now: number): CachedCodDates["result"] | null => {
+  if (!c || c.cep.replace(/\D/g, "") !== cep.replace(/\D/g, "") || c.key !== key) return null;
+  const at = Date.parse(c.checkedAt);
+  return now - at >= 0 && now - at < COD_DATES_CACHE_MS && brtDay(at) === brtDay(now) ? c.result : null;
+};
+
+const WEEKDAYS = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"] as const;
+const PLAIN_WEEKDAYS = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"] as const;
+/** "quinta (29/10)": never "amanhã" — the day she reads is the one in the order. */
+export const dateLabel = (iso: string): string =>
+  `${WEEKDAYS[new Date(`${iso}T12:00:00Z`).getUTCDay()]} (${iso.slice(8, 10)}/${iso.slice(5, 7)})`;
+const joined = (xs: readonly string[], last: string): string => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} ${last} ${xs.at(-1)}`);
+const money = (v: number): string => `R$ ${v.toFixed(2).replace(".", ",")}`;
+const norm = (s: string): string => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+/** How many of the dates are offered at once. */
+export const CLOSE_OFFERED = 3;
+
+/** What the close keeps between turns, on `leads.address.codClose`. */
+export interface CloseState {
+  readonly date?: string;
+  readonly number?: string;
+  readonly complement?: string;
+  readonly street?: string;
+  readonly neighborhood?: string;
+  /** A cell phone she gave when the Logzz refused the one of her WhatsApp. */
+  readonly phone?: string;
+  /** A CPF the Logzz refused: never sent again. */
+  readonly badCpf?: string;
+  /** A phone the Logzz refused: never sent again. */
+  readonly badPhone?: string;
+}
+
+const withoutDate = (s: CloseState): CloseState => Object.fromEntries(Object.entries(s).filter(([k]) => k !== "date")) as CloseState;
+
+/** The marks of the close's own messages: the summary, the asks, the phone ask. */
+const DATES_HEAD = "📅 Posso agendar sua entrega pra ";
+const DATA_HEAD = "Pra registrar seu pedido, me manda ";
+export const SUMMARY_HEAD = "📝 Confere seu pedido:";
+export const SUMMARY_ASK = "Tá tudo certo? Responda *SIM* pra eu confirmar o pedido.";
+export const PHONE_ASK =
+  "📞 O sistema da entrega não aceitou o número deste WhatsApp pro entregador. Me manda um celular com DDD pra ele falar com você?";
+export const isCloseMessage = (m: string): boolean =>
+  m.includes(DATES_HEAD) || m.includes(DATA_HEAD) || m.includes(SUMMARY_HEAD) || m.includes(PHONE_ASK);
+
+/**
+ * Her day, from her words, against the dates the Logzz has. The last day she named and did not deny wins ("pode ser sexta? não,
+ * quinta" is Thursday); a day denied in its own clause ("quinta não posso", "não estou em casa na quinta") is no pick; "de segunda a
+ * sexta" is when she works, not a day. A day not among the dates comes back `unavailable`, with what she said.
+ */
+export const pickDate = (
+  parts: readonly string[],
+  dates: readonly CodDate[],
+  now: Date,
+): { kind: "pick"; date: string } | { kind: "unavailable"; said: string } | null => {
+  const today = brtDay(now.getTime());
+  const plus = (n: number): string => {
+    const d = new Date(`${today}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + n);
+    return d.toISOString().slice(0, 10);
+  };
+  const offered = dates.slice(0, CLOSE_OFFERED);
+  const DAY =
+    /\b(?:(segunda|terca|quarta|quinta|sexta|sabado|domingo)(?:[\s-]*feira)?(?!\s+(?:opcao|vez|data))|(?:dia\s+)?(\d{1,2})\/(\d{1,2})|dia\s+(\d{1,2})(?!\s*(?:\/|dias))|(depois\s+de\s+amanha|amanha|hoje)|(primeir[ao]|ultim[ao])(?!\s+vez)|qualquer\s+(?:um|uma|dia|data))\b/g;
+  let found: { kind: "pick"; date: string } | { kind: "unavailable"; said: string } | null = null;
+  for (const part of parts) {
+    const t = norm(part).replace(/\bde\s+segunda(?:[\s-]*feira)?\s+(?:a|ate)\s+(?:sexta(?:[\s-]*feira)?|sabado)\b/g, " ");
+    for (const clause of t.split(/[,;.!?\n]+|\bmas\b|\bou\s+melhor\b/)) {
+      for (const m of clause.matchAll(DAY)) {
+        const before = clause.slice(0, m.index ?? 0);
+        const after = clause.slice((m.index ?? 0) + m[0].length);
+        if (/\b(?:nao|nem|nunca|sem)\b/.test(before) || /^\s*(?:nao|nem)\b/.test(after)) continue;
+        const iso: string | null = m[1]
+          ? dates.find((d) => PLAIN_WEEKDAYS[new Date(`${d.date}T12:00:00Z`).getUTCDay()] === m[1])?.date ?? null
+          : m[2]
+          ? dates.find((d) => Number(d.date.slice(8, 10)) === Number(m[2]) && Number(d.date.slice(5, 7)) === Number(m[3]))?.date ?? null
+          : m[4]
+          ? dates.find((d) => Number(d.date.slice(8, 10)) === Number(m[4]))?.date ?? null
+          : m[5]
+          ? dates.find((d) => d.date === plus(m[5] === "hoje" ? 0 : m[5] === "amanha" ? 1 : 2))?.date ?? null
+          : m[6]?.startsWith("ultim")
+          ? offered.at(-1)?.date ?? null
+          : offered[0]?.date ?? null;
+        const said = m[1]
+          ? WEEKDAYS[PLAIN_WEEKDAYS.indexOf(m[1] as (typeof PLAIN_WEEKDAYS)[number])]!
+          : m[5]
+          ? m[5].replace(/amanha/, "amanhã")
+          : m[2]
+          ? `dia ${m[2]}/${m[3]}`
+          : m[4]
+          ? `dia ${m[4]}`
+          : "esse dia";
+        found = iso ? { kind: "pick", date: iso } : { kind: "unavailable", said };
+      }
+    }
+  }
+  return found;
+};
+
+/** "muda a data", "quero outro dia", "troca o dia": the date asked again, without a new one named. */
+export const asksDateChange = (parts: readonly string[]): boolean =>
+  parts.some((p) => /\b(?:mud|troc|alter)\w*\b[^.?!]{0,20}\b(?:data|dia)\b|\boutr[ao]\s+(?:data|dia)\b/.test(norm(p)));
+
+/**
+ * Every message of her burst is a bare yes — an allowlist of the whole message (Lesson 3): "sim", "confirmo", "pode confirmar",
+ * "sim, pode", "isso mesmo", "ok obrigada". "sim, mas muda a data", "não, ainda não confirmo", "ok, vou ver" are not.
+ */
+const YES = /^(?:(?:sim+|s+|isso(?:\s+mesmo)?|confirm(?:o|a|ado|ada|ar)|pode(?:\s+(?:sim|confirmar|fechar|mandar|ser))?|fechado|fechou|ok+|okay|certo|correto|(?:ta|esta)\s+(?:tudo\s+)?certo|tudo\s+certo|perfeito|beleza|blz|bora|claro|com\s+certeza|exato|quero)\s*)+(?:obrigad[ao]\s*)?$/;
+export const confirmsOrder = (parts: readonly string[]): boolean =>
+  parts.length > 0 &&
+  parts.every((p) => {
+    const t = norm(p).replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, " ").replace(/[^a-z\s]/g, " ").replace(/\s+/g, " ").trim();
+    return t !== "" && YES.test(t);
+  });
+
+/**
+ * The house number she sent to the ask that named it ("100", "nº 45, apto 12", "o número é 100 casa 2"). A CEP or a CPF in the
+ * segment is never a house number. Null when the ask did not name it or nothing reads.
+ */
+export const houseNumberIn = (parts: readonly string[], asked: boolean): { number: string; complement: string | null } | null => {
+  if (!asked) return null;
+  let found: { number: string; complement: string | null } | null = null;
+  for (const part of parts) {
+    for (const seg of part.split(/[,;\n]+/)) {
+      const s = seg.trim();
+      if (/\d{5}-?\d{3}|\d{3}\.?\d{3}\.?\d{3}/.test(s)) continue;
+      const m = /^(?:(?:o\s+)?n(?:[º°o.]|u|ú)?(?:mero)?\s*(?:da\s+casa\s*)?(?:[:.]|[ée]\s+)?\s*)?(\d{1,5}|s\/?n)\b\s*[-–]?\s*(.*)$/i.exec(s);
+      if (!m) continue;
+      const rest = m[2]!.replace(/^(?:e\s+)/i, "").trim();
+      found = { number: m[1]!.toLowerCase().replace(/^s\/?n$/, "s/n"), complement: rest && rest.length <= 40 && /^\p{L}/u.test(rest) ? rest : null };
+    }
+  }
+  return found;
+};
+
+/** A cell phone in her answer to `PHONE_ASK`: DDD + 9 + 8 digits, national form. */
+export const cellIn = (parts: readonly string[]): string | null => {
+  for (const p of [...parts].reverse()) {
+    const m = /(?:\+?55\s*)?\(?\b([1-9]\d)\)?\s*(9\d{4})[\s.-]?(\d{4})\b/.exec(p);
+    if (m) return `${m[1]}${m[2]}${m[3]}`;
+  }
+  return null;
+};
+
+/** Her WhatsApp number as the Logzz takes it: DDD + 8 or 9 digits, no country code. */
+export const nationalPhone = (phone: string): string | null => {
+  const d = phone.replace(/\D/g, "");
+  const n = (d.length === 12 || d.length === 13) && d.startsWith("55") ? d.slice(2) : d;
+  return /^[1-9]\d{9,10}$/.test(n) ? n : null;
+};
+
+const maskCpf = (cpf: string): string => `***.***.**${cpf[8]}-${cpf.slice(9, 11)}`;
+const cepText = (cep: string): string => {
+  const d = cep.replace(/\D/g, "");
+  return `${d.slice(0, 5)}-${d.slice(5)}`;
+};
+
+/** What the turn knows when it asks the close for the next step. */
+export interface CloseFacts {
+  readonly dates: readonly CodDate[];
+  /** Her name as it would go on the order; one word is not a full name. */
+  readonly name: string | null;
+  /** Her valid CPF, digits. */
+  readonly cpf: string | null;
+  /** The CPF she sent this burst does not check out (`sentInvalidCpf`). */
+  readonly cpfInvalid: boolean;
+  readonly cep: string;
+  /** What the CEP itself says (ViaCEP); `street` empty on a town's general CEP. */
+  readonly cepStreet: string;
+  readonly cepNeighborhood: string;
+  readonly city: string;
+  readonly state: string;
+  /** What she typed this burst (`extractAddressBurst`), and what the lead kept before. */
+  readonly typed: { readonly street?: string; readonly number?: string; readonly complement?: string; readonly neighborhood?: string };
+  readonly stored: { readonly street?: string; readonly number?: string; readonly complement?: string; readonly neighborhood?: string };
+  /** Her WhatsApp number, national. */
+  readonly phone: string | null;
+  /** "Colete G", "Kit com 2 peças (G e GG)". */
+  readonly what: string;
+  readonly priceBrl: number;
+  readonly freeShipping: boolean;
+}
+
+export interface ClosedOrder {
+  readonly date: CodDate;
+  readonly name: string;
+  readonly cpf: string;
+  readonly phone: string;
+  readonly street: string;
+  readonly number: string;
+  readonly complement: string;
+  readonly neighborhood: string;
+}
+
+export type CloseStep =
+  | { readonly kind: "send"; readonly text: string; readonly state: CloseState; readonly reason: string }
+  | { readonly kind: "confirm"; readonly state: CloseState; readonly summary: string; readonly order: ClosedOrder }
+  | { readonly kind: "model"; readonly state: CloseState; readonly directive: string };
+
+const offeredLabels = (dates: readonly CodDate[]): string[] => dates.slice(0, CLOSE_OFFERED).map((d) => dateLabel(d.date));
+
+export const closeSummary = (f: CloseFacts, o: ClosedOrder): string =>
+  [
+    SUMMARY_HEAD,
+    "",
+    `• ${f.what}: ${money(f.priceBrl)} pra pagar na entrega${f.freeShipping ? ", com frete grátis" : ""}`,
+    `• Entrega: ${dateLabel(o.date.date)}`,
+    `• Endereço: ${o.street}, ${o.number}${o.complement ? ` (${o.complement})` : ""} – ${o.neighborhood ? `${o.neighborhood}, ` : ""}${f.city}/${f.state}, CEP ${cepText(f.cep)}`,
+    `• Nome: ${o.name}`,
+    `• CPF: ${maskCpf(o.cpf)}`,
+    ...(o.phone !== f.phone ? [`• Celular: (${o.phone.slice(0, 2)}) ${o.phone.slice(2, -4)}-${o.phone.slice(-4)}`] : []),
+    "",
+    SUMMARY_ASK,
+  ].join("\n");
+
+/** The directive the model writes under while the close is open (prompt and gate: the same dates, `GateContext.codDates`). */
+export const closeDirective = (dates: readonly CodDate[], missing: readonly string[], summarySent: boolean): string =>
+  `O pagamento na entrega é fechado aqui na conversa, sem checkout e sem link: nunca mande nem prometa link da entrega.` +
+  ` As únicas datas de entrega que você pode citar são ${joined(offeredLabels(dates), "ou")}; nunca outro dia, nem "amanhã" ou "hoje".` +
+  (summarySent
+    ? ` O resumo do pedido já foi enviado: o pedido só é criado quando ela responder SIM. Nunca diga que o pedido está confirmado,` +
+      ` criado ou agendado; se ela quiser mudar algo, pergunte o quê.`
+    : missing.length > 0
+    ? ` Pra registrar o pedido falta ${joined(missing, "e")}: peça isso, sem pedir e-mail, e nunca diga que o pedido está feito.`
+    : ``);
+
+/**
+ * The next step of the close. Pure: the turn sends what it says, stores `state`, and imports only on `confirm`.
+ * `datesAsked`: the agent's last message asked the day (the dates line, the summary, or the offer's ask) — only then is a day in
+ * her words a pick ("dia 5 cai meu salário" to the CPF ask is no day).
+ */
+export const closeStep = (input: {
+  readonly facts: CloseFacts;
+  readonly state: CloseState;
+  readonly parts: readonly string[];
+  readonly lastOutbound: string;
+  readonly datesAsked: boolean;
+  readonly now: Date;
+}): CloseStep => {
+  const { facts: f, parts, lastOutbound, now } = input;
+  let state: CloseState = { ...input.state };
+  const change = asksDateChange(parts);
+  const pick = input.datesAsked || change ? pickDate(parts, f.dates, now) : null;
+  if (pick?.kind === "pick") state = { ...state, date: pick.date };
+  else if (change || pick?.kind === "unavailable") state = withoutDate(state);
+  // A day the Logzz no longer offers is asked again, said as such.
+  const gone = state.date !== undefined && !f.dates.some((d) => d.date === state.date) ? state.date : null;
+  if (gone) state = withoutDate(state);
+  const asked = lastOutbound.includes(DATA_HEAD) && /número da casa/.test(lastOutbound);
+  const house = houseNumberIn(parts, asked);
+  const number = house?.number ?? f.typed.number ?? state.number ?? f.stored.number;
+  const complement = (house ? house.complement : null) ?? f.typed.complement ?? state.complement ?? f.stored.complement;
+  const street = f.cepStreet || (f.typed.street ?? state.street ?? f.stored.street);
+  const neighborhood = f.cepNeighborhood || (f.typed.neighborhood ?? state.neighborhood ?? f.stored.neighborhood ?? "");
+  const phone = [lastOutbound.includes(PHONE_ASK) ? cellIn(parts) : null, state.phone, f.phone].find((p) => p && p !== state.badPhone) ?? null;
+  state = Object.fromEntries(
+    Object.entries({ ...state, number, complement, street: f.cepStreet ? undefined : street, neighborhood: f.cepNeighborhood ? undefined : neighborhood || undefined, phone: phone !== f.phone ? phone : undefined })
+      .filter(([, v]) => v !== undefined && v !== null && v !== ""),
+  ) as CloseState;
+  const cpf = f.cpf && f.cpf !== state.badCpf ? f.cpf : null;
+  const fullName = f.name && f.name.trim().split(/\s+/).length >= 2 ? f.name.trim() : null;
+  const date = f.dates.find((d) => d.date === state.date) ?? null;
+
+  const missing = [
+    ...(fullName ? [] : ["seu nome completo"]),
+    ...(cpf ? [] : ["seu CPF"]),
+    ...(street ? [] : ["o nome da sua rua e o bairro"]),
+    ...(number ? [] : ["o número da casa (e o complemento, se tiver)"]),
+  ];
+  const labels = offeredLabels(f.dates);
+  if (date && missing.length === 0 && phone) {
+    const order: ClosedOrder = { date, name: fullName!, cpf: cpf!, phone, street: street!, number: number!, complement: complement ?? "", neighborhood };
+    const summary = closeSummary(f, order);
+    if (lastOutbound.endsWith(summary)) {
+      return confirmsOrder(parts)
+        ? { kind: "confirm", state, summary, order }
+        : { kind: "model", state, directive: closeDirective(f.dates, [], true) };
+    }
+    return { kind: "send", text: summary, state, reason: "pedido na entrega: resumo para ela confirmar" };
+  }
+  if (date && missing.length === 0) return { kind: "send", text: PHONE_ASK, state, reason: "pedido na entrega: celular para o entregador" };
+  const datesLine = date
+    ? null
+    : `${gone ? `${dateLabel(gone)} acabou de lotar 😕 ` : pick?.kind === "unavailable" ? `${pick.said[0]!.toUpperCase()}${pick.said.slice(1)} não tenho entrega aí 😕 ` : ""}` +
+      `${DATES_HEAD}${joined(labels, "ou")}. Qual dia fica melhor pra você?`;
+  const dataLine = missing.length === 0
+    ? null
+    : `${f.cpfInvalid && !cpf ? "Esse CPF não confere, algum número pode ter saído trocado 😕 " : ""}${DATA_HEAD}${datesLine ? "também " : ""}${joined(missing, "e")} 😊`;
+  const text = [datesLine, dataLine].filter(Boolean).join("\n\n");
+  return text === lastOutbound
+    ? { kind: "model", state, directive: closeDirective(f.dates, missing, false) }
+    : { kind: "send", text, state, reason: date ? "pedido na entrega: dados que faltam" : "pedido na entrega: datas da entrega" };
+};
+
+/** The order's id at the Logzz: the conversation and the summary she said yes to. The same summary, the same order. */
+export const closeOrderId = async (conversationId: string, summary: string): Promise<string> => {
+  const hash = new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(summary)));
+  return `malu-${conversationId}-${[...hash.slice(0, 6)].map((b) => b.toString(16).padStart(2, "0")).join("")}`;
+};
+
+/** The import body, exactly the keys the integration was mapped with on 2026-10-28. */
+export const importPayload = (p: {
+  externalId: string;
+  order: ClosedOrder;
+  email: string | null;
+  cep: string;
+  city: string;
+  state: string;
+  pkg: CodPackage;
+  utm: { source: string; medium: string; campaign: string; content: string; term: string; id: string };
+}) => ({
+  external_id: p.externalId,
+  full_name: p.order.name,
+  phone: p.order.phone,
+  customer_document: p.order.cpf,
+  email: p.email ?? "",
+  postal_code: p.cep.replace(/\D/g, ""),
+  street: p.order.street,
+  neighborhood: p.order.neighborhood,
+  city: p.city,
+  state: p.state,
+  house_number: p.order.number,
+  complement: p.order.complement,
+  delivery_date: p.order.date.date,
+  delivery_type: p.order.date.typeCode,
+  delivery_period: "",
+  offer: p.pkg.offer,
+  variations: p.pkg.items.map((i) => ({ hash: i.code, quantity: i.quantity })),
+  utm_source: p.utm.source,
+  utm_medium: p.utm.medium,
+  utm_campaign: p.utm.campaign,
+  utm_content: p.utm.content,
+  utm_term: p.utm.term,
+  utm_id: p.utm.id,
+});
+
+export type ImportResult =
+  | { readonly kind: "created"; readonly orderCode: string; readonly deliveryDate: string; readonly rescheduled: boolean }
+  /** The day filled: the dates are asked again. */
+  | { readonly kind: "date_gone"; readonly message: string }
+  /** No stock or coverage for the package any more: the prepaid. */
+  | { readonly kind: "no_cod"; readonly message: string }
+  | { readonly kind: "cpf"; readonly message: string }
+  | { readonly kind: "phone"; readonly message: string }
+  /** The Logzz keeps one open main order per customer. */
+  | { readonly kind: "open_order"; readonly message: string }
+  /** 409, 429, 5xx, the network, an answer without the order: nothing known to be created; the same id is safe to send again. */
+  | { readonly kind: "retry"; readonly message: string }
+  /** 401/403/404: the token or the URL — the operator's to fix. */
+  | { readonly kind: "config"; readonly message: string }
+  | { readonly kind: "rejected"; readonly message: string };
+
+const isoOf = (v: unknown): string | null => {
+  const s = typeof v === "string" ? v.trim() : "";
+  const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
+  if (iso) return `${iso[1]}-${iso[2]}-${iso[3]}`;
+  const br = /^(\d{2})\/(\d{2})\/(\d{4})/.exec(s);
+  return br ? `${br[3]}-${br[2]}-${br[1]}` : null;
+};
+
+export const readImport = (status: number, body: unknown, asked: string): ImportResult => {
+  const b = body as { status?: unknown; message?: unknown; order_code?: unknown; delivery_date?: unknown; rescheduled?: unknown } | null;
+  const message = typeof b?.message === "string" ? b.message : `HTTP ${status}`;
+  if (status >= 200 && status < 300 && b?.status === "success" && typeof b.order_code === "string" && b.order_code.trim() !== "") {
+    // The day the order holds is the one the Logzz answered: `rescheduled` moved it when hers was full.
+    return { kind: "created", orderCode: b.order_code.trim(), deliveryDate: isoOf(b.delivery_date) ?? asked, rescheduled: b.rescheduled === true };
+  }
+  if (status === 401 || status === 403 || status === 404) return { kind: "config", message };
+  if (status === 409 || status === 429 || status >= 500 || (status >= 200 && status < 300)) return { kind: "retry", message };
+  const t = norm(message);
+  if (/data de entrega indisponivel/.test(t)) return { kind: "date_gone", message };
+  if (/sem estoque|estoque insuficiente|sem cobertura/.test(t)) return { kind: "no_cod", message };
+  if (/\bcpf\b/.test(t)) return { kind: "cpf", message };
+  if (/telefone/.test(t)) return { kind: "phone", message };
+  if (/pedido principal sem finalizacao/.test(t)) return { kind: "open_order", message };
+  return { kind: "rejected", message };
+};
+
+/** One import, sent again once on `retry` (the same `external_id`: the Logzz answers it with the same order). Never throws. */
+export const placeOrder = async (
+  post: Poster,
+  url: string,
+  token: string,
+  payload: ReturnType<typeof importPayload>,
+  wait: (ms: number) => Promise<unknown> = (ms) => new Promise((r) => setTimeout(r, ms)),
+): Promise<ImportResult> => {
+  const once = async (): Promise<ImportResult> => {
+    try {
+      const r = await post(url, payload, { Authorization: `Bearer ${token}` });
+      return readImport(r.status, r.body, payload.delivery_date);
+    } catch (e) {
+      return { kind: "retry", message: e instanceof Error ? e.message : String(e) };
+    }
+  };
+  const first = await once();
+  if (first.kind !== "retry") return first;
+  await wait(2000);
+  return once();
+};
+
+/** Her order, said once it exists: the number and the day the Logzz answered (`rescheduled`: hers was full, the next one). */
+export const closeConfirmed = (orderCode: string, deliveryDate: string, rescheduled: boolean, priceBrl: number): string =>
+  `Pedido confirmado! 🎉 Nº ${orderCode}\n\n` +
+  `Sua entrega fica pra ${dateLabel(deliveryDate)}${rescheduled ? " — o dia que você escolheu lotou, e o sistema passou pro próximo disponível" : ""}.` +
+  ` Deixa ${money(priceBrl)} separado pra pagar quando receber: dinheiro, Pix ou cartão, na maquininha do entregador.\n\n` +
+  `Qualquer dúvida, é só me chamar aqui 💛`;
+
+/** The import did not answer: said truthfully, with the same summary under it — her "SIM" again sends the same order id. */
+export const closeRetryLater = (summary: string): string =>
+  `Não consegui registrar seu pedido agora, o sistema da entrega não respondeu 😔 Tento de novo assim que você me responder.\n\n${summary}`;
+export const CLOSE_CPF_REFUSED = "O sistema da entrega não aceitou esse CPF 😕 Confere pra mim e me manda de novo? Tem que ser o CPF de quem vai receber.";
+export const CLOSE_OPEN_ORDER =
+  "Vi aqui que já existe um pedido seu em aberto na transportadora 💛 Pra não duplicar, não criei outro agora. Me conta o que você precisa que eu te ajudo.";
+export const closeNoCodLine = (link: string | null): string =>
+  `Poxa, a entrega com pagamento na hora acabou de esgotar aí pro seu pedido 😔` +
+  (link ? ` Mas dá pra levar pagando antes, no Pix ou no cartão, e ele vai pelos Correios: ${link}` : ` Se quiser, eu te aviso aqui assim que voltar.`);
+
+/**
+ * The row an order webhook belongs to when the order was made by the import (2026-10-28): the Logzz webhook may carry our
+ * `external_id`, its `order_code`, or its own sale id. Ours or the code matched → that row. Else a pay-on-delivery webhook for
+ * a lead with one live imported row no webhook has claimed yet is that order — the Logzz keeps one open main order per customer.
+ */
+export const importedTwin = (
+  rows: ReadonlyArray<{ external_id: string; status: string | null; created_at: string; details: Record<string, unknown> | null }>,
+  incoming: { externalId: string; orderNumber?: string | null; paymentMethod: string },
+  isDead: (status: string | undefined) => boolean,
+  now: number,
+): string | null => {
+  const imported = rows.filter((r) => typeof r.details?.importId === "string");
+  const ids = [incoming.externalId, incoming.orderNumber].filter((v): v is string => typeof v === "string" && v !== "");
+  const named = imported.find((r) => [r.external_id, r.details?.orderNumber, r.details?.webhookId].some((v) => typeof v === "string" && ids.includes(v)));
+  if (named) return named.external_id;
+  if (incoming.paymentMethod !== "cod") return null;
+  const open = imported.filter((r) => !r.details?.webhookId && !isDead(r.status ?? undefined) && now - Date.parse(r.created_at) < 7 * 24 * 60 * 60 * 1000);
+  return open.length === 1 ? open[0]!.external_id : null;
+};

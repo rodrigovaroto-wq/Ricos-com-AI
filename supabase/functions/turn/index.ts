@@ -529,7 +529,7 @@ interface BusinessConfig extends GateConfig {
    * The pay-on-delivery sale closed in the conversation by the Logzz Order Import API (operator, 2026-10-28, grafo §135).
    * OPTIONAL, every key — absent in the secret, or without `LOGZZ_API_TOKEN`, the Coinzz link closes both paths, as before.
    */
-  logzzOrder?: LogzzOrderConfig;
+  logzzImport?: LogzzOrderConfig;
 }
 
 const CONFIG: BusinessConfig = JSON.parse(
@@ -3480,9 +3480,9 @@ const handleTurn = async (
       now: new Date(),
       paymentPath: path,
       codUnavailable,
+      ...(gateCodDates ? { codDates: gateCodDates } : {}),
       postponing,
       units: pieces,
-      ...(gateCodDates ? { codDates: gateCodDates } : {}),
     });
     await recordTraces(conversation.id, gated.traces);
     if (!passed(gated)) return null;
@@ -4216,7 +4216,7 @@ const handleTurn = async (
   // Its own "no": the prepaid. Failed: the lookup above stands, as before — a failure is never "no delivery" (L2).
   const coinzzSizeOut = region?.sizeOutOfStock === true;
   const closeSizes = (units > 1 ? unitSizes : regionSize ? [regionSize] : []).filter((x): x is Size => (SIZES as readonly string[]).includes(x));
-  const closePkg = LOGZZ_TOKEN ? codPackage(CONFIG.logzzOrder, closeSizes, units > 1 ? units : 1) : null;
+  const closePkg = LOGZZ_TOKEN ? codPackage(CONFIG.logzzImport, closeSizes, units > 1 ? units : 1) : null;
   let codDates: readonly CodDate[] = [];
   let freshCodDates: CachedCodDates | null = null;
   const codPlace = region?.place ?? (failedPlace ? { ...failedPlace, district: "Centro" } : null);
@@ -4857,7 +4857,7 @@ const handleTurn = async (
     let thinkLink: string | null = null;
     try {
       // Arm B: the "vou pensar" gets the link, not the kit offer (review of 2695b80, 1).
-      thinkLink = linkUnheld && !closeOn && !(linkInChat && closesConversation(spoken(inbound.body ?? "")))
+      thinkLink = linkUnheld && !(linkInChat && closesConversation(spoken(inbound.body ?? ""))) && !closeOn
         ? buildPrefilledCheckoutLink(linkCustomer, linkPath, linkCheckout)
         : null;
     } catch {
@@ -5094,7 +5094,7 @@ const handleTurn = async (
       } else {
         const importId = await closeOrderId(conversation.id, close.summary);
         const source = (lead.source ?? {}) as Record<string, unknown>;
-        const result = await placeOrder(logzzPoster(IMPORT_TIMEOUT_MS), CONFIG.logzzOrder!.importUrl!, LOGZZ_TOKEN, importPayload({
+        const result = await placeOrder(logzzPoster(IMPORT_TIMEOUT_MS), CONFIG.logzzImport!.importUrl!, LOGZZ_TOKEN, importPayload({
           externalId: importId,
           order: close.order,
           email: leadEmail,
@@ -5205,12 +5205,12 @@ const handleTurn = async (
   const kitOfferNow = false;
   // Review of 5383dc5: with the fixed line held back, the identity directive would have the model ask
   // the CPF again of a woman saying goodbye. Told instead what the turn is.
-  const identityDirective = close !== null && !closeDone && !farewell
-    // Grafo §135: closed here — only the lookup's dates, no link, nothing "confirmado" before her yes to the summary.
-    ? close.kind === "model" ? close.directive : closeDirective(codDates, [], lastOutbound.includes(SUMMARY_HEAD))
-    : farewell
+  const identityDirective = farewell
     ? `Ela está se despedindo ou vai pensar, e você já respondeu isso com a mensagem de "vou pensar". ` +
       `Responda curto e gentil, sem pedir dado nenhum, sem oferta e sem link.`
+    // Grafo §135: closed here — only the lookup's dates, no link, nothing "confirmado" before her yes to the summary.
+    : close !== null && !closeDone
+    ? close.kind === "model" ? close.directive : closeDirective(codDates, [], lastOutbound.includes(SUMMARY_HEAD))
     // Her size out of stock (review of 481f2d3): no name nor CPF for a sale that cannot close.
     : sizeOut !== null || linkNow || linkAlreadySent || kitOfferNow || !(missing === "name" || missing === "email" || missing === "document")
       ? null
@@ -5494,11 +5494,11 @@ const handleTurn = async (
       // Only the size the lookup answered for (R28 review): any size's delivery never vouches for hers.
       ...(region?.size ? { sizeChecked: region.size } : {}),
       sameDayWindow: region?.sameDay ?? false,
+      // Grafo §135: the Logzz dates of her package, the only days the close lets her hear.
+      ...(gateCodDates ? { codDates: gateCodDates } : {}),
       regionKnown: region !== null,
       // Plan 16 §4.6–4.7: the stock and the freight the prompt taught this turn, the same values (`turnFacts`).
       ...factsGate,
-      // Grafo §135: the Logzz dates of her package, the only days the close lets her hear.
-      ...(gateCodDates ? { codDates: gateCodDates } : {}),
     });
 
     // Every attempt is traced, not just the last: a gate that keeps firing across

@@ -415,7 +415,7 @@ describe("M-03 na Edge Function", () => {
     // Grafo §65: the newest link anywhere in the conversation, not the last three messages.
     expect(source).toContain('const linkJustSent = !cepMoved && foreignUrl === null && linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? ""));');
     expect(source).toContain("const linkUnheld = !linkJustSent && linkReady && !withdrew;");
-    expect(source).toContain("const linkNow = linkUnheld && !kitFirst;");
+    expect(source).toContain("const linkNow = linkUnheld && !kitFirst && !closeOn;");
     expect(source).toContain("thinkLink = linkUnheld && !(linkInChat && closesConversation(spoken(inbound.body ?? \"\")))");
   });
 });

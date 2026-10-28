@@ -152,7 +152,7 @@ describe("3. desistência no turno em que os dados fecham não leva link (withdr
 
   it("fiação: o link e a oferta do kit esperam", () => {
     expect(source).toContain("const linkUnheld = !linkJustSent && linkReady && !withdrew;");
-    expect(source).toContain("const linkNow = linkUnheld && !kitFirst;");
+    expect(source).toContain("const linkNow = linkUnheld && !kitFirst && !closeOn;");
     // link segurado pelo histórico (além da janela) avisa o modelo que ela já o tem
     expect(source).toContain("const linkAlreadySent = linkJustSent || linkSentRecently(");
     expect(source).toContain("const kitOfferNow = false;");

@@ -2337,8 +2337,8 @@ const MUTATIONS: Mutation[] = [
     id: "T6e-praca-nao-gravada",
     bug: "a praça sem entrega não era gravada no lead",
     files: ["supabase/functions/turn/index.ts"],
-    from: "if (addressChanged || codAvailable !== storedAddress.codAvailable || freshRegion) {",
-    to: "if (addressChanged || freshRegion) {",
+    from: "if (addressChanged || codAvailable !== storedAddress.codAvailable || freshRegion || freshCodDates) {",
+    to: "if (addressChanged || freshRegion || freshCodDates) {",
     guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
   },
   {
@@ -4003,8 +4003,8 @@ const MUTATIONS: Mutation[] = [
     id: "E6-kit-depois-do-link",
     bug: "braço B: o link saía no turno da escolha e a oferta do kit, com os descontos progressivos, nunca aparecia (operador, 2026-10-12)",
     files: ["supabase/functions/turn/index.ts"],
-    from: "const linkNow = linkUnheld && !kitFirst;",
-    to: "const linkNow = linkUnheld;",
+    from: "const linkNow = linkUnheld && !kitFirst && !closeOn;",
+    to: "const linkNow = linkUnheld && !closeOn;",
     guard: ["pnpm", "-s", "vitest", "run", "tests/e6-link-after-choice.test.ts"],
   },
   {
@@ -6689,7 +6689,7 @@ const MUTATIONS: Mutation[] = [
   { id: "O27-m-vende-pelo-outro-tamanho", bug: "a cliente de M ouvia a entrega do GG, e o checkout da Coinzz não vende o M em nenhum caminho",
     files: ["src/agent/availability.ts"], from: "if (size !== null && bodies[REGION_SIZES.indexOf(size)] === null) {", to: "if (false) {", guard: ["pnpm", "-s", "vitest", "run", "tests/offer-2026-10-27.test.ts"] },
   { id: "O27-link-do-m", bug: "o link do checkout sairia para o M sem estoque", files: ["supabase/functions/turn/index.ts"],
-    from: "const linkReady = sendLinkNow({ ...linkData, yesBesideQuestion }) && sizeOut === null;", to: "const linkReady = sendLinkNow({ ...linkData, yesBesideQuestion });", guard: ["pnpm", "-s", "vitest", "run", "tests/offer-2026-10-27.test.ts"] },
+    from: "const linkReady = sendLinkNow({ ...linkData, yesBesideQuestion }) && sizeOut === null && !prepayOut;", to: "const linkReady = sendLinkNow({ ...linkData, yesBesideQuestion }) && !prepayOut;", guard: ["pnpm", "-s", "vitest", "run", "tests/offer-2026-10-27.test.ts"] },
   { id: "O27-manchete-0", bug: "a caixa do antecipado diria \"Você Ganhou um Desconto Adicional de *0%!!!*\"", files: ["src/agent/funnel.ts"],
     from: "config.prices.prepayDiscountPercent > 0 ? `Você Ganhou um Desconto Adicional", to: "true ? `Você Ganhou um Desconto Adicional", guard: ["pnpm", "-s", "vitest", "run", "tests/offer-2026-10-27.test.ts"] },
   { id: "O27-frete-no-antecipado", bug: "a caixa do antecipado citaria o valor do frete com o frete grátis nos dois caminhos", files: ["src/agent/funnel.ts"],
@@ -6751,6 +6751,17 @@ const MUTATIONS: Mutation[] = [
   { id: "O30-pix-nao-depois", bug: "'manda o pix não' era lido como pedido (revisão do 2474091)", files: ["src/agent/followups.ts"], from: "  if (/\\b(?:reenvi\\w*|manda|mande|envia|envie|passa|passe)\\b[^,.;!?]*\\bnao\\s*(?:[,.;!?]|$)/.test(t)) return false;\n", to: "", guard: ["pnpm", "-s", "vitest", "run", "tests/review-2474091.test.ts"] },
   { id: "O30-pix-expirou", bug: "'o pix expirou, manda outro' não era lido como pedido (revisão do 2474091)", files: ["src/agent/followups.ts"], from: "  if (/\\b(?:pix|codigo|qr\\s?code)\\b[^.!?]*\\b(?:expir", to: "  if (false && /\\b(?:pix|codigo|qr\\s?code)\\b[^.!?]*\\b(?:expir", guard: ["pnpm", "-s", "vitest", "run", "tests/review-2474091.test.ts"] },
   { id: "O30-midia-recusa-depois", bug: "'tem video? nao precisa' mandava o vídeo (revisão do 2474091)", files: ["src/agent/funnel.ts"], from: "|${word}[\\\\s\\\\S]*\\\\b(?:nao\\\\s+precisa|nao\\\\s+quer\\\\w*|deixa\\\\s+pra\\\\s+la|esquece)\\\\b", to: "", guard: ["pnpm", "-s", "vitest", "run", "tests/review-2474091.test.ts"] },
+  { id: "O31-sim-qualquer", bug: "qualquer mensagem depois do resumo virava o pedido: 'sim, mas muda a data' criava o pedido", files: ["src/agent/cod-close.ts"], from: "    return t !== \"\" && YES.test(t);", to: "    return t !== \"\";", guard: ["pnpm",  "-s",  "vitest",  "run",  "tests/cod-close-2026-10-28.test.ts"] },
+  { id: "O31-sim-sem-resumo", bug: "o sim criava o pedido sem o resumo atual como última mensagem (endereço mudado depois do resumo)", files: ["src/agent/cod-close.ts"], from: "    if (lastOutbound.endsWith(summary)) {", to: "    if (lastOutbound.endsWith(summary) || confirmsOrder(parts)) {", guard: ["pnpm",  "-s",  "vitest",  "run",  "tests/cod-close-2026-10-28.test.ts"] },
+  { id: "O31-falha-vira-sem-entrega", bug: "uma consulta de datas que falhou era lida como 'sem entrega' (L2)", files: ["src/agent/cod-close.ts"], from: "status !== 429 && NO_COD.test(message) ?", to: "true ?", guard: ["pnpm",  "-s",  "vitest",  "run",  "tests/cod-close-2026-10-28.test.ts"] },
+  { id: "O31-dia-fora-da-lista", bug: "o gate deixava passar 'quinta (30/10)' com a quinta oferecida e o 30/10 não", files: ["src/agent/guardrails.ts"], from: "    return tokens.every((t) =>", to: "    return tokens.some((t) =>", guard: ["pnpm",  "-s",  "vitest",  "run",  "tests/cod-close-2026-10-28.test.ts"] },
+  { id: "O31-dia-sem-consulta", bug: "sem as datas da consulta, qualquer dia passava no delivery_promise", files: ["src/agent/guardrails.ts"], from: "  if (!dates?.length) return false;", to: "  if (!dates?.length) return true;", guard: ["pnpm",  "-s",  "vitest",  "run",  "tests/cod-close-2026-10-28.test.ts"] },
+  { id: "O31-negacao-do-dia", bug: "'não estou em casa na quinta' escolhia a quinta", files: ["src/agent/cod-close.ts"], from: "        if (/\\b(?:nao|nem|nunca|sem)\\b/.test(before) || /^\\s*(?:nao|nem)\\b/.test(after)) continue;", to: "", guard: ["pnpm",  "-s",  "vitest",  "run",  "tests/cod-close-2026-10-28.test.ts"] },
+  { id: "O31-cpf-recusado-volta", bug: "o CPF que a Logzz recusou ia de novo no próximo resumo", files: ["src/agent/cod-close.ts"], from: "  const cpf = f.cpf && f.cpf !== state.badCpf ? f.cpf : null;", to: "  const cpf = f.cpf;", guard: ["pnpm",  "-s",  "vitest",  "run",  "tests/cod-close-2026-10-28.test.ts"] },
+  { id: "O31-link-na-entrega", bug: "com o fechamento ligado, o link da Coinzz ainda saía no caminho da entrega", files: ["supabase/functions/turn/index.ts"], from: "const linkNow = linkUnheld && !kitFirst && !closeOn;", to: "const linkNow = linkUnheld && !kitFirst;", guard: ["pnpm",  "-s",  "vitest",  "run",  "tests/cod-close-2026-10-28.test.ts"] },
+  { id: "O31-id-por-tentativa", bug: "cada tentativa mandava um external_id novo: o segundo 'sim' criaria outro pedido", files: ["supabase/functions/turn/index.ts"], from: "const importId = await closeOrderId(conversation.id, close.summary);", to: "const importId = await closeOrderId(conversation.id, close.summary + Date.now());", guard: ["pnpm",  "-s",  "vitest",  "run",  "tests/cod-close-2026-10-28.test.ts"] },
+  { id: "O31-confirmacao-dupla", bug: "a régua mandava o order_confirmed cinco minutos depois da confirmação da Malu", files: ["supabase/functions/turn/index.ts"], from: "kind=eq.order_confirmed&status=eq.scheduled", to: "kind=eq.order_confirmed_x&status=eq.scheduled", guard: ["pnpm",  "-s",  "vitest",  "run",  "tests/cod-close-2026-10-28.test.ts"] },
+  { id: "O31-webhook-duplica", bug: "o webhook da venda do pedido importado gravava uma segunda linha", files: ["supabase/functions/turn/index.ts"], from: "    if (twin !== null && twin !== order.externalId) {", to: "    if (false) {", guard: ["pnpm",  "-s",  "vitest",  "run",  "tests/cod-close-2026-10-28.test.ts"] },
 ];
 
 const wanted = process.argv.slice(2);

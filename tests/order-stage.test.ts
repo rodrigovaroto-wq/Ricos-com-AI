@@ -584,7 +584,7 @@ describe("revisão do PR #39: pós-pedido por status e data, e a praça gravada"
 
   it("o turno grava a praça no lead quando a consulta respondeu", () => {
     expect(source).toContain("const codAvailable = region !== null ? region.cod : addressDraft.cep === storedAddress.cep ? storedAddress.codAvailable : undefined;");
-    expect(source).toContain("if (addressChanged || codAvailable !== storedAddress.codAvailable || freshRegion) {");
+    expect(source).toContain("if (addressChanged || codAvailable !== storedAddress.codAvailable || freshRegion || freshCodDates) {");
     expect(source).toContain("...(codAvailable !== undefined ? { codAvailable } : {}),");
     // Fora do rascunho: a praça não viaja para o pedido da Coinzz nem para a leitura do endereço.
     expect(source).toContain("delete (addressDraft as { codAvailable?: boolean }).codAvailable;");
@@ -594,9 +594,9 @@ describe("revisão do PR #39: pós-pedido por status e data, e a praça gravada"
     const turn = source.slice(source.indexOf("const handleTurn"));
     const declared = turn.indexOf("let codUnavailable = (lead.address as { codAvailable?: boolean } | null)?.codAvailable === false;");
     expect(declared).toBeGreaterThan(-1);
-    // Sete chamadas, contando a da varredura; as seis do turno leem a variável (a volta do dia seguinte saiu do texto fixo, §119;
-    // o gancho do perfil antes da oferta entrou no plano 16 §4.4).
-    expect(source.match(/runGates\(/g)?.length).toBe(7);
+    // Oito chamadas, contando a da varredura; as sete do turno leem a variável (a volta do dia seguinte saiu do texto fixo, §119;
+    // o gancho do perfil antes da oferta entrou no plano 16 §4.4; as linhas do fechamento na entrega, §135).
+    expect(source.match(/runGates\(/g)?.length).toBe(8);
     for (const call of turn.split("runGates(").slice(1)) expect(call.slice(0, call.indexOf("});"))).toContain("codUnavailable");
     // A consulta desta volta vence o que estava gravado.
     expect(turn.indexOf("  codUnavailable = codAvailable === false;\n")).toBeGreaterThan(turn.indexOf("const codAvailable = region !== null"));

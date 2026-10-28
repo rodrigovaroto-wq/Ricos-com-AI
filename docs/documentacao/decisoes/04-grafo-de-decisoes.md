@@ -4593,6 +4593,70 @@ abertura foi um balão que a abertura compartilha com outros.
 **Guarda.** `tests/review-2474091.test.ts` (as quatro mentiras e uma quinta vetadas, as verdades passando; a abertura negada pelo
 `sizeFirstBubbles` e pelo `offerAsk`); mutações `O30-*` (8); `O29-desconto-do-preco-cheio` atualizada.
 
+## 135. A venda na entrega fechada na conversa, pela importação de pedidos da Logzz (operador, 2026-10-28)
+
+**Decisão do operador.** No braço do WhatsApp a Malu fecha o pagamento na entrega dentro da conversa, criando o pedido pela API de
+importação da Logzz — sem checkout para ela. O antecipado segue no link da Coinzz; o braço do site não muda. Sem aprovação manual:
+toda chamada bem-sucedida é um pedido real, e um pedido errado custa R$ 9,99 na porta. Por isso o pedido só nasce do "sim" explícito
+a um resumo que a Malu mandou, em código determinístico (R11.1, sem tool-calling).
+
+**Sintoma.** O checkout da Coinzz e a Logzz discordam sobre onde há pagamento na entrega por tamanho, e quem entrega é a Logzz. Com
+os códigos de variação da Logzz (`prow6pq0` + P `progm9w6`, M `pro37j6q`, G `projm2ov`, GG `prolm313`, XG `prox1jxp`), a consulta de
+datas de 28/10 (coordenador) deu SP/Guarulhos/Campinas/Santos G, GG e XGG; BH/Contagem M, G e GG; Goiânia G e GG; Salvador G e XGG;
+Rio P, GG e XGG; Porto Alegre GG e XGG; Manaus nada. A Logzz tem o G em São Paulo, onde o checkout da Coinzz não vende o G na entrega:
+a importação recupera essa venda. (Uma comparação anterior, feita com os códigos de produto da COINZZ como variação, não é evidência.)
+
+**Caminhos que falharam.**
+- Os códigos `pro4gpo2`… como variação: são produtos da Coinzz. A importação responde "A variação do pedido é diferente do produto." e a
+  consulta de datas "A variação … não pertence ao produto prow6pq0" (sonda do coordenador, CEP sem entrega, nenhum pedido criado).
+- Ler o "sim" de qualquer lugar (Lição 10): o pedido só sai com a ÚLTIMA mensagem da Malu sendo o resumo refeito dos fatos de agora
+  (`lastOutbound.endsWith(summary)`) e TODA mensagem da rajada sendo um sim puro (`confirmsOrder`, lista de permissão da mensagem inteira,
+  Lição 3). Botão de WhatsApp (o sinal estruturado do §25) exigiria mudar o envio do n8n; fica como resíduo.
+
+**Correção.**
+- `src/agent/cod-close.ts` (espelhado): `codPackage` (oferta por quantidade + variações; qualquer chave faltando = desligado),
+  `lookupCodDates`/`readCodDates` (POST público `delivery-day/options/zip-code/{cep}` com
+  `{"products":[{"code":"prow6pq0","quantity":N,"variants":[{"code":…,"quantity":n}]}]}`; os três "não entrega aí" da Logzz são `none`;
+  429, 5xx, "Erro ao buscar opções de entrega", erro de campo e rede são `failed`, nunca "sem entrega" — L2), `cachedCodDates` (10 min,
+  mesmo dia, mesmo CEP e pacote), `pickDate` (último dia não negado; "de segunda a sexta" não é dia; dia fora da lista = indisponível),
+  `asksDateChange`, `confirmsOrder`, `houseNumberIn`, `cellIn`, `nationalPhone`, `closeStep` (datas reais → nome completo, CPF, número/
+  complemento, rua e bairro no CEP geral → resumo → `confirm`), `closeSummary` (CPF mascarado `***.***.**9-25`), `closeOrderId`
+  (`malu-<conversa>-<sha256 do resumo>`: o mesmo resumo é o mesmo pedido na Logzz), `importPayload` (exatamente as chaves mapeadas),
+  `readImport` e `placeOrder` (409/429/5xx/rede: mais uma vez com o MESMO id), `closeConfirmed` (a data DEVOLVIDA, com `rescheduled`),
+  `importedTwin` (o webhook da venda acha a linha importada: nosso id, o `order_code`, ou o único pedido importado em aberto dela).
+- `handleTurn`: com `CONFIG.logzzImport` completo e o segredo `LOGZZ_API_TOKEN`, a porta é a consulta da Logzz para o pacote dela
+  (`region` sobrescrita: datas → `cod: true` mesmo onde a Coinzz dá 404 no tamanho; `none` → antecipado; `failed` → a consulta de antes
+  fica). `closeOn` (caminho da entrega, sem tamanho esgotado, kit só com preço no config, nenhum pedido vivo dela) tira o link da
+  Coinzz da entrega (`linkNow`, `thinkLink`); a caixa da oferta diz "é só me falar" (`codOfferText(…, closesHere)`) e leva a pergunta do
+  fechamento; cada linha passa a cadeia de gates (`closeGated`, `sendFixed`); o estado fica em `leads.address.codClose` e as datas em
+  `leads.address.codDates`. No `confirm`: a data reconsultada; lotou → datas novas; `none` → linha honesta e o link do antecipado (sem
+  ele para o tamanho que a Coinzz não vende); criado → `recordOrder` (status "Agendado", `scheduled_for` = data devolvida,
+  `details.importId`/`orderNumber`) para a régua pós-pedido, e o `order_confirmed` da régua cancelado quando a confirmação da Malu foi
+  gravada; CPF recusado → `badCpf` e o CPF pedido de novo; telefone recusado → `badPhone` e o celular pedido; pedido aberto, 409/500 duas
+  vezes, token/URL → a verdade, o resumo de novo embaixo (o "SIM" seguinte manda o mesmo id) e e-mail ao operador (`extraNotify`).
+- `recordOrder`: o webhook de um pedido importado grava sobre a linha da importação (`importedTwin`), guardando `details.webhookId`.
+- Gate e prompt, a mesma promessa: `GateContext.codDates` — `delivery_promise` deixa passar só um dia (dia da semana, "dd/mm", "dia dd",
+  com o "(dd/mm)" logo depois lido junto) que é UMA das datas da consulta (`offeredDay`); sem `codDates`, tudo como antes. A diretiva
+  (`closeDirective`) ensina só essas datas, nenhum link, e nada "confirmado" antes do SIM.
+- O M que a Logzz entrega e a Coinzz não vende: no antecipado, nenhum link (`prepayOut`) e o modelo oferece a entrega.
+
+**Guarda.** `tests/cod-close-2026-10-28.test.ts` (42: negações do dia, do sim, do número; falha ≠ sem entrega; o mesmo id nas
+tentativas; o webhook sem linha dupla; as linhas fixas passando a cadeia com as datas e vetadas sem elas ou com dia fora delas; o config
+de 28/10 = o de 27/10 + `logzzImport`, nunca os códigos da Coinzz); mutações `O31-*` (11), 14/14 pegas junto com as antigas cujo texto
+mudou (`T6e-praca-nao-gravada`, `E6-kit-depois-do-link`, `O27-link-do-m`). Config: `docs/operacao/business-config-2026-10-28.min.json`.
+
+**Resíduos.**
+- `variations[].hash` com o código da variação foi validado pela importação até "Data de entrega indisponível." (Manaus, coordenador);
+  o primeiro pedido real ainda é a prova do mapeamento inteiro.
+- O "sim" é texto, não botão (§25): a âncora é o resumo como última mensagem e a mensagem inteira como sim.
+- Com uma pergunta ao lado do resumo, o resumo vai sem a resposta (a resposta do modelo viraria a última mensagem e o sim seguinte
+  pediria o resumo de novo).
+- Consulta da Logzz que falhou: vale a da Coinzz, como antes (e o "M sem estoque" dela). O prompt fixo ainda fala de "escolher o dia
+  no checkout" em alguns parágrafos; a diretiva do fechamento é mais específica.
+- CPF recusado por ela: o pedido na entrega não fecha sem CPF; o modelo segue sob a diretiva.
+- Uma lead com pedido vivo (de outro canal) não fecha pela importação, e o link da entrega da Coinzz volta a valer para ela.
+- `utm_*`: `whatsapp` / `ctwa` ou `site` / o `source_id` do anúncio; campanha, conteúdo e termo vazios.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

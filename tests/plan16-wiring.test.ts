@@ -188,7 +188,7 @@ describe("index.ts — a fiação do plano 16", () => {
     expect(turn).toContain("if (region && (region.cod || freightFor === null || region.prepayFreightFor !== freightFor)) region = { ...region, prepayFreightBrl: null, prepayFreightFor: null };");
     expect(at("if (region && (region.cod || freightFor === null")).toBeLessThan(at("const { stockLine, stockLeft, prepayFreightBrl } = regionTurnFacts(CONFIG, {"));
     // The offer's own freight line is one piece's: a kit's freight is said by the model, under the kit.
-    expect(turn).toContain("offerBubbles(CONFIG, { cod, dates: region.dates, prepayFreightBrl: units === 1 ? prepayFreightBrl : null }, new Date(),");
+    expect(turn).toContain("offerBubbles(CONFIG, { cod, dates: region.dates, prepayFreightBrl: units === 1 ? prepayFreightBrl : null, closesHere: cod && close !== null }, new Date(),");
   });
 
   it("objeção vaga: uma pergunta, nunca sobre a recusa, e o 'vou pensar' de hoje fica para a segunda vez", () => {
