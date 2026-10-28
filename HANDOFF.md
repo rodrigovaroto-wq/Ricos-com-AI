@@ -15,7 +15,9 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 > **2026-10-28 ~14:00 UTC — `BUSINESS_CONFIG` de 27/10 NO AR** (colado pelo operador; sha `b6a13293…` conferido). Alarme de
 > cobertura 14:11 UTC `healthy` já pela Coinzz. **Achado:** a API oficial da Logzz de datas por CEP (`/api/delivery-day/options/zip-code`,
-> com `products`) diverge da Coinzz: SP G e BH M têm data na Logzz e não têm pagamento na entrega na Coinzz (SP GG ao contrário).
+> com `products`) diverge da Coinzz — **corrigido no mesmo dia: a comparação usou os códigos da Coinzz (`pro7ml00`…), que na Logzz são
+> outro produto; o produto da Logzz é `prow6pq0` e os códigos das variações ainda faltam (operador). Não é evidência.**
+> Integração de importação `orivd974` mapeada; oferta `sal0g3mo` aceita (sonda para Manaus, sem pedido criado).
 > Proposta ao operador: a Malu criar o pedido da entrega pela API de importação da Logzz (sem checkout), consultando essa API.
 >
 > **2026-10-28 13:23 UTC — PUBLICADO (operador autorizou):** `turn` **v46** (função v165, commit `75408f4`), ainda com o

@@ -268,7 +268,30 @@ export interface GateContext {
    * Absent: no freight number, as before.
    */
   prepayFreightBrl?: number;
+  /**
+   * The delivery days the Logzz offered for her package this turn (ISO), when the sale on delivery is closed in the conversation
+   * (grafo §135): she picks one of them here, so naming one is the fact of her order, not a promise. Any other day is still vetoed
+   * by `delivery_promise`. Absent (every other turn, the sweep): no day at all, as before.
+   */
+  codDates?: readonly string[];
 }
+
+/**
+ * The day named in a `delivery_promise` span ("entrega pra quinta (29/10)") is one of `codDates`: every weekday, "dd/mm" and
+ * "dia dd" in it resolves to the same offered date. Never true without dates.
+ */
+const offeredDay = (span: string, dates: readonly string[] | undefined): boolean => {
+  if (!dates?.length) return false;
+  const WEEK = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
+  const tokens = [...span.matchAll(/\b(segunda|terca|quarta|quinta|sexta|sabado|domingo)|\b(\d{1,2})\/(\d{1,2})\b|\bdia\s+(\d{1,2})\b/g)];
+  return tokens.length > 0 && dates.some((iso) => {
+    const d = new Date(`${iso}T12:00:00Z`);
+    return tokens.every((t) =>
+      t[1] ? WEEK[d.getUTCDay()] === t[1]
+      : t[2] ? Number(t[2]) === d.getUTCDate() && Number(t[3]) === d.getUTCMonth() + 1
+      : Number(t[4]) === d.getUTCDate());
+  });
+};
 
 /** The stock the agent may cite this turn (`GateContext.stockLeft` under `scarcity.lowStock`), or null. */
 const realStock = (ctx: GateContext): { size: string; qty: number } | null => {
@@ -2253,6 +2276,8 @@ const gates: readonly Gate[] = [
           ),
         )) {
           const at = m.index ?? 0;
+          // A day of the dates the Logzz offered for her package (grafo §135), with the "(dd/mm)" right after it read too.
+          if (offeredDay(m[0] + (/^\s*\(\s*\d{1,2}\/\d{1,2}\s*\)/.exec(td.slice(at + m[0].length))?.[0] ?? ""), ctx.codDates)) continue;
           const phrase = td
             .slice(Math.max(0, at - 60), at)
             .split(/[:;.!?\n]/)

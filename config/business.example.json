@@ -223,6 +223,11 @@
   "handoff": {
     "email": "{{EMAIL}}"
   },
+  "logzzOrder": {
+    "importUrl": "{{LOGZZ_IMPORT_URL}}",
+    "offers": { "1": "sal0g3mo", "2": "salng30n", "3": "sal6gz39" },
+    "sizeCodes": { "P": "pro4gpo2", "M": "proqvqmj", "G": "pro7ml00", "GG": "pro66jdm", "XGG": "proe50v0" }
+  },
   "scarcity": {
     "unitsLeft": 12,
     "offerEndsAt": null,

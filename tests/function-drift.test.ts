@@ -27,6 +27,7 @@ const mirrored = [
   ["src/agent/agent-version.ts", "supabase/functions/turn/agent-version.ts"],
   ["src/agent/experiments.ts", "supabase/functions/turn/experiments.ts"],
   ["src/agent/funnel.ts", "supabase/functions/turn/funnel.ts"],
+  ["src/agent/cod-close.ts", "supabase/functions/turn/cod-close.ts"],
   ["src/channel/whatsapp.ts", "supabase/functions/whatsapp/whatsapp.ts"],
   ["src/channel/inbound-signature.ts", "supabase/functions/whatsapp/inbound-signature.ts"],
   ["src/channel/inbound-signature.ts", "supabase/functions/turn/inbound-signature.ts"],

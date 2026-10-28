@@ -88,7 +88,32 @@ import {
 import { asksForSize, type Size, SIZES, sizeBeyondTable, sizeFromDressSize, statedSizeOf, TABLE_TOP_DRESS, TABLE_TOP_WAIST } from "./sizing.ts";
 import { acceptsOffers, mayAskOptIn, optInAnswer, optInMessage, suspendsMarketingOptIn } from "./opt-in.ts";
 import { furthest, overwritableBy, reachedStage, type Stage } from "./state-machine.ts";
-import { cachedRegion, type CachedRegion, kitRegion, cepsByStreet, checkCoverage, type Fetcher, healthOf, logzzIdsOf, lookupRegion, lookupsDegraded, prepayFreight, type Region, type RegionLookup } from "./availability.ts";
+import { cachedRegion, type CachedRegion, kitRegion, cepsByStreet, checkCoverage, type Fetcher, healthOf, logzzIdsOf, lookupRegion, lookupsDegraded, prepayFreight, type Region, type RegionLookup, VIACEP_ENDPOINT } from "./availability.ts";
+import {
+  cachedCodDates,
+  type CachedCodDates,
+  CLOSE_CPF_REFUSED,
+  CLOSE_OPEN_ORDER,
+  closeConfirmed,
+  closeDirective,
+  closeNoCodLine,
+  closeOrderId,
+  closeRetryLater,
+  type CloseState,
+  closeStep,
+  type CodDate,
+  codPackage,
+  importedTwin,
+  importPayload,
+  isCloseMessage,
+  type LogzzOrderConfig,
+  lookupCodDates,
+  nationalPhone,
+  PHONE_ASK,
+  placeOrder,
+  type Poster,
+  SUMMARY_HEAD,
+} from "./cod-close.ts";
 import {
   confirmsAddress,
   extractAddress,
@@ -221,6 +246,7 @@ import {
   type FunnelBubble,
   type FunnelMedia,
   offerAsk,
+  NAME_ASK,
   offerBubbles,
   noCodReasonLine,
   sizeOutOfStockLine,
@@ -499,6 +525,11 @@ interface BusinessConfig extends GateConfig {
    * consents, and `silence_2`/`silence_3` never leave as a template. Turn it on only after 0019.
    */
   channel?: FollowupConfig["channel"] & { askMarketingOptIn?: boolean };
+  /**
+   * The pay-on-delivery sale closed in the conversation by the Logzz Order Import API (operator, 2026-10-28, grafo §135).
+   * OPTIONAL, every key — absent in the secret, or without `LOGZZ_API_TOKEN`, the Coinzz link closes both paths, as before.
+   */
+  logzzOrder?: LogzzOrderConfig;
 }
 
 const CONFIG: BusinessConfig = JSON.parse(
@@ -1371,6 +1402,8 @@ interface OrderWebhook {
   offerName?: string | null;
   pixUrl?: string | null;
   pixCode?: string | null;
+  /** The order the import made in the conversation (grafo §135): its own external id, kept in `details` for the webhook to find. */
+  importId?: string;
 }
 
 /** A short text from a webhook, or null: nothing past `max` characters is kept. */
@@ -1426,6 +1459,18 @@ const recordOrder = async (order: OrderWebhook, mayCreateLead = false) => {
   // ruler is still chasing her. It has to be visible.
   if (!lead) return { status: "unknown_lead", phone: order.phone, ok: false };
 
+  // The webhook of an order the import made (grafo §135) files over that row, never a second one: its id, its code, or her one
+  // open imported order. Index: orders_lead_idx (lead_id); her few imported rows are matched in memory.
+  let webhookId: string | null = null;
+  if (!order.importId) {
+    const imported = (await db(`orders?lead_id=eq.${lead.id}&details->>importId=not.is.null&select=external_id,status,created_at,details`).catch(() => null)) ?? [];
+    const twin = importedTwin(imported, order, isOrderDead, Date.now());
+    if (twin !== null && twin !== order.externalId) {
+      webhookId = order.externalId;
+      order = { ...order, externalId: twin };
+    }
+  }
+
   const conversations = made
     ? await db("conversations", { method: "POST", body: JSON.stringify({ lead_id: lead.id }) })
     : await db(`conversations?lead_id=eq.${lead.id}&select=id,stage&order=created_at.desc&limit=1`);
@@ -1442,6 +1487,8 @@ const recordOrder = async (order: OrderWebhook, mayCreateLead = false) => {
       offerName: shortText(order.offerName, 120),
       pixUrl: shortText(order.pixUrl, 1024)?.startsWith("https://") ? shortText(order.pixUrl, 1024) : null,
       pixCode: shortText(order.pixCode, 1024),
+      importId: shortText(order.importId, MAX_EXTERNAL_ID),
+      webhookId: shortText(webhookId, MAX_EXTERNAL_ID),
     }).filter(([, v]) => v !== null),
   );
   const pix = Boolean(details.pixCode || details.pixUrl);
@@ -1680,6 +1727,22 @@ const regionFetcher = (timeoutMs: number): Fetcher => async (url, headers) => {
   // The error carries the parsed body: the Logzz says "no delivery there" as a 400 with a JSON body (2026-10-19).
   if (!r.ok && r.status !== 404) throw Object.assign(new Error(`region lookup HTTP ${r.status}`), { status: r.status, body: await r.json().catch(() => null) });
   return r.ok ? await r.json() : null;
+};
+
+/**
+ * The Logzz Order Import token (grafo §135): a Supabase secret, never the config. Empty: the close is off, the link goes as before.
+ * The POST the dates query and the import share: status and parsed body, a throw only on the network or the timeout.
+ */
+const LOGZZ_TOKEN = Deno.env.get("LOGZZ_API_TOKEN") ?? "";
+const IMPORT_TIMEOUT_MS = 20_000;
+const logzzPoster = (timeoutMs: number): Poster => async (url, body, headers = {}) => {
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/json", ...headers },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  return { status: r.status, body: await r.json().catch(() => null) };
 };
 
 /** São Paulo CEPs the L2 audit (2026-10-08) saw with cash on delivery: one not `cod` is the path gone, not the region. */
@@ -3388,6 +3451,9 @@ const handleTurn = async (
   // initialization" and the turn died with a 500 (personas of 2026-10-15, grafo §96). Before the history, the last three are
   // read, the way the sweep does, the text just stored excluded.
   let recentOutboundRead: readonly string[] | null = null;
+  // The Logzz dates of her package while the sale on delivery closes here (grafo §135): the only days a line may name. Declared
+  // before `sendFixed`, which reads it (memory: turn-closure-antes-da-declaracao).
+  let gateCodDates: readonly string[] | undefined;
   const outboundBefore = async (): Promise<readonly string[]> =>
     recentOutboundRead ??
     ((await db(
@@ -3416,6 +3482,7 @@ const handleTurn = async (
       codUnavailable,
       postponing,
       units: pieces,
+      ...(gateCodDates ? { codDates: gateCodDates } : {}),
     });
     await recordTraces(conversation.id, gated.traces);
     if (!passed(gated)) return null;
@@ -3984,12 +4051,16 @@ const handleTurn = async (
     confirmedAt?: string;
     codAvailable?: boolean;
     region?: CachedRegion;
+    codDates?: CachedCodDates;
+    codClose?: CloseState;
   };
   let addressConfirmed = Boolean(storedAddress.confirmedAt);
   let addressDraft: Partial<Address> = { ...storedAddress };
   delete (addressDraft as { confirmedAt?: string }).confirmedAt;
   delete (addressDraft as { codAvailable?: boolean }).codAvailable;
   delete (addressDraft as { region?: CachedRegion }).region;
+  delete (addressDraft as { codDates?: CachedCodDates }).codDates;
+  delete (addressDraft as { codClose?: CloseState }).codClose;
 
   // Message by message, in order: a later correction wins ("Rua das Flores 10" / "não, Rua das Rosas 12").
   const foundAddress = { fields: extractAddressBurst(parts) };
@@ -4140,6 +4211,33 @@ const handleTurn = async (
     // not schedule never goes, and a failure never turns a known answer into the two links (review: the offers flip-flopped).
     region = kitRegion(region, regionSize, answers);
   }
+  // Grafo §135 (operator, 2026-10-28): with the close configured, the door is the Logzz dates for HER package — a unit holding all
+  // of it and serving the CEP, the rule the import itself uses. Dates: the delivery, closed here, even for a size the Coinzz 404s.
+  // Its own "no": the prepaid. Failed: the lookup above stands, as before — a failure is never "no delivery" (L2).
+  const coinzzSizeOut = region?.sizeOutOfStock === true;
+  const closeSizes = (units > 1 ? unitSizes : regionSize ? [regionSize] : []).filter((x): x is Size => (SIZES as readonly string[]).includes(x));
+  const closePkg = LOGZZ_TOKEN ? codPackage(CONFIG.logzzOrder, closeSizes, units > 1 ? units : 1) : null;
+  let codDates: readonly CodDate[] = [];
+  let freshCodDates: CachedCodDates | null = null;
+  const codPlace = region?.place ?? (failedPlace ? { ...failedPlace, district: "Centro" } : null);
+  if (closePkg && addressDraft.cep && codPlace) {
+    const cachedDates = cachedCodDates(storedAddress.codDates, addressDraft.cep, closePkg.key, Date.now());
+    const look = cachedDates ?? await lookupCodDates(logzzPoster(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS), addressDraft.cep, closePkg);
+    if (!cachedDates && look.kind !== "failed") freshCodDates = { cep: addressDraft.cep, key: closePkg.key, checkedAt: new Date().toISOString(), result: look };
+    if (look.kind === "dates") {
+      codDates = look.dates;
+      region = {
+        ...(region ?? { zip: addressDraft.cep, place: codPlace, labelBrl: null }),
+        cod: true,
+        dates: look.dates.map((d) => d.date),
+        sameDay: false,
+        size: regionSize,
+        askedSize: regionSize,
+        otherSizesInStock: [],
+        sizeOutOfStock: false,
+      };
+    } else if (look.kind === "none" && region) region = { ...region, cod: false, dates: [], sameDay: false };
+  }
   // Plan 16 §4.7: where the delivery does not reach her, the prepaid box says the freight the checkout charges at her CEP for what she
   // is buying — one piece of her size, or the kit with the size of each piece, asked in one query like the kit checkout does
   // (Playwright, 2026-10-22). Read once per pieces: the region's cache carries the freight with the pieces it was read for
@@ -4214,22 +4312,26 @@ const handleTurn = async (
 
   const addressChanged =
     JSON.stringify({ ...addressDraft, confirmedAt: addressConfirmed }) !==
-    JSON.stringify({ ...storedAddress, codAvailable: undefined, region: undefined, confirmedAt: Boolean(storedAddress.confirmedAt) });
+    JSON.stringify({ ...storedAddress, codAvailable: undefined, region: undefined, codDates: undefined, codClose: undefined, confirmedAt: Boolean(storedAddress.confirmedAt) });
   // Whether her region pays at the door, kept for the sweep (D3): the region is looked up per
   // turn and was never stored, so the silence ruler told a woman with no payment at the door
   // "você não paga nada agora". A new CEP whose lookup failed drops the old region's answer.
   const codAvailable = region !== null ? region.cod : addressDraft.cep === storedAddress.cep ? storedAddress.codAvailable : undefined;
   codUnavailable = codAvailable === false;
-  if (addressChanged || codAvailable !== storedAddress.codAvailable || freshRegion) {
+  // The whole address as written: the close (grafo §135) writes its own state over this same object, never over a stale one.
+  const addressRow = {
+    ...addressDraft,
+    ...(addressConfirmed ? { confirmedAt: new Date().toISOString() } : {}),
+    ...(codAvailable !== undefined ? { codAvailable } : {}),
+    ...(freshRegion ?? storedAddress.region ? { region: freshRegion ?? storedAddress.region } : {}),
+    ...(freshCodDates ?? storedAddress.codDates ? { codDates: freshCodDates ?? storedAddress.codDates } : {}),
+    ...(storedAddress.codClose ? { codClose: storedAddress.codClose } : {}),
+  };
+  if (addressChanged || codAvailable !== storedAddress.codAvailable || freshRegion || freshCodDates) {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
       body: JSON.stringify({
-        address: {
-          ...addressDraft,
-          ...(addressConfirmed ? { confirmedAt: new Date().toISOString() } : {}),
-          ...(codAvailable !== undefined ? { codAvailable } : {}),
-          ...(freshRegion ?? storedAddress.region ? { region: freshRegion ?? storedAddress.region } : {}),
-        },
+        address: addressRow,
         updated_at: new Date().toISOString(),
       }),
     }).catch(() => undefined);
@@ -4486,7 +4588,17 @@ const handleTurn = async (
   // conversation, goes again only when she asks for it. Only this path's checkout counts (code
   // review, 2026-09-24): a switch to the prepaid one, or to a kit, is a different link and goes out.
   const pathBase = kitUrl ?? (linkPath === "cod" ? CONFIG.checkout?.codUrl : CONFIG.checkout?.prepayUrl);
-  const linkReady = sendLinkNow({ ...linkData, yesBesideQuestion }) && sizeOut === null;
+  // Grafo §135: an M the Logzz delivers at her door has no Coinzz checkout (its 404): on the prepaid path, no link — the delivery.
+  const prepayOut = linkPath === "prepay" && coinzzSizeOut && region?.cod === true;
+  if (prepayOut) {
+    guide(
+      `O tamanho dela só sai no pagamento na entrega agora: o checkout do antecipado não vende esse tamanho. Diga isso numa frase e` +
+        ` ofereça agendar a entrega com pagamento na hora. Não mande link.`,
+      `No antecipado esse tamanho está sem estoque agora, mas pagando na entrega eu consigo agendar pra você 😊 Quer que eu agende?`,
+      "tamanho só no pagamento na entrega",
+    );
+  }
+  const linkReady = sendLinkNow({ ...linkData, yesBesideQuestion }) && sizeOut === null && !prepayOut;
   // Past the twenty-message window, the newest link is read by the checkout hosts: the outbound rows
   // that carry one, newest first. Only when the window has none and the link would go; a failed read
   // falls back to the window, which sends.
@@ -4528,7 +4640,52 @@ const handleTurn = async (
     linkSentBefore: lastLinkBase(linkHistory, CHECKOUT_BASES) !== null,
   }) && !clauses.some((q: string) => asksSomething(q) && !buyerAsk(q));
   const linkUnheld = !linkJustSent && linkReady && !withdrew;
-  const linkNow = linkUnheld && !kitFirst;
+  // Grafo §135: the sale on delivery closes here, with no link, while she has no live order (the Logzz keeps one open main order
+  // per customer). A kit only with its price in the config. Index: orders_lead_idx, her few rows.
+  const herStatuses = closePkg !== null && codDates.length > 0 && linkPath === "cod" && sizeOut === null && (units === 1 || kits.some((k) => k.path === "cod" && k.units === units))
+    ? ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(",")})&select=status&limit=20`).catch(() => null)) ?? [])
+    : null;
+  const closeOn = herStatuses !== null && herStatuses.every((o: { status: string | null }) => ["recusado", "entregue_pago"].includes(stageForOrder(o.status ?? undefined) ?? ""));
+  if (closeOn) gateCodDates = codDates.map((d) => d.date);
+  const linkNow = linkUnheld && !kitFirst && !closeOn;
+  // The close's next step (grafo §135), pure; its state is kept at once, whatever this turn then sends. What the CEP itself says
+  // of the street (ViaCEP): empty on a town's general CEP, and then her street is asked.
+  let closeDone = false;
+  const cepBody = closeOn
+    ? ((await regionFetcher(REGION_TIMEOUT_MS)(`${VIACEP_ENDPOINT}/${addressDraft.cep!.replace(/\D/g, "")}/json/`).catch(() => null)) as { logradouro?: string; bairro?: string } | null)
+    : null;
+  const closeState: CloseState = storedAddress.codClose ?? {};
+  const closeFacts = closeOn && closePkg && region
+    ? {
+      dates: codDates,
+      name: identityDraft.name ? titleCaseName(identityDraft.name) : null,
+      cpf: identityDraft.document ?? null,
+      cpfInvalid: parts.some(sentInvalidCpf),
+      cep: addressDraft.cep!,
+      cepStreet: typeof cepBody?.logradouro === "string" ? cepBody.logradouro : "",
+      cepNeighborhood: typeof cepBody?.bairro === "string" ? cepBody.bairro : "",
+      city: region.place.city,
+      state: region.place.state,
+      typed: foundAddress.fields,
+      stored: storedAddress,
+      phone: nationalPhone(String(lead.phone ?? "")),
+      what: units > 1 ? `Kit com ${units} peças (${closePkg.sizes.join(" e ")})` : `Colete ${closePkg.sizes[0]}`,
+      priceBrl: units > 1 ? kits.find((k) => k.path === "cod" && k.units === units)!.priceBrl : CONFIG.prices.codBrl,
+      freeShipping: CONFIG.delivery.freeShipping === true || CONFIG.delivery.codFreeShipping !== false,
+    }
+    : null;
+  const close = closeFacts
+    ? closeStep({ facts: closeFacts, state: closeState, parts, lastOutbound, datesAsked: isCloseMessage(lastOutbound) || lastOutbound === NAME_ASK, now: new Date() })
+    : null;
+  const saveAddress = (extra: Record<string, unknown>) =>
+    db(`leads?id=eq.${lead.id}`, { method: "PATCH", body: JSON.stringify({ address: { ...addressRow, ...extra }, updated_at: new Date().toISOString() }) }).catch(() => undefined);
+  if (close && JSON.stringify(close.state) !== JSON.stringify(closeState)) await saveAddress({ codClose: close.state });
+  // Every close line through the turn's chain, with the dates of the lookup; vetoed, the model answers under the directive.
+  const closeGated = async (text: string): Promise<boolean> => {
+    const gated = runGates(text, { config: turnConfig, layer: "agent", optedOut: false, now: new Date(), paymentPath: "cod", codUnavailable, units, ...(gateCodDates ? { codDates: gateCodDates } : {}) });
+    await recordTraces(conversation.id, gated.traces);
+    return passed(gated);
+  };
   // She wants the link and something comes first: that one thing, asked naturally. The payment
   // choice is the region directive's; name, e-mail and CPF are the identity directive's.
   const linkDue = interpretation.wants_to_buy || parts.some(asksForLink);
@@ -4700,7 +4857,7 @@ const handleTurn = async (
     let thinkLink: string | null = null;
     try {
       // Arm B: the "vou pensar" gets the link, not the kit offer (review of 2695b80, 1).
-      thinkLink = linkUnheld && !(linkInChat && closesConversation(spoken(inbound.body ?? "")))
+      thinkLink = linkUnheld && !closeOn && !(linkInChat && closesConversation(spoken(inbound.body ?? "")))
         ? buildPrefilledCheckoutLink(linkCustomer, linkPath, linkCheckout)
         : null;
     } catch {
@@ -4882,9 +5039,11 @@ const handleTurn = async (
       const cod = offerNow === "cod";
       // A4 (personas of 2026-10-24): why the prepaid, before its box — her size where another one has the delivery in her city.
       const noCodReason = cod ? null : noCodReasonLine(region.size ?? null, (region.otherSizesInStock?.length ?? 0) > 0);
+      // Grafo §135: closed here, the box sends her to no checkout and its ask is the close's (dates and what is missing), gated.
+      const closeAsk = cod && close?.kind === "send" && (await closeGated(close.text)) ? close.text : null;
       const sent = await sendFunnelTurn(
         await withHook([
-          ...offerBubbles(CONFIG, { cod, dates: region.dates, prepayFreightBrl: units === 1 ? prepayFreightBrl : null }, new Date(), checkoutUrl ? null : offerAsk(cod, sizeKnown), noCodReason),
+          ...offerBubbles(CONFIG, { cod, dates: region.dates, prepayFreightBrl: units === 1 ? prepayFreightBrl : null, closesHere: cod && close !== null }, new Date(), checkoutUrl ? null : closeAsk ?? offerAsk(cod, sizeKnown), noCodReason),
           ...(checkoutUrl ? [{ text: v3Link(checkoutUrl) }] : []),
         ]),
         checkoutUrl ? `roteiro v3: oferta e link — ${linkFact ?? ""}` : "roteiro v3: oferta",
@@ -4892,6 +5051,112 @@ const handleTurn = async (
         answerAfterOffer,
       );
       if (sent) return sent;
+    }
+  }
+
+  // Grafo §135: the sale on delivery, closed here — the next ask or the summary, fixed and gated, her question beside it answered
+  // after (n8n's resume); the order only on `confirm`: her bare yes to the summary that is the agent's last message.
+  const closeReady = close !== null && !withdrew && !declined && (isCloseMessage(lastOutbound) || lastOutbound === NAME_ASK || linkReady || linkDue || pressed);
+  if (closeReady && guides.length === 0 && openNow && !farewell) {
+    if (close?.kind === "send" && (await closeGated(close.text))) {
+      const sent = await sendFunnelTurn([{ text: opening(close.text) }], close.reason, {}, (askedBeside || saidBeside) && !isResume && !close.text.startsWith(SUMMARY_HEAD));
+      if (sent) return sent;
+    }
+    if (close?.kind === "confirm" && closePkg && LOGZZ_TOKEN) {
+      const chosen = close.order.date.date;
+      // The day re-checked right before the import: it may have filled since the summary.
+      const recheck = await lookupCodDates(logzzPoster(REGION_TIMEOUT_MS), addressDraft.cep!, closePkg);
+      const reask = async (dates: readonly CodDate[], reason: string): Promise<Response | null> => {
+        const again = closeStep({ facts: { ...closeFacts!, dates }, state: close.state, parts: [], lastOutbound: "", datesAsked: false, now: new Date() });
+        gateCodDates = dates.map((d) => d.date);
+        await saveAddress({ codClose: again.state, codDates: { cep: addressDraft.cep, key: closePkg.key, checkedAt: new Date().toISOString(), result: { kind: "dates", dates } } });
+        return again.kind === "send" ? await sendFixed(again.text, reason, "cod", {}, false, closePkg.units) : null;
+      };
+      const noCod = async (why: string): Promise<Response | null> => {
+        // No door for the package any more: said, with the prepaid link where the Coinzz sells her size.
+        codUnavailable = true;
+        await saveAddress({ codClose: {}, codAvailable: false, codDates: { cep: addressDraft.cep, key: closePkg.key, checkedAt: new Date().toISOString(), result: { kind: "none", reason: why } } });
+        const prepayBase = units > 1 ? kits.find((k) => k.path === "prepay" && k.units === units)?.checkoutUrl : CONFIG.checkout?.prepayUrl;
+        let link: string | null = null;
+        try {
+          link = prepayBase && !coinzzSizeOut ? buildPrefilledCheckoutLink({ ...linkCustomer, ...(chatEmail ? { email: chatEmail } : {}) }, "prepay", { prepayUrl: prepayBase }) : null;
+        } catch {
+          link = null;
+        }
+        return await sendFixed(closeNoCodLine(link), `pedido na entrega sem estoque/cobertura na hora: ${why.slice(0, 80)}`, "prepay", link ? { checkoutUrl: link } : {}, false, closePkg.units);
+      };
+      if (recheck.kind === "dates" && !recheck.dates.some((d) => d.date === chosen)) {
+        const sent = await reask(recheck.dates, "pedido na entrega: o dia lotou antes do sim");
+        if (sent) return sent;
+      } else if (recheck.kind === "none") {
+        const sent = await noCod(recheck.reason);
+        if (sent) return sent;
+      } else {
+        const importId = await closeOrderId(conversation.id, close.summary);
+        const source = (lead.source ?? {}) as Record<string, unknown>;
+        const result = await placeOrder(logzzPoster(IMPORT_TIMEOUT_MS), CONFIG.logzzOrder!.importUrl!, LOGZZ_TOKEN, importPayload({
+          externalId: importId,
+          order: close.order,
+          email: leadEmail,
+          cep: addressDraft.cep!,
+          city: closeFacts!.city,
+          state: closeFacts!.state,
+          pkg: closePkg,
+          utm: { source: "whatsapp", medium: fromAd ? "ctwa" : "site", campaign: "", content: "", term: "", id: typeof source.source_id === "string" ? source.source_id.slice(0, 64) : "" },
+        }));
+        if (result.kind === "created") {
+          // Filed like the webhook files a sale, so the post-order ruler runs; the webhook of the same order finds this row.
+          await recordOrder({
+            externalId: importId,
+            importId,
+            phone: String(lead.phone ?? ""),
+            paymentMethod: "cod",
+            size: closePkg.sizes.join(","),
+            units: closePkg.units,
+            amountBrl: closeFacts!.priceBrl,
+            status: "Agendado",
+            scheduledFor: result.deliveryDate,
+            orderNumber: result.orderCode,
+            customerName: close.order.name,
+          }).catch(() => null);
+          await saveAddress({ codClose: {} });
+          closeDone = true;
+          gateCodDates = [result.deliveryDate];
+          const text = closeConfirmed(result.orderCode, result.deliveryDate, result.rescheduled, closeFacts!.priceBrl);
+          const sent = await sendFixed(text, `pedido na entrega criado pela importação: ${result.orderCode}`, "cod", {}, false, closePkg.units);
+          // Said here, the ruler's own confirmation five minutes later would be the second one. Index: messages_conversation_idx.
+          const said = ((await db(`messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&body=eq.${encodeURIComponent(text)}&select=id&limit=1`).catch(() => null))?.length ?? 0) > 0;
+          if (said) {
+            await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.order_confirmed&status=eq.scheduled`, {
+              method: "PATCH",
+              body: JSON.stringify({ status: "canceled" }),
+            }).catch(() => undefined);
+          }
+          if (sent) return sent;
+          guide("O pedido dela foi criado agora, com o número e o dia abaixo.", text, "pedido na entrega criado: resposta do modelo");
+        } else if (result.kind === "date_gone") {
+          const fresh = recheck.kind === "dates" ? recheck.dates.filter((d) => d.date !== chosen) : [];
+          const sent = fresh.length > 0 ? await reask(fresh, "pedido na entrega: o dia lotou na importação") : await noCod(result.message);
+          if (sent) return sent;
+        } else if (result.kind === "no_cod") {
+          const sent = await noCod(result.message);
+          if (sent) return sent;
+        } else if (result.kind === "cpf") {
+          await saveAddress({ codClose: { ...close.state, badCpf: close.order.cpf } });
+          const sent = await sendFixed(CLOSE_CPF_REFUSED, "pedido na entrega: a Logzz recusou o CPF", "cod");
+          if (sent) return sent;
+        } else if (result.kind === "phone") {
+          await saveAddress({ codClose: { ...close.state, badPhone: close.order.phone } });
+          const sent = await sendFixed(PHONE_ASK, "pedido na entrega: a Logzz recusou o telefone", "cod");
+          if (sent) return sent;
+        } else {
+          // Already open there, or nothing created (409/429/5xx twice, the token, an answer not understood): said truthfully, the
+          // operator e-mailed, and the same summary under it — her "SIM" again sends the same order id.
+          extraNotify = `pedido na entrega não criado (${result.kind}): ${result.message.slice(0, 120)}`;
+          const sent = await sendFixed(result.kind === "open_order" ? CLOSE_OPEN_ORDER : closeRetryLater(close.summary), extraNotify, "cod", {}, false, closePkg.units);
+          if (sent) return sent;
+        }
+      }
     }
   }
 
@@ -4940,7 +5205,10 @@ const handleTurn = async (
   const kitOfferNow = false;
   // Review of 5383dc5: with the fixed line held back, the identity directive would have the model ask
   // the CPF again of a woman saying goodbye. Told instead what the turn is.
-  const identityDirective = farewell
+  const identityDirective = close !== null && !closeDone && !farewell
+    // Grafo §135: closed here — only the lookup's dates, no link, nothing "confirmado" before her yes to the summary.
+    ? close.kind === "model" ? close.directive : closeDirective(codDates, [], lastOutbound.includes(SUMMARY_HEAD))
+    : farewell
     ? `Ela está se despedindo ou vai pensar, e você já respondeu isso com a mensagem de "vou pensar". ` +
       `Responda curto e gentil, sem pedir dado nenhum, sem oferta e sem link.`
     // Her size out of stock (review of 481f2d3): no name nor CPF for a sale that cannot close.
@@ -5229,6 +5497,8 @@ const handleTurn = async (
       regionKnown: region !== null,
       // Plan 16 §4.6–4.7: the stock and the freight the prompt taught this turn, the same values (`turnFacts`).
       ...factsGate,
+      // Grafo §135: the Logzz dates of her package, the only days the close lets her hear.
+      ...(gateCodDates ? { codDates: gateCodDates } : {}),
     });
 
     // Every attempt is traced, not just the last: a gate that keeps firing across

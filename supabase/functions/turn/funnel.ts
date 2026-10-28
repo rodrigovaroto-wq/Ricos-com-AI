@@ -218,16 +218,23 @@ export const LEGACY_OFFER_HEADLINE = (config: FunnelConfig): string =>
 export const LEGACY_PREPAY_HEADLINE = "Pra sua cidade o colete vai pelos Correios, com código de rastreio 📦";
 
 /** Etapa 3, where cash on delivery reaches her CEP. "Menos de 24 horas" only when the checkout's first day is tomorrow. */
-export const codOfferText = (config: FunnelConfig, firstDate: string | undefined, now: Date): string => {
+export const codOfferText = (
+  config: FunnelConfig,
+  firstDate: string | undefined,
+  now: Date,
+  /** The sale is closed in the conversation (grafo §135): she picks the day here, there is no checkout. */
+  closesHere = false,
+): string => {
   const day = firstDayLine(firstDate, now);
+  const other = closesHere ? "Ou se preferir outro dia, é só me falar." : "Ou se preferir outro dia, é só escolher lá no checkout.";
   const free = config.delivery.freeShipping === true || config.delivery.codFreeShipping !== false;
   // Operator, 2026-10-21 (grafo §121): the truck on its own line, the day on the next, the check before "Não Paga Nada Agora".
   const freeLead = free ? "🚚 *FRETE GRÁTIS*\n" : "🚚 ";
   const when = day?.startsWith("amanhã")
-    ? `${freeLead}Seu Pedido Chegará em *Menos de 24 Horas!!*\n\nOu se preferir outro dia, é só escolher lá no checkout.`
+    ? `${freeLead}Seu Pedido Chegará em *Menos de 24 Horas!!*\n\n${other}`
     : day
-      ? `${freeLead}Seu Pedido Chegará já *${day}!!*\n\nOu se preferir outro dia, é só escolher lá no checkout.`
-      : `${freeLead}Seu Pedido Chegará em *${config.delivery.codDaysMin} a ${config.delivery.codDaysMax} dias!!*\n\nVocê escolhe o dia lá no checkout.`;
+      ? `${freeLead}Seu Pedido Chegará já *${day}!!*\n\n${other}`
+      : `${freeLead}Seu Pedido Chegará em *${config.delivery.codDaysMin} a ${config.delivery.codDaysMax} dias!!*\n\n${closesHere ? "Você escolhe o dia aqui comigo." : "Você escolhe o dia lá no checkout."}`;
   return [
     OFFER_HEADLINE(config),
     when,
@@ -287,7 +294,7 @@ export const sizeFirstBubbles = (): FunnelBubble[] => [{ text: SIZE_BEFORE_OFFER
  */
 export const offerBubbles = (
   config: FunnelConfig,
-  region: { cod: boolean; dates: readonly string[]; prepayFreightBrl?: number | null },
+  region: { cod: boolean; dates: readonly string[]; prepayFreightBrl?: number | null; closesHere?: boolean },
   now: Date,
   ask: string | null,
   /** `noCodReasonLine`, before the prepaid box (A4). Ignored on the delivery path. */
@@ -297,7 +304,7 @@ export const offerBubbles = (
   return [
     ...(!region.cod && noCodReason ? [{ text: noCodReason }] : []),
     ...media(m.price, "image", priceLabel(config)),
-    { text: region.cod ? codOfferText(config, region.dates[0], now) : prepayOfferText(config, region.prepayFreightBrl ?? null) },
+    { text: region.cod ? codOfferText(config, region.dates[0], now, region.closesHere === true) : prepayOfferText(config, region.prepayFreightBrl ?? null) },
     ...(region.cod && firstDayLine(region.dates[0], now)?.startsWith("amanhã") ? media(m.audio4, "audio", FUNNEL_LABELS.audio4) : []),
     ...(ask ? [{ text: ask }] : []),
   ];
