@@ -33,6 +33,25 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 >   4. Gravar o `BUSINESS_CONFIG` de 27/10 SÓ depois do item 1, e `job:"health"`.
 >   5. Sócio: submeter os 3 templates (`03-templates-meta.md` §5–§7) e, aprovados, declarar em `channel.templates`.
 >   6. Merge da branch do site e publicação.
+> - **Parado no meio (28/10):** o `pnpm deploy:turn` foi barrado pelo classificador de permissão ("Production Deploy").
+>   O `--dry-run` passou: v45 → v46, 18 arquivos, commit `c53b827`. Nada da branch está no ar, só a migração 0033.
+>   A função `whatsapp` mudou só em `templateMessage` (botão de URL do template de carrinho), de forma retrocompatível:
+>   publicar antes de declarar o template do carrinho.
+> - **Validação no HEAD:** 9.265 testes, `typecheck`, `lint`, `typecheck:function`, espelho, `dev:conversas` 1655/1655,
+>   `dev:gates` 0 afrouxados e 18 endurecidos (todos `price_promise` com desconto do antecipado em 0%), mutações 913/913.
+> - **Postback de carrinho na Coinzz:** `.../webhook/encorpa-carrinho?token=<SALE_WEBHOOK_TOKEN>`. Com o segredo vazio, a
+>   rota recusa.
+> - **Templates, depois de aprovados:** acrescentar ao `channel.templates`:
+>   `"cart_recovery": {"name":"encorpa_carrinho_site","language":"pt_BR","variables":["firstName"],"urlButton":"checkoutSlug"}`,
+>   `"pix_pending": {"name":"encorpa_pix_pendente","language":"pt_BR","variables":["firstName","orderNumber","price"]}`,
+>   `"silence_3_retomada": {"name":"encorpa_retomada","language":"pt_BR","variables":["size","price"]}`.
+> - **Site (Encorpa-Website, branch `claude/site-whatsapp-test`, HEAD `1525764`):** preço único R$ 109,90, seletor
+>   de 1/2/3 peças para o checkout certo, "Frete grátis* / *para a maioria das cidades", WhatsApp da Malu
+>   5511913179168, pixel 4466808633585371, sem "gente de verdade" no WhatsApp. O `CountdownBar` reinicia 32 h por
+>   visitante (não mexido). O `scripts/personas.mjs` do site já falhava na `main` e está obsoleto.
+> - **Resíduos aceitos:** a variante de frase "No Pix tem desconto: de R$ 216,50 por R$ 109,90" passa o
+>   `price_promise`; "tem vídeo? não quero comprar sem ver" não manda o vídeo; a data de entrega do pedido da Coinzz
+>   não é lida no n8n, então o `order_eve` não se arma para pedido da Coinzz; o kit compara só a URL de 1 peça em `oneCheckout`.
 
 > **2026-10-26 — conferência dos pendentes.** PR #82 mergeado (`turn` v44 no ar, função v160). Ainda **não há `turn_outcomes` com
 > `agent_version = 44`** (última mensagem em 23/10): o smoke test espera a primeira conversa real. A função `whatsapp` foi publicada na **v67**
