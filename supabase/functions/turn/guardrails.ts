@@ -1666,7 +1666,7 @@ const gates: readonly Gate[] = [
       const DONE = String.raw`(?:confirmad|agendad|registrad|feit|criad|finalizad|fechad|realizad|garantid|reservad|marcad|efetuad|gerad|lancad|cadastrad|concluid)(?:[oa]s?|inh[oa]s?)`;
       const THING = String.raw`(?:pedido|entrega|colete|compra|encomenda)`;
       const DAY = String.raw`(?:(?:segunda|terca|quarta|quinta|sexta)(?:[\s-]*feira)?|sabado|domingo|dia\s+\d{1,2}|\d{1,2}\/\d{1,2})`;
-      const claims: Array<[RegExp, boolean]> = [
+      const claims: Array<[RegExp, boolean, boolean?]> = [
         // "seu pedido está/foi/já está confirmado", "o pedido ficou agendado", "seu colete já está garantido"
         [new RegExp(String.raw`\b(?:seu|sua|o|a)\s+${THING}\b[^.!?;\n]{0,40}?\b(?:esta|ta|foi|ficou)\s+(?:(?:ja|todo|toda|bem)\s+)?${DONE}\b`, "g"), false],
         // "já agendei sua entrega", "confirmei seu pedido", "agendei pra quinta", "lancei seu pedido"
@@ -1680,16 +1680,19 @@ const gates: readonly Gate[] = [
         [new RegExp(String.raw`\b(?:esta|ta|ficou|foi)\s+tudo\s+${DONE}\b|\btudo\s+(?:ja\s+)?(?:esta|ta|ficou|foi)\s+${DONE}\b`, "g"), false],
         // "Já está agendado!", "Tá agendado!", "Ficou agendado pra quinta (29/10)" standing alone (review of 96b8fc7) — "Respondendo
         // SIM, tá agendado pra quinta" is a condition
-        [new RegExp(String.raw`(?:^|[.!?\n,])\s*(?:(?:prontinho|pronto|tudo\s+certo|combinado|fechado|perfeito|otimo|feito|sim)\s*[!,.]*\s*)?(?:ja\s+)?(?:esta|ta|ficou)\s+${DONE}\b(?:\s+(?:pra|para|na|no)\s+${DAY})?(?=\s*(?:$|com\s+sucesso|[^\w\s?]))`, "g"), true],
+        [new RegExp(String.raw`(?:^|[.!?\n,])\s*(?:(?:prontinho|pronto|tudo\s+certo|combinado|fechado|perfeito|otimo|feito|sim)\s*[!,.]*\s*)?(?:ja\s+)?(?:esta|ta|ficou)\s+${DONE}\b(?:\s+(?:pra|para|na|no)\s+${DAY})?(?=\s*(?:$|com\s+sucesso|[^\w\s?]))`, "g"), true, true],
         // "Pronto, agendei!", "Já agendei.", "Feito! Agendei pra você."
-        [new RegExp(String.raw`\b(?:ja\s+)?(?:confirmei|agendei|registrei|marquei|lancei|cadastrei|reservei|garanti|finalizei)(?:\s+(?:tudo|aqui|pra\s+voce|para\s+voce))?(?=\s*(?:$|[^\w\s?]))`, "g"), false],
+        [new RegExp(String.raw`\b(?:ja\s+)?(?:confirmei|agendei|registrei|marquei|lancei|cadastrei|reservei|garanti|finalizei)(?:\s+(?:tudo|aqui|pra\s+voce|para\s+voce))?(?=\s*(?:$|[^\w\s?,:;]))`, "g"), false, true],
         // "Deixei agendado pra quinta", "deixei tudo confirmado"
         [new RegExp(String.raw`\bdeixei\s+(?:tudo\s+|seu\s+pedido\s+|sua\s+entrega\s+)?${DONE}\b`, "g"), false],
       ];
       const WHEN_SHE = String.raw`(?:assim\s+que|quando|depois\s+que|se)\s+(?:voce|vc)\s+(?:me\s+)?(?:responder|disser|confirmar|mandar|falar|respond\w*)`;
       // A leading "Sim," is her yes echoed, never a condition (review of 96b8fc7); "seu SIM", "me fala SIM" are.
       const CONDITION = /\b(?:se|quando|assim\s+que|depois\s+(?:que|do|da|de)|caso|respond\w*|confirm(?:ar|ando|e|ou)|escolh\w*|(?:seu|teu|o|um)\s+sim|(?:fal|diz|diss|mand|digit)\w*\s+(?:o\s+)?sim)\b/;
-      for (const [re, conditional] of claims) {
+      // A standalone "tá confirmado", "confirmei aqui" about her region, size, CEP or data is the truth, not her order (review of
+      // 360625b: "Já confirmei aqui: tem entrega na sua região!", "o G é o seu tamanho, tá confirmado!").
+      const OTHER = /\b(?:tamanho|regiao|cep|endereco|cpf|dados|estoque|medida|preco|frete)\b/;
+      for (const [re, conditional, standalone] of claims) {
         for (const m of t.matchAll(re)) {
           const at = (m.index ?? 0) + (/^[.!?\n,]/.test(m[0]) ? 1 : 0);
           const end = (m.index ?? 0) + m[0].length;
@@ -1702,6 +1705,7 @@ const gates: readonly Gate[] = [
           if (/\b(?:nao|nunca|nem)\s+(?:\w+\s+){0,2}\S+$/.test(m[0]) || /\b(?:nao|nunca|ainda\s+nao)\s+(?:\w+\s+){0,2}$/.test(head)) continue;
           // "Sua entrega fica pra quinta se você confirmar", "Me responde SIM e seu pedido fica agendado pra quinta": a condition.
           if (conditional && CONDITION.test(sentence)) continue;
+          if (standalone && OTHER.test(sentence)) continue;
           // Her answer as the condition glued to it: "Se você responder SIM, seu pedido…", "…confirmado assim que você responder".
           if (new RegExp(String.raw`^\s*${WHEN_SHE}\b[^,:;]*(?:,\s*)?(?:\w+\s+){0,2}$`).test(head)) continue;
           if (new RegExp(String.raw`^\s*,?\s*${WHEN_SHE}`).test(rest)) continue;

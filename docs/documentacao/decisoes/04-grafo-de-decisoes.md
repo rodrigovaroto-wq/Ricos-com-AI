@@ -4856,6 +4856,45 @@ A; o canto do `tests/prompt.test.ts` segue passando; mutações `O35-*` (14), `O
 chega quinta (29/10)!", "Já anotei tudo, chega quinta!". Um nome raro que começa com uma palavra da lista ("Santo Antônio Silva") é
 recusado e a lista pede o nome de novo. O nome errado já gravado no lead antes deste conserto continua lá; o fechamento não o usa.
 
+### E. A revisão Opus do 360625b (reprovada num ponto, 2026-10-28)
+
+**Sintoma.**
+1. (bloqueante) Depois do resumo, a correção do número da casa era ignorada: em `closeStep`, `asked = list.includes(NUMBER_ITEM)` é falso
+   sobre o resumo, e `houseNumberIn` não rodava. "o número é 46", "errei, o número é 46", "errei o número, é 46", "não é 45, é 46" →
+   `model`, o resumo seguia com 45 e o SIM seguinte importava o 45.
+2. `bareDay` lia o "30" de "Maria Souza, 529.982.247-25, 30" como o dia (era o número da casa).
+3. `hoodAfterStreet` aceitava como bairro uma referência ("perto do mercado") ou o que se lê como nome de pessoa.
+4. "errei o nome, Ana Silva" e "o nome certo é…" não corrigiam; um nome completo solto logo depois do resumo também não.
+5. `order_claim` vetava frases verdadeiras sobre região e tamanho: "Já confirmei aqui: tem entrega na sua região!", "Confirmei aqui,
+   tem entrega sim na sua região 😊", "…o G é o seu tamanho, tá confirmado!".
+
+**Causa.** (1) A correção do nome ganhou leitura sobre o resumo no §135 C/D, a do número não: a mesma regra escrita para um campo só.
+(2) `bareDay` lia pedaços, não a mensagem. (5) As formas soltas do §135 D não tinham sujeito, então liam qualquer "confirmei" ou "tá
+confirmado" como o pedido.
+
+**Correção.**
+- `closeStep`: sobre o resumo, com marca de correção ou de número na mensagem (`NUMBER_FIX`: "número", "nº 46", "errei", "corrig…",
+  "na verdade", "não é 45"), `houseNumberIn` lê; o resumo refeito muda e o SIM ao antigo não importa. Sem marca ("quero 2", "às 14h"),
+  nada muda.
+- `bareDay`: só a mensagem inteira que é o número; `houseNumberIn` pula essa mensagem, não pedaços de outras.
+- `hoodAfterStreet`: nunca referência ("perto", "ao lado", "em frente", "atrás", "esquina") nem duas palavras que `isPlausibleName`
+  aceita.
+- `WRONG_NAME` + "errei o nome"; `NAME_INTRO` + "o nome certo é", "meu nome certo é"; `nameCandidates` lê o nome completo solto também
+  quando a última mensagem do fechamento é o resumo (o mesmo nome não muda nada: `model`).
+- `order_claim`: as formas soltas ("tá confirmado!", "confirmei aqui") são isentas quando a frase fala de tamanho, região, CEP,
+  endereço, CPF, dados, estoque, medida, preço ou frete (`OTHER`); "confirmei/agendei…" solto só no fim da frase (não antes de ",", ":"
+  ou ";").
+
+- `hoodAfterStreet` perdeu o parâmetro do nome: a regra das duas palavras plausíveis já recusa o nome dela (a comparação ficou código
+  morto, e `O35-bairro-e-nome` escapava por isso; saiu).
+
+**Guarda.** `tests/cod-close-2026-10-28.test.ts` §15 (as frases da revisão, nos dois sentidos); mutações `O36-*` (10); `O35-claim-ja-
+esta-solto` e `O35-claim-agendei-solto` reescritas para o texto novo. Três mutações antigas escapavam porque a leitura nova cobria o
+mesmo caso por outro caminho; ganharam frase própria no §15: "quinta" + "30" em mensagens separadas (`O35-dia-solto-sobre-dia`), a
+correção do nome fora da lista e do resumo (`O35-correcao-sem-intro`), "30" e "2" soltos depois do resumo (`O36-numero-sem-marca`).
+
+**Resíduos.** "na verdade é casa 3" depois de "45" vira o número 3 (a marca de correção vence "casa N"). Os resíduos do §135 D seguem.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

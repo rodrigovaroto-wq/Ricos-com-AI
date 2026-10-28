@@ -205,7 +205,8 @@ export const nameCandidates = (
   });
   // "o nome tá errado, é Maria Souza", "nome errado" + "Maria Souza": her correction asks the name as the list does (review of 96b8fc7).
   const corrects = pieces.some((x) => WRONG_NAME.test(norm(x)));
-  const answered = !lastOutbound.includes(NAME_ITEM) && !corrects ? [] : pieces.map((x) => x.replace(/^(?:[ée]h?|sou(?:\s+a)?)\s+/i, "")).filter((x) => {
+  // A bare full name right after the summary is her correction too (review of 360625b): the same name changes nothing.
+  const answered = !lastOutbound.includes(NAME_ITEM) && !lastOutbound.includes(SUMMARY_HEAD) && !corrects ? [] : pieces.map((x) => x.replace(/^(?:[ée]h?|sou(?:\s+a)?)\s+/i, "")).filter((x) => {
     const t = norm(x);
     return !/\d/.test(x) && pickDate([x], dates, now) === null && !confirmsOrder([x]) && !/\b(?:dia|data)\b/.test(t) && !WRONG_NAME.test(t) &&
       isPlausibleName(x, places);
@@ -223,8 +224,9 @@ export const isPlausibleName = (name: string, places: readonly string[] = []): b
   return !new RegExp(`^(?:${COMPLEMENT})(?![\\p{L}])`, "iu").test(t) && !NOT_A_NAME_FIRST.test(t) && !NOT_A_NAME_LAST.test(t) &&
     !places.some((p) => norm(p).trim() === t);
 };
-const WRONG_NAME = /\bnome\b[^.!?]{0,20}\b(?:errad[oa]|trocad[oa]|incorret[oa]|nao\s+e\s+esse)\b|\bcorrig\w*\s+(?:o\s+|meu\s+)?nome\b/;
-const NAME_INTRO = /\b(?:meu\s+nome\s+(?:completo\s+)?(?:[eé]|eh)|o\s+nome\s+(?:completo\s+)?(?:[eé]|eh)|nome\s*(?:completo\s*)?[:=]|me\s+chamo)(?=\s|$)/i;
+const NUMBER_FIX = /\b(?:numero|errei|corrig\w*|na\s+verdade)\b|\bn[º°]\s*\d|\bnao\s+e\s+(?:o\s+)?\d/;
+const WRONG_NAME = /\bnome\b[^.!?]{0,20}\b(?:errad[oa]|trocad[oa]|incorret[oa]|nao\s+e\s+esse)\b|\b(?:corrig\w*|errei)\s+(?:o\s+|meu\s+)?nome\b/;
+const NAME_INTRO = /\b(?:meu\s+nome\s+(?:completo\s+|certo\s+)?(?:[eé]|eh)|o\s+nome\s+(?:completo\s+|certo\s+)?(?:[eé]|eh)|nome\s*(?:completo\s*)?[:=]|me\s+chamo)(?=\s|$)/i;
 // The word that opens it (a payment, a product, a colour's noun, a landmark, a place) or closes it ("… mesmo", "Bela Vista", "Kit
 // duas"): a surname like Branco, Preto, Rosa or Verde in the middle or the end of a real name is never read as either.
 const NOT_A_NAME_FIRST =
@@ -311,7 +313,8 @@ export const pickDate = (
  * that is the bare number; the turn reads it only when nothing else in her words named a day.
  */
 export const bareDay = (parts: readonly string[], dates: readonly CodDate[]): { date: string; token: string } | null => {
-  for (const s of parts.flatMap((p) => p.split(/[,;\n]+/)).map((x) => x.trim())) {
+  // Her whole message, never a piece beside other answers ("Maria Souza, 529.982.247-25, 30": 30 is the door, review of 360625b).
+  for (const s of parts.map((x) => x.trim())) {
     const d = /^\d{1,2}$/.test(s) ? dates.slice(0, CLOSE_OFFERED).find((x) => Number(x.date.slice(8, 10)) === Number(s)) : undefined;
     if (d) return { date: d.date, token: s };
   }
@@ -366,10 +369,11 @@ export const houseNumberIn = (parts: readonly string[], asked: boolean, skip: re
   let number: string | null = null;
   const complements: string[] = [];
   for (const part of parts) {
+    if (skip.includes(part.trim())) continue;
     const corrects = /^\s*(?:n[ãa]o|errei|ops|opa|na\s+verdade|corrigindo)\b/i.test(part);
     for (const seg of part.split(/[,;\n]+/)) {
       const s = seg.trim();
-      if (/\d{5}-?\d{3}|\d{3}\.?\d{3}\.?\d{3}/.test(s) || skip.includes(s)) continue;
+      if (/\d{5}-?\d{3}|\d{3}\.?\d{3}\.?\d{3}/.test(s)) continue;
       if (number !== null && !corrects && !/^(?:o\s+)?(?:n[º°o.]|n[uú]mero|num\.?)\s*\d/i.test(s) && !(s.length <= 40 && complementWord.test(s))) continue;
       const piece = s.length <= 40 && complementWord.test(s);
       const m: RegExpExecArray | null | undefined = number !== null && piece ? null : leads.map((re) => re.exec(s)).find((x) => x !== null);
@@ -387,16 +391,19 @@ const COMPLEMENT = "apto|apt|ap|apartamento|bloco|bl|casa|cs|fundos|frente|sobra
 
 /**
  * "Rua das Flores 45, Centro": on a town's general CEP, the piece right after her street is her neighbourhood — letters only, not a
- * day, not her name, not a complement.
+ * day, not a complement, not a landmark, never what reads as a person's name (hers included).
  */
-const hoodAfterStreet = (parts: readonly string[], street: string | undefined, name: string | null | undefined): string | null => {
+const hoodAfterStreet = (parts: readonly string[], street: string | undefined): string | null => {
   if (!street) return null;
   for (const part of parts) {
     const segs = part.split(/[,;\n]+/).map((x) => x.trim());
     const at = segs.findIndex((x) => norm(x).includes(norm(street)));
     const next = at >= 0 ? segs[at + 1] : undefined;
     if (next && /^[\p{L}\s'.-]{2,40}$/u.test(next) && !new RegExp(`^(?:${COMPLEMENT})(?![\\p{L}])`, "iu").test(next) &&
-      !/\b(?:segunda|terca|quarta|quinta|sexta|sabado|domingo|dia)\b/.test(norm(next)) && norm(next) !== norm(name ?? "")) return next;
+      !/\b(?:segunda|terca|quarta|quinta|sexta|sabado|domingo|dia)\b/.test(norm(next)) &&
+      // Never a landmark nor what reads as a person's name (review of 360625b): "perto do mercado", "Ana Souza".
+      !/^(?:perto|proximo|ao\s+lado|do\s+lado|em\s+frente|na\s+frente|de\s+frente|atras|esquina|ref)/.test(norm(next)) &&
+      !(next.split(/\s+/).length >= 2 && isPlausibleName(next))) return next;
   }
   return null;
 };
@@ -525,13 +532,15 @@ export const closeStep = (input: {
   // A day the Logzz no longer offers is asked again, said as such.
   const gone = state.date !== undefined && !f.dates.some((d) => d.date === state.date) ? state.date : null;
   if (gone) state = withoutDate(state);
-  const asked = list.includes(NUMBER_ITEM);
+  // Over the summary, her number fixed ("o número é 46", "errei, é 46", "não é 45, é 46") is read and the summary rebuilt (review of
+  // 360625b: it was ignored and her next SIM imported the old number).
+  const asked = list.includes(NUMBER_ITEM) || (list.includes(SUMMARY_HEAD) && NUMBER_FIX.test(norm(parts.join("\n"))));
   const house = houseNumberIn(parts, asked, bare ? [bare.token] : []);
   const number = house?.number ?? f.typed.number ?? state.number ?? f.stored.number;
   const complement = (house ? house.complement : null) ?? f.typed.complement ?? state.complement ?? f.stored.complement;
   const street = f.cepStreet || (f.typed.street ?? state.street ?? f.stored.street);
   const neighborhood = f.cepNeighborhood ||
-    (f.typed.neighborhood ?? (list.includes(STREET_ITEM) ? hoodAfterStreet(parts, f.typed.street, f.typedName) : null) ?? state.neighborhood ?? f.stored.neighborhood ?? "");
+    (f.typed.neighborhood ?? (list.includes(STREET_ITEM) ? hoodAfterStreet(parts, f.typed.street) : null) ?? state.neighborhood ?? f.stored.neighborhood ?? "");
   const phone = [list.includes(PHONE_ASK) ? cellIn(parts) : null, state.phone, f.phone].find((p) => p && p !== state.badPhone) ?? null;
   state = Object.fromEntries(
     Object.entries({ ...state, number, complement, street: f.cepStreet ? undefined : street, neighborhood: f.cepNeighborhood ? undefined : neighborhood || undefined, phone: phone !== f.phone ? phone : undefined })
