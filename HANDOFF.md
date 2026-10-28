@@ -13,6 +13,11 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-28 ~14:00 UTC — `BUSINESS_CONFIG` de 27/10 NO AR** (colado pelo operador; sha `b6a13293…` conferido). Alarme de
+> cobertura 14:11 UTC `healthy` já pela Coinzz. **Achado:** a API oficial da Logzz de datas por CEP (`/api/delivery-day/options/zip-code`,
+> com `products`) diverge da Coinzz: SP G e BH M têm data na Logzz e não têm pagamento na entrega na Coinzz (SP GG ao contrário).
+> Proposta ao operador: a Malu criar o pedido da entrega pela API de importação da Logzz (sem checkout), consultando essa API.
+>
 > **2026-10-28 13:23 UTC — PUBLICADO (operador autorizou):** `turn` **v46** (função v165, commit `75408f4`), ainda com o
 > `BUSINESS_CONFIG` de 23/10 (oferta antiga, cobertura pela Logzz). Alarme de cobertura das 13:26 UTC: `healthy`. Site
 > Encorpa-Website `main` = `1525764`, no ar no Netlify (`encorpa-fashion.com.br`): pixel 4466808633585371, R$ 109,90,
