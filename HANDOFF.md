@@ -13,6 +13,44 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-28 (fim do dia) — EXECUÇÃO PARADA PELO OPERADOR. Estado exato para retomar sem refazer.**
+>
+> **No ar (produção):** `turn` **v46** (commit `75408f4`: origem anúncio/site, modo site, carrinho e Pix da Coinzz, retomada);
+> `BUSINESS_CONFIG` = `business-config-2026-10-27.min.json` (sha `b6a13293…`: R$ 109,90 nos dois caminhos, frete grátis, kits
+> 197,82/263,76, checkouts Coinzz `encorpa-0`/`encorpa-site-0`/`oferta-site2-0`, cobertura pela Coinzz, cupom e experimentos off);
+> migração 0033; n8n `venda-confirmada`, `whatsapp-envio` atualizados e `Carrinho abandonado` (`xqaepviTcGHDI5YK`) ativo; site
+> Encorpa-Website `main` `1525764` no Netlify. Coinzz: frete grátis (OmniCash recadastrada) e postback de carrinho feitos pelo
+> operador. **Falta o pixel 4466808633585371 nas 3 ofertas da Coinzz** e a API de Conversões (o sócio manda o token).
+>
+> **Pronto na branch, NÃO publicado:** venda na entrega fechada pela Malu com a importação da Logzz (`src/agent/cod-close.ts`,
+> grafo §135) — commits `844743b` + `c72b56e` na `claude/site-whatsapp-test`. Validado (9.318 testes, typecheck, `typecheck:function`,
+> `dev:conversas`, `dev:gates` 0 afrouxados, mutações). Revisão Opus de `c72b56e`: **um bloqueante aberto** — o gate `order_claim`
+> deixa passar "Agora é só aguardar, seu pedido está confirmado!", "Se precisar me chama, seu pedido está agendado pra quinta",
+> "Seu pedido está confirmado, quando o entregador chegar…", "Fechado! Sua entrega é quinta", "Seu colete já está garantido…".
+> Config para essa venda: `docs/operacao/business-config-2026-10-28.min.json` (27/10 + `logzzImport`: URL `orivd974`, produto
+> `prow6pq0`, ofertas `sal0g3mo`/`salng30n`/`sal6gz39`, variações P `progm9w6` M `pro37j6q` G `projm2ov` GG `prolm313` XG `prox1jxp`).
+> Segredo `LOGZZ_API_TOKEN`: operador gravou no Supabase (o mesmo da credencial "Logzz API" do n8n). Importação `orivd974`
+> mapeada (com `external_id`); sondas para Manaus provaram oferta e variação (sem pedido criado).
+>
+> **Interrompido no meio:** a mudança do operador para o fluxo em **checklist único** (a Malu manda uma mensagem com dia, nome, CPF e
+> número; pede só o que faltar; depois só o resumo consolidado; no SIM, cria o pedido) + o aperto do `order_claim` + "45A"/"45 B"
+> + reenviar o resumo quando o turno sem trava recebe um SIM. O implementador foi parado no meio: o que ele escreveu está na branch
+> **`wip/checklist-close-2026-10-28`** (um commit, NÃO validado, NÃO testado). A `claude/site-whatsapp-test` ficou limpa em `c72b56e`.
+>
+> **Falta, nesta ordem:**
+> 1. Terminar o checklist único + `order_claim` + "45A" (partindo da `wip/…` ou de `c72b56e`; ler o grafo §135 e os achados acima),
+>    com testes, mutações `O33-*`, validações, grafo §135; nova revisão Opus até APROVADO.
+> 2. Publicar: `pnpm deploy:turn` (v47) → gravar `BUSINESS_CONFIG` = `business-config-2026-10-28.min.json` (o classificador barra
+>    a gravação pelo agente: o operador cola) → conferir sha e o alarme `healthy`.
+> 3. Pedido de teste real do operador pela Malu (CPF e endereço dele) e cancelar na Logzz: prova a importação ponta a ponta.
+> 4. Operador: pixel nas 3 ofertas da Coinzz; token da API de Conversões; decisão sobre `rescheduled` (hoje: aceita, avisa a
+>    cliente e manda e-mail); perguntar ao fornecedor por que o estoque da Coinzz e o da Logzz divergem (comparação em
+>    `docs/operacao/estoque-logzz-x-coinzz-2026-10-28.json`; a Logzz entrega G em SP e M em BH, a Coinzz não).
+> 5. Sócio: templates `encorpa_carrinho_site`, `encorpa_pix_pendente`, `encorpa_retomada` (`03-templates-meta.md` §5–§7);
+>    aprovados → declarar em `channel.templates` (JSON no mesmo doc).
+> 6. Teste A/B de 5 dias (R$ 25/dia em cada conjunto, as cidades da tabela de cobertura); critério: anúncio por venda ≤ R$ 27.
+> 7. PRs para a `main` dos dois repositórios (nenhum aberto; a `main` do Ricos-com-AI ainda está em `dc046cf`, atrás da produção).
+
 > **2026-10-28 ~14:00 UTC — `BUSINESS_CONFIG` de 27/10 NO AR** (colado pelo operador; sha `b6a13293…` conferido). Alarme de
 > cobertura 14:11 UTC `healthy` já pela Coinzz. **Achado:** a API oficial da Logzz de datas por CEP (`/api/delivery-day/options/zip-code`,
 > com `products`) diverge da Coinzz — **corrigido no mesmo dia: a comparação usou os códigos da Coinzz (`pro7ml00`…), que na Logzz são
