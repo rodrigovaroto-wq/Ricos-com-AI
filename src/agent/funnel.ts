@@ -113,23 +113,30 @@ export const asksSizeTable = (message: string): boolean => {
  * The opening's media on her request, for a lead who came from the site and got no opening (operator, 2026-10-27): she asks for it,
  * or for what it shows, and the system sends it — never the model (R11.1). The video for "tem vídeo?", "manda foto", "como fica no
  * corpo?"; the reviews image for "tem avaliação?", "é bom mesmo?", "funciona mesmo?", "depoimento"; the two recorded audios for
- * "manda um áudio". The size table stays `asksSizeTable`'s. Negation: "não precisa de vídeo", "sem áudio", "já vi o vídeo",
- * "não consigo ouvir áudio", "não abre vídeo". Each file absent in the config: that bubble skipped.
+ * "manda um áudio" — an explicit ask, never her past or a mention (review of ecea0c3). The size table stays `asksSizeTable`'s.
+ * Negation: "não precisa de vídeo", "sem áudio", "já vi o vídeo", "não consigo ouvir áudio", "não abre vídeo". Each file absent in
+ * the config: that bubble skipped.
  */
 export const requestedMedia = (message: string, config: FunnelConfig): FunnelBubble[] => {
-  const t = message.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  // The system's own markers ("[a cliente mandou um vídeo sem texto]") are no words of hers (review of ecea0c3, 3).
+  const t = message.replace(/\[[^\]]*\]/g, " ").toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "");
   const m = config.funnel?.media ?? {};
-  // Refused, seen already, or she cannot play it: nothing goes.
+  // Refused, or she cannot play it: nothing goes.
   const off = (word: string): boolean =>
-    new RegExp(`\\b(?:nao|sem|nem|nunca)\\s+(?:\\S+\\s+){0,3}${word}|\\bja\\s+(?:vi|assisti|ouvi|olhei)\\s+(?:\\S+\\s+){0,2}${word}|${word}\\w*\\s+(?:nao|nem)\\b`).test(t);
-  // A photo she asks of the product, never one she sends ("posso mandar foto do comprovante?").
-  const photo = /\b(?:tem|manda|mande|mostra|mostre|envia|envie|me\s+passa)\s+(?:\S+\s+){0,2}(?:fotos?|fotinha)\b/.test(t) &&
-    !/\b(?:posso|vou|vou\s+te|deixa\s+eu)\s+(?:te\s+)?(?:mandar|enviar)\b|\b(?:comprovante|pix|documento|rg|cpf|boleto|endereco|fachada)\b/.test(t);
-  const video = (/\bvideos?\b|\bcomo\s+(?:ela\s+|ele\s+)?fica\s+(?:no\s+corpo|vestid[oa]|em\s+quem)|\bver\s+(?:ela|ele|o\s+colete|a\s+cinta)\s+(?:no\s+corpo|vestid[oa])/.test(t) || photo) &&
-    !off("(?:videos?|fotos?|fotinha)");
-  const reviews = /\bavaliac\w*|\bdepoiment\w*|\bcomentarios?\s+(?:de\s+)?(?:clientes?|quem)|\be\s+bom\s+mesmo\b|\bfunciona\s+mesmo\b|\bquem\s+ja\s+(?:comprou|usou)\b|\bresultado\s+de\s+(?:clientes?|quem)/.test(t) &&
-    !off("(?:avaliac|depoiment|comentario)") && !/\bnao\s+(?:e|era|foi|ficou)\s+bom\b|\bnao\s+funciona\b/.test(t);
-  const audio = /\baudios?\b/.test(t) && !off("audios?") && !/\b(?:nao|nem)\s+(?:\S+\s+){0,2}(?:ouvir|escutar|ouco|escuto)\b/.test(t);
+    new RegExp(`\\b(?:nao|sem|nem|nunca)\\s+(?:\\S+\\s+){0,3}${word}|${word}\\w*\\s+(?:nao|nem)\\b`).test(t);
+  // An explicit ask, in the present, right before the thing (review of ecea0c3, 3): "tem vídeo?", "manda um áudio", "pode me mostrar
+  // as avaliações?", "quero ver o vídeo". Never her past ("vi o vídeo no site", "assisti o vídeo", "li as avaliações") nor a mention
+  // of it ("a moça do vídeo", "no vídeo ela tá com a bege", "desculpa o áudio").
+  const ASK = String.raw`\b(?:tem|teria|tens|manda|mande|me\s+manda|envia|envie|me\s+envia|mostra|mostre|me\s+mostra|me\s+passa|(?:pode|poderia|consegue|da\s+pra)\s+(?:me\s+)?(?:mandar|enviar|mostrar|passar)|(?:quero|queria|gostaria\s+de|posso|da\s+pra)\s+ver)\s+(?:(?:um|uma|o|a|os|as|algum|alguma|mais|outro|outra|de\s+novo)\s+){0,2}`;
+  const asked = (word: string): boolean => new RegExp(ASK + word).test(t) && !off(word);
+  // A photo of the product, never of her payment or her documents; "foto da etiqueta" is no photo we have.
+  const photo = asked(String.raw`(?:fotos?|fotinha)\b(?!\s+d[aoe]s?\s+(?!colete|cinta|produto|corpo)\w)`) &&
+    !/\b(?:comprovante|pix|documento|rg|cpf|boleto|endereco|fachada)\b/.test(t);
+  // What the video shows, asked as a question: "como fica no corpo?".
+  const video = asked(String.raw`videos?\b`) || photo || /\bcomo\s+(?:ela\s+|ele\s+)?fica\s+(?:no\s+corpo|vestid[oa])\b[^.!]*\?/.test(t);
+  const reviews = asked(String.raw`(?:avaliac\w*|depoiment\w*|comentarios?|prints?)`) ||
+    (/\b(?:e\s+bom|funciona)\s+mesmo\s*\?/.test(t) && !/\bnao\s+(?:e|era|foi|ficou)\s+bom\b|\bnao\s+funciona\b/.test(t));
+  const audio = asked(String.raw`audios?\b`) && !/\b(?:nao|nem)\s+(?:\S+\s+){0,2}(?:ouvir|escutar|ouco|escuto)\b/.test(t);
   return [
     ...(video ? media(m.video, "video", FUNNEL_LABELS.video) : []),
     ...(reviews ? media(m.reviews, "image", FUNNEL_LABELS.reviews) : []),

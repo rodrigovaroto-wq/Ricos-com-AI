@@ -4515,6 +4515,49 @@ negações de `requestedMedia` e `asksPixCode`; os normalizadores do n8n executa
 `tests/n8n-whatsapp-send.test.ts` (botão de URL); mutações `O28-carrinho-*`, `O28-pix-*`, `O28-retomada-template-do-cupom`,
 `O28-site-sem-abertura`, `O28-midia-negacao`, `O28-um-link`, `O28-token-carrinho`, `O28-token-rota-carrinho`, `O28-botao-url`. Nove mutações antigas (`R10.4-venda`, `adiada-kit`, `O10-venda`, `TPL-antecipado-cobra`, `G66-uma-vez-por-dia-fiacao`, `E3-braco-a-de-madrugada`, `r21-taxa-da-troca-volta`, `G117-kit-com-um-tamanho-so`, `G117-kit-falha-vira-dois-links`) tiveram o texto de origem atualizado; `O10-venda` passou a exigir o 401 da rota de venda (a do carrinho repete a linha).
 
+### C. A revisão Opus do ecea0c3 (reprovada, 2026-10-27)
+
+**Sintoma.**
+- `onOrderConfirmed` só cancelava o `pix_pending` pelo pedido que o armou, e a varredura relia só esse pedido: quem pagou um segundo
+  pedido ouviria "seu pedido #1 está aguardando o Pix".
+- `asksPixCode` lia "já mandei o pix", "enviei o pix", "te mandei o comprovante do pix", "qual o valor / o desconto do pix?", "código
+  de rastreio" e "código de barras do boleto" como pedido do código; o reenvio rodava antes do "paguei" (4a0), fora da cadeia de gates.
+- `requestedMedia` mandava mídia ao marcador do sistema ("[a cliente mandou um vídeo sem texto]"), ao passado ("vi o vídeo no site",
+  "assisti o video") e à menção ("a moça do vídeo", "desculpa o áudio", "li as avaliações").
+- `leadForPhone` achava o lead pelos 8 últimos dígitos: o lead do Rio ganharia o carrinho de uma paulistana.
+- A retomada prometia "o seu colete no tamanho M" a quem disse "uso 40" sem CEP (o M sem estoque).
+- `phoneTwins("551133334444")` inventava "5511933334444" (outro assinante).
+- O lead do site que voltou por um anúncio ganhava `source`, perdia o modo site, e o prompt dizia "A ABERTURA JÁ FOI" sem abertura.
+- A rota `job:"cart"` aceitava qualquer chamada com o `SALE_WEBHOOK_TOKEN` vazio, e agora cria lead e arma toque de marketing; o nome
+  da oferta e o status do webhook entravam no prompt crus (até 120 caracteres, com quebra de linha).
+- `dev:gates`: "No Pix sai por R$ 109,90, já com desconto" (o desconto do preço cheio, verdadeiro) seria vetado.
+
+**Causa.** As heurísticas novas leram a palavra (pix, vídeo, final do telefone) e não o pedido, o tempo ou o dono; e os toques novos
+olharam só o seu próprio pedido, não os da cliente.
+
+**Correção.**
+- `checkoutDone` (`onOrderConfirmed`): qualquer pedido pago dela cancela o `pix_pending`; a varredura usa `pixStillDue` (o pedido do toque
+  ainda aguarda o Pix E nenhum pedido dela está pago).
+- `asksPixCode`: só o pedido no presente — o código nomeado ("código do pix", "copia e cola", "qr code") com um verbo de pedido, ou "manda /
+  reenvia o pix"; o passado e o comprovante, rastreio, boleto e barras ficam fora; "paguei não" não é pagamento. `pixResendFor` não manda
+  ao lado do "paguei" nem com pedido pago; o turno o chama depois do 4a0, com `sendFixed` na camada "auto" (como as linhas do 4a0).
+- `requestedMedia`: tira os marcadores entre colchetes e exige o pedido explícito (tem / manda / mostra / pode mandar / quero ver …) colado
+  ao que se pede; "foto da etiqueta" e foto do pagamento ficam fora; "como fica no corpo?" e "é bom mesmo?" só como pergunta.
+- `leadForPhone`: `phoneTwins(leadPhoneOf(phone))`, o exato primeiro, nunca `like.*`; `herLeadIds` usa a mesma regra.
+- `sizeSells` (região guardada `stockAware`, para o tamanho dela, sem `sizeOutOfStock`) entra em `RenderContext.sizeSells`; sem ela,
+  `retomadaFor` não fala.
+- `phoneTwins` só gera o gêmeo quando o número local de 8 dígitos começa com 6–9 (celular).
+- `siteMode` = nenhuma abertura enviada (exceto a primeira mensagem de uma lead nova de anúncio, que segue o caminho de hoje);
+  `systemPrompt` só diz "A ABERTURA JÁ FOI" com `openingSent`; `siteBriefing(fromSite)` não afirma o site a quem veio de anúncio.
+- `job:"cart"` recusa com o segredo vazio; `recordOrder` só cria lead com o segredo setado (`mayCreateLead`). `checkoutFactLines` passa
+  oferta e status por `plainFact` (uma linha, letras, dígitos e poucos sinais, 40 caracteres).
+- `price_promise`: "já com desconto" e o preço cheio na frase não são o desconto do antecipado.
+
+**Fica como está.** `recordOrder` lê `orders.details` em toda venda: a 0033 é aplicada antes do deploy (coordenador).
+
+**Guarda.** `tests/review-ecea0c3.test.ts`; mutações `O29-*` (16). `pnpm dev:gates`: 0 afrouxados; os 16 endurecidos são títulos de
+teste, frases dela ou a promessa falsa do desconto do antecipado — nenhuma linha verdadeira da agente.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

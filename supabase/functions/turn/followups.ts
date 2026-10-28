@@ -222,8 +222,10 @@ export const leadPhoneOf = (raw: string | null | undefined): string | null => {
  * The same number with and without the ninth digit: WhatsApp hands most Brazilian mobiles over without it, the checkout with it
  * (`buildPrefilledCheckoutLink`). A lead the cart webhook made is found again when she writes.
  */
+// Only a mobile has a ninth digit to lose: the 8-digit local part starts with 6 to 9. A landline ("1133334444") twinned with
+// "11933334444" is another subscriber (review of ecea0c3, 6).
 export const phoneTwins = (phone: string): string[] => {
-  const m = /^55(\d{2})9?(\d{8})$/.exec(phone);
+  const m = /^55(\d{2})9?([6-9]\d{7})$/.exec(phone);
   return m ? [`55${m[1]}${m[2]}`, `55${m[1]}9${m[2]}`] : [phone];
 };
 
@@ -662,15 +664,59 @@ export const awaitsPix = (status: string | null | undefined, pix: boolean): bool
   (status ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().split("/")[0]!.replace(/\s+/g, " ").trim() === "aguardando pagamento";
 
 /**
- * She asks for the Pix again — the Pix touch promises "eu te reenvio o código por aqui", and its button sends "Reenviar o Pix"
- * (2026-10-27): "manda o pix de novo", "cadê o código do pix?", "perdi o copia e cola". Negation: "não precisa reenviar o pix",
- * "já paguei o pix", "posso pagar no pix?" (a question about paying, not the code).
+ * She asks for the Pix CODE again — the Pix touch promises "eu te reenvio o código por aqui", and its button sends "Reenviar o Pix"
+ * (2026-10-27): "manda o pix de novo", "cadê o código do pix?", "perdi o copia e cola", "não recebi o qr code". Only a request in the
+ * present (review of ecea0c3, 2): her payment ("já mandei o pix", "enviei o pix", "te mandei o comprovante do pix") is the "paguei"
+ * reader's; "qual o valor / o desconto / a chave do pix?", "código de rastreio", "código de barras do boleto" are other questions;
+ * "não precisa reenviar o pix" refuses it.
  */
 export const asksPixCode = (message: string): boolean => {
-  const t = message.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  if (/\b(?:nao|nem|sem)\s+(?:precisa\s+)?(?:\S+\s+){0,2}(?:reenvi|mand|envi|pass)\w*|\bja\s+(?:paguei|pago|fiz)\b|\bpaguei\b/.test(t)) return false;
-  return /\b(?:reenvi\w*|mand[ae]\w*|envi[ae]\w*|passa|cade|perdi|qual|preciso\s+d[oe])\b(?:\s+\S+){0,4}?\s+(?:(?:o|do|a)\s+)?(?:pix|codigo|qr\s?code|copia\s+e\s+cola)\b/.test(t);
+  // Her "não paguei" / "paguei não" is no payment claim: "Não, paguei não. Manda o pix de novo" asks for it.
+  const t = message.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\bnao\s+paguei\b|\bpaguei\s+nao\b/g, " ");
+  if (/\b(?:nao|nem|sem)\s+(?:precisa\s+)?(?:\S+\s+){0,2}(?:reenvi|mand|envi|pass)\w*/.test(t)) return false;
+  if (/\b(?:paguei|mandei|enviei|passei|fiz|transferi|comprovante|rastreio|boleto|barras)\b/.test(t)) return false;
+  // The code itself, named: "código do pix", "pix copia e cola", "copia e cola", "qr code".
+  const code = /\b(?:codigo\s+(?:do\s+|de\s+)?pix|pix\s+copia\s+e\s+cola|copia\s+e\s+cola|qr\s?code|codigo\s+(?:do\s+)?qr)\b/;
+  const ask = /\b(?:reenvi(?:a|e|ar)|(?:me\s+)?(?:manda|mande|envia|envie|passa|passe)|cade|perdi|nao\s+(?:recebi|chegou|achei|veio|aparece\w*)|preciso\s+d[oe]|qual\s+(?:e\s+)?o)\b/;
+  if (ask.test(t) && code.test(t)) return true;
+  // "manda o pix (de novo)", "reenvia o pix": the request verb right before the Pix itself.
+  return /\b(?:reenvi(?:a|e|ar)|(?:me\s+)?(?:manda|mande|envia|envie|passa|passe))\s+(?:(?:me|de\s+novo|novamente)\s+)?(?:o\s+)?pix\b/.test(t);
 };
+
+/**
+ * The Pix code to send again (2026-10-27, review of ecea0c3): only to her request (`asksPixCode`), never beside a payment she claims
+ * or a receipt (the "paguei" check answers those), and only from her newest order still waiting for this Pix.
+ */
+export const pixResendFor = (
+  asked: boolean,
+  paidClaim: boolean,
+  orders: ReadonlyArray<{ readonly status: string | null; readonly details?: { orderNumber?: string | null; pixCode?: string | null; pixUrl?: string | null } | null }>,
+): string[] => {
+  if (!asked || paidClaim) return [];
+  // A paid order of hers: nothing is waiting for her Pix any more.
+  if (orders.some((o) => orderSettled(o.status))) return [];
+  const waiting = orders.find((o) => awaitsPix(o.status, Boolean(o.details?.pixCode || o.details?.pixUrl)));
+  return waiting?.details ? pixResendTexts(waiting.details) : [];
+};
+
+/**
+ * The Pix touch at send time (review of ecea0c3, 1): its own order still waits for this Pix, and none of her orders is paid.
+ */
+export const pixStillDue = (
+  pixOrder: { readonly status: string | null; readonly details?: { pixCode?: string | null; pixUrl?: string | null } | null } | null,
+  herStatuses: readonly string[],
+): boolean =>
+  !!pixOrder && awaitsPix(pixOrder.status, Boolean(pixOrder.details?.pixCode || pixOrder.details?.pixUrl)) &&
+  !herStatuses.some((st) => orderSettled(st));
+
+/**
+ * Her size sells (review of ecea0c3, 5): the last lookup of her region, stock-aware and asked for HER size, did not say it is out of
+ * stock. Without it — no CEP, an old cache, another size's answer — the retomada does not promise "o seu colete no tamanho M".
+ */
+export const sizeSells = (
+  region: { readonly stockAware?: boolean; readonly sizeOutOfStock?: boolean; readonly askedSize?: string | null; readonly size?: string | null } | null | undefined,
+  size: string | null | undefined,
+): boolean => !!region && !!size && region.stockAware === true && region.sizeOutOfStock !== true && (region.askedSize ?? region.size ?? null) === size;
 
 /** The Pix again, as the webhook gave it (2026-10-27): the line, then the copy-and-paste code on its own, or the Pix page's link. */
 export const pixResendTexts = (details: { orderNumber?: string | null; pixCode?: string | null; pixUrl?: string | null }): string[] => {
@@ -896,8 +942,10 @@ export const onOrderConfirmed = (
   const pixArm: ScheduledFollowup[] = awaitsPix(status, pix) && !existing.some((e) => e.kind === "pix_pending")
     ? [{ kind: "pix_pending", runAt: new Date(now.getTime() + PIX_PENDING_MS) }]
     : [];
+  // Any PAID order of hers ends the Pix touch too, whichever order armed it (review of ecea0c3, 1: she paid a second order and the
+  // first one's "aguardando o Pix" went to a buyer).
   const checkoutDone = (f: ExistingFollowup) =>
-    f.kind === "cart_recovery" || (f.kind === "pix_pending" && theirs(f) && !awaitsPix(status, pix));
+    f.kind === "cart_recovery" || (f.kind === "pix_pending" && ((theirs(f) && !awaitsPix(status, pix)) || orderSettled(status)));
 
   // The sale is off. Everything still waiting dies with it — the post-order touches
   // because there is no delivery to talk about, and the silence ones because chasing
@@ -1227,6 +1275,8 @@ export interface RenderContext {
   checkoutSlug?: string | null;
   /** The Coinzz order number of the Pix waiting. */
   orderNumber?: string | null;
+  /** Her size sells (`sizeSells`): the retomada names it only then. Absent = not proven. */
+  sizeSells?: boolean;
 }
 
 /**
@@ -1261,7 +1311,7 @@ const retomadaText = (size: string, price: string): string =>
  */
 const retomadaFor = (ctx: RenderContext): string | null => {
   const size = ctx.size?.trim();
-  if (!size || size.includes(",") || ctx.config.delivery.freeShipping !== true) return null;
+  if (!size || size.includes(",") || ctx.config.delivery.freeShipping !== true || ctx.sizeSells !== true) return null;
   const { codBrl, prepayBrl } = ctx.config.prices;
   if (ctx.paymentPath === "prepay" && prepayBrl !== undefined && prepayBrl !== codBrl) return null;
   return retomadaText(size, brl(codBrl));

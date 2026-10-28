@@ -72,8 +72,9 @@ import {
   type AskedDatum,
   armsCartRecovery,
   asksPixCode,
-  pixResendTexts,
-  awaitsPix,
+  pixResendFor,
+  pixStillDue,
+  sizeSells,
   CART_RECOVERY_MS,
   checkoutSlug,
   firstNameOf,
@@ -1376,18 +1377,16 @@ const shortText = (v: unknown, max: number): string | null =>
   typeof v === "string" && v.trim() !== "" && v.trim().length <= max ? v.trim() : null;
 
 /**
- * A webhook's phone to her lead (sale and cart, 2026-10-27): the exact row, else the one lead whose number ends in the same 8
- * digits — the platforms write the phone six different ways. Two rows ending the same way is not a match, it is a coin toss: the
- * loser gets someone else's sale and its touches, so the caller refuses it out loud. Index: leads_phone_key; the suffix is a scan
- * of `leads` (`like *x`), as it was in `recordOrder`.
+ * A webhook's phone to her lead (sale and cart, 2026-10-27): the same DDD and the same 8 digits, with or without the ninth digit
+ * (`phoneTwins` of `leadPhoneOf`), the exact form first — never a suffix alone (review of ecea0c3, 4: a Rio lead got a São Paulo
+ * woman's cart), the rule `herLeadIds` follows. Index: leads_phone_key.
  */
-const leadForPhone = async (phone: string): Promise<{ id: string; opted_out_at?: string | null } | "ambiguous" | null> => {
-  const exact = await db(`leads?phone=eq.${encodeURIComponent(phone)}&select=id,opted_out_at`);
-  if (exact?.[0]) return exact[0];
-  const tail = digits(phone).slice(-8);
-  if (tail.length !== 8) return null;
-  const bySuffix = await db(`leads?phone=like.*${tail}&select=id,opted_out_at&limit=2`);
-  return bySuffix?.length === 1 ? bySuffix[0] : (bySuffix?.length ?? 0) > 1 ? "ambiguous" : null;
+const leadForPhone = async (phone: string): Promise<{ id: string; phone: string; opted_out_at?: string | null } | null> => {
+  const own = leadPhoneOf(phone);
+  if (!own) return null;
+  const rows: Array<{ id: string; phone: string; opted_out_at?: string | null }> =
+    (await db(`leads?phone=in.(${phoneTwins(own).join(",")})&select=id,phone,opted_out_at`)) ?? [];
+  return rows.find((r) => r.phone === own) ?? rows[0] ?? null;
 };
 
 /**
@@ -1402,7 +1401,7 @@ const digits = (v: string): string => v.replace(/\D/g, "");
 
 const MAX_EXTERNAL_ID = 128;
 
-const recordOrder = async (order: OrderWebhook) => {
+const recordOrder = async (order: OrderWebhook, mayCreateLead = false) => {
   // Without an id every retry inserts a fresh row: `external_id` is unique but nullable,
   // and NULL never conflicts with NULL. Refusing loudly beats duplicating silently.
   if (!order.externalId?.trim()) return { status: "missing_external_id", ok: false };
@@ -1417,10 +1416,10 @@ const recordOrder = async (order: OrderWebhook) => {
   // sometimes without the 9. The lead row holds whatever the channel delivered. An exact
   // match is the happy path; the suffix is what stops a sale from silently not existing.
   const match = await leadForPhone(order.phone);
-  if (match === "ambiguous") return { status: "ambiguous_phone", phone: order.phone, ok: false };
   // A sale from the site, by a woman who never wrote to us (2026-10-27): her lead is made here, with its conversation, so the
   // Pix touch and the post-order ruler have somewhere to live. A phone that is no Brazilian number stays refused, out loud.
-  const made = match === null && leadPhoneOf(order.phone) !== null;
+  // Only with the webhook's secret set (review of ecea0c3, 8): an unauthenticated call never makes a lead.
+  const made = match === null && leadPhoneOf(order.phone) !== null && mayCreateLead;
   const lead = match ?? (made ? await checkoutLead(leadPhoneOf(order.phone)!) : null);
   // 200 here would tell n8n the sale was filed when nothing was written and the silence
   // ruler is still chasing her. It has to be visible.
@@ -1598,7 +1597,6 @@ const recordCart = async (cart: CartWebhook) => {
   const phone = leadPhoneOf(cart.phone);
   if (!phone) return { status: "invalid_phone", ok: false };
   const match = await leadForPhone(cart.phone);
-  if (match === "ambiguous") return { status: "ambiguous_phone", phone: cart.phone, ok: false };
   const lead = match ?? (await checkoutLead(phone));
   // Her open conversation, as the turn reads it, so her message cancels the touch. Index: conversations_lead_idx.
   const conversation =
@@ -1978,7 +1976,8 @@ const runFollowupSweep = async () => {
     if (kind === "pix_pending") {
       const pixOrder = row.order_id ? (await db(`orders?id=eq.${row.order_id}&select=status,amount_brl,external_id,details`))?.[0] ?? null : null;
       const d = pixOrder?.details ?? {};
-      if (!pixOrder || !awaitsPix(pixOrder.status, Boolean(d.pixCode || d.pixUrl))) {
+      // Any order of hers paid (review of ecea0c3, 1): a buyer never hears "aguardando o Pix".
+      if (!pixStillDue(pixOrder, statuses)) {
         await leave("canceled");
         skipped.push({ followupId: row.id, reason: "o Pix não está mais aguardando pagamento" });
         return;
@@ -2045,6 +2044,8 @@ const runFollowupSweep = async () => {
           .some((m: { body: string | null }) => forgetsCep(spoken(m.body ?? "")) || refusesCep(spoken(m.body ?? ""))),
       body: row.body ?? undefined,
       marketingOptIn: ASK_OPT_IN && !!lead.marketing_opt_in_at && !lead.marketing_opt_in_declined_at,
+      // The retomada names her size only where her region's last lookup said it sells (review of ecea0c3, 5).
+      sizeSells: sizeSells(lead.address?.region ?? null, lead.size ?? null),
       ...checkoutCtx,
     };
     // The 24-hour window (WA-1): outside it only an approved template leaves, and the text
@@ -2443,7 +2444,7 @@ const handleTurn = async (
       return json(401, { error: "token do webhook de venda inválido" });
     }
     if (!payload.order) return json(400, { error: "order é obrigatório" });
-    const result = await recordOrder(payload.order);
+    const result = await recordOrder(payload.order, saleToken !== "");
     // A status not in the vocabulary goes back raw: n8n e-mails the operator to map it (grafo §57).
     const incoming = payload.order.status ?? "created";
     const reply = isKnownOrderStatus(incoming) ? result : { ...result, unknownStatus: incoming };
@@ -2454,8 +2455,9 @@ const handleTurn = async (
 
   // The abandoned cart (2026-10-27): the same public-webhook secret as the sale, checked in constant time.
   if (payload.job === "cart") {
+    // Refused with the secret unset too (review of ecea0c3, 8): this route makes leads and arms a MARKETING touch.
     const saleToken = Deno.env.get("SALE_WEBHOOK_TOKEN") ?? "";
-    if (saleToken !== "" && !sameSecret(String(payload.token ?? ""), saleToken)) {
+    if (saleToken === "" || !sameSecret(String(payload.token ?? ""), saleToken)) {
       return json(401, { error: "token do webhook de carrinho inválido" });
     }
     if (!payload.cart || typeof payload.cart.phone !== "string") return json(400, { error: "cart.phone é obrigatório" });
@@ -2714,9 +2716,13 @@ const handleTurn = async (
   // directly, the opening's media only on her request (`requestedMedia`). A failed read keeps the ad's behavior.
   // Index: messages_conversation_idx (conversation_id, created_at).
   const fromAd = Boolean(lead.source || payload.source);
-  const siteMode = !fromAd && (isNewLead || ((await db(
+  // Since the review of ecea0c3 (7), site mode is "no opening was ever sent", whatever `source` says now: a site lead who comes back by
+  // an ad has `source` filled and still saw nothing. A new lead from an ad gets the opening below, before anything reads this.
+  const openingSent = !isNewLead && ((await db(
     `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&body=in.(${[SIZE_ASK, LEGACY_SIZE_ASK].map((b) => encodeURIComponent(`"${b}"`)).join(",")})&select=id&limit=1`,
-  ).catch(() => null)) ?? [null]).length === 0);
+  ).catch(() => null)) ?? [null]).length > 0;
+  // The first message of a new lead from an ad keeps today's path (opening, or the receipt when it is skipped).
+  const siteMode = !openingSent && !(isNewLead && fromAd);
   if (isNewLead && fromAd && !isResume && !skipsOpening(spoken(inbound.body ?? "")) && !afterSale) {
     const opening = openingBubbles(CONFIG);
     const sent = await sendFunnel(conversation.id, opening);
@@ -3540,8 +3546,9 @@ const handleTurn = async (
   let herIds: string[] | null = null;
   const herLeadIds = async (): Promise<string[]> => {
     if (herIds) return herIds;
-    const m = /^55(\d{2})9?(\d{8})$/.exec(digits(String(lead.phone ?? "")));
-    const twins = m ? ((await db(`leads?phone=in.(55${m[1]}${m[2]},55${m[1]}9${m[2]})&select=id`).catch(() => null)) ?? []) : [];
+    // The same rule as the webhooks' (`phoneTwins`): a mobile with or without the ninth digit, never a landline's "twin".
+    const own = digits(String(lead.phone ?? ""));
+    const twins = phoneTwins(own).length > 1 ? ((await db(`leads?phone=in.(${phoneTwins(own).join(",")})&select=id`).catch(() => null)) ?? []) : [];
     herIds = [...new Set([String(lead.id), ...twins.map((r: { id: string }) => String(r.id))])];
     return herIds;
   };
@@ -3549,18 +3556,6 @@ const handleTurn = async (
   let herOrders: Promise<unknown[] | null> | undefined;
   const herOrderRows = (): Promise<unknown[] | null> =>
     (herOrders ??= herLeadIds().then((ids) => db(`orders?lead_id=in.(${ids.join(",")})&select=id&limit=1`).catch(() => null)));
-  // "Reenvia o Pix" (2026-10-27): the Pix touch promises it, and its button says it. Her order waiting for the Pix, with the code the
-  // webhook brought (orders.details), sent as it came, the code alone in its bubble. Index: orders_lead_idx, her newest rows.
-  if (!isResume && parts.some((p: string) => asksPixCode(spoken(p)))) {
-    const waiting = (((await db(`orders?lead_id=in.(${(await herLeadIds()).join(",")})&select=status,details&order=created_at.desc&limit=3`).catch(() => null)) ?? []) as Array<{ status: string | null; details: { orderNumber?: string; pixCode?: string; pixUrl?: string } | null }>)
-      .find((o) => awaitsPix(o.status, Boolean(o.details?.pixCode || o.details?.pixUrl)));
-    const texts = waiting?.details ? pixResendTexts(waiting.details) : [];
-    if (texts.length > 0) {
-      const sent = await sendFunnelTurn(texts.map((text) => ({ text })), "pix reenviado a pedido dela");
-      if (sent) return sent;
-    }
-  }
-
   // 4a0. "Paguei" (operator, 2026-10-08, L2): the agent tells her the payment's status instead of
   // calling a person who may not come. Before the interpreter, so its post-sale handoff never fires
   // here. Only a receipt, after the check found nothing, goes to a person.
@@ -3637,6 +3632,21 @@ const handleTurn = async (
         if (payment === "confirmed") await settle("canceled");
         return sent;
       }
+    }
+  }
+
+  // "Reenvia o Pix" (2026-10-27): the Pix touch promises it, and its button says it. After the "paguei" check, which answers a
+  // payment she claims; never beside one (`pixResendFor`). The same chain as that check's lines (`sendFixed`, "auto", any hour):
+  // the code she asked for, from her newest order still waiting for it. Index: orders_lead_idx, her newest rows.
+  if (!isResume && parts.some((p: string) => asksPixCode(spoken(p)))) {
+    const texts = pixResendFor(
+      true,
+      parts.some((p: string) => saysPaid(p) || isPaymentReceipt(p)),
+      ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(",")})&select=status,details&order=created_at.desc&limit=3`).catch(() => null)) ?? []),
+    );
+    if (texts.length > 0) {
+      const sent = await sendFixed(texts.join("\n\n"), "pix reenviado a pedido dela", "prepay", {}, false, 1, "auto");
+      if (sent) return sent;
     }
   }
 
@@ -4392,7 +4402,7 @@ const handleTurn = async (
   // What the Coinzz told about her checkout (2026-10-27): the cart on her lead and her newest order, as internal facts. Index:
   // orders_lead_idx, newest one of her few rows.
   const newestOrder = ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(",")})&select=created_at,status,payment_method,amount_brl,units&order=created_at.desc&limit=1`).catch(() => null)) ?? [])[0] ?? null;
-  const turnFacts = { stockLine, prepayFreightBrl, site: siteMode, checkoutFacts: checkoutFactLines(lead.cart ?? null, newestOrder) };
+  const turnFacts = { stockLine, prepayFreightBrl, site: siteMode, siteOrigin: !fromAd, openingSent, checkoutFacts: checkoutFactLines(lead.cart ?? null, newestOrder) };
   const factsGate = { ...(stockLeft ? { stockLeft } : {}), ...(prepayFreightBrl !== null ? { prepayFreightBrl } : {}) };
   // What the link carries: the name title-cased for the checkout (code review,
   // 2026-09-24 — "maria jose ferreira", "MARIA DA SILVA"); the stored value is untouched.
@@ -5014,7 +5024,7 @@ const handleTurn = async (
               ? payload.source.headline
               : typeof lead.source?.headline === "string" && conversation.entry_at ? lead.source.headline : null,
             onlyGreets(parts),
-            siteMode,
+            siteMode && !fromAd,
           )
         : null,
       // E3.2 (H2): her size and register, over her last three messages.

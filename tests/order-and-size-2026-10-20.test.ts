@@ -22,8 +22,9 @@ describe("pedido não encontrado", () => {
   it.each(["cod", "prepay"] as const)("passa a cadeia (camada auto) no caminho %s", (p) =>
     expect(runGates(line, ctx({ config, paymentPath: p, layer: "auto" })).traces.filter((t) => t.verdict === "block").map((t) => t.gate)).toEqual([]));
   it("procura pelo lead dela e pelo mesmo número com e sem o nono dígito — nunca só pelo final", () => {
-    expect(turn).toContain("const m = /^55(\\d{2})9?(\\d{8})$/.exec(digits(String(lead.phone ?? \"\")));");
-    expect(turn).toContain("leads?phone=in.(55${m[1]}${m[2]},55${m[1]}9${m[2]})&select=id");
+    // Since the review of ecea0c3 (4, 6) the twins are `phoneTwins`, the webhooks' rule too: a mobile with/without the 9, never a suffix.
+    expect(turn).toContain("const own = digits(String(lead.phone ?? \"\"));");
+    expect(turn).toContain("leads?phone=in.(${phoneTwins(own).join(\",\")})&select=id`).catch(() => null)");
     expect(turn).toContain("const orders: OrderView[] = ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(\",\")})&select=status,payment_method,scheduled_for&order=created_at.desc`)");
   });
   it("só sem nenhum pedido por nenhum caminho (o pedido de status desconhecido existe), e uma vez por conversa", () => {

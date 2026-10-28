@@ -1206,6 +1206,9 @@ const gates: readonly Gate[] = [
           if (/\?\s*$/.test(sentence)) continue;
           if (!/\b(?:antecipa\w*|adianta\w*|pix|pag\w*\s+(?:antes|agora)|a\s+vista)\b/.test(sentence)) continue;
           if (/\bna\s+entrega\b|\bna\s+porta\b|\bentregador\b|\bkits?\b|\bcupom\b|\b(?:[2-9]|duas|dois|tres)\s+(?:pecas?|unidades?|coletes?)\b/.test(sentence)) continue;
+          // The anchor's discount is true on every path ("No Pix sai por R$ 109,90, já com desconto", "de R$ 216,50 por R$ 109,90 no
+          // Pix"): said with "já com desconto" or the anchor's own price, it is not the prepaid's (dev:gates review of ecea0c3).
+          if (/\bja\s+com\s+(?:o\s+)?desconto\b/.test(sentence) || moneyMatches(sentence).some((mm) => mm.value === anchorBrl)) continue;
           const claim = /\b(?:desconto|mais\s+barat\w*|mais\s+em\s+conta|sai\s+menos|abatimento)\b/.exec(sentence);
           if (claim && !negatedAt(sentence, claim.index)) return "claims a prepaid discount; there is none — the prepaid price is the same";
         }

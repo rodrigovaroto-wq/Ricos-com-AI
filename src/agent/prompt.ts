@@ -741,11 +741,18 @@ export const honestyBriefing = (config: PromptConfig): string[] => {
  * value-building — product, price, reviews, video — so she is answered directly and taken to the close; the media go only on her
  * request, sent by the system (`requestedMedia`), never promised by the model.
  */
-export const siteBriefing = (): string[] => [
-  `ELA VEIO DO SITE, não de um anúncio: lá ela já viu o colete, as fotos, o preço, as avaliações e o vídeo, e tocou no botão do`,
-  `WhatsApp pra falar com você. Ela já conhece o produto e chega com uma dúvida, ou pronta pra comprar. Responda direto o que ela`,
-  `perguntou, curto, e conduza ao fechamento; não reapresente o produto do zero nem repita o que o site já mostrou, a não ser que`,
-  `ela pergunte. O que a afasta: ser ignorada, ouvir a mesma coisa duas vezes, insistência depois de um não e link antes da hora.`,
+export const siteBriefing = (fromSite = true): string[] => [
+  ...(fromSite
+    ? [
+        `ELA VEIO DO SITE, não de um anúncio: lá ela já viu o colete, as fotos, o preço, as avaliações e o vídeo, e tocou no botão do`,
+        `WhatsApp pra falar com você. Ela já conhece o produto e chega com uma dúvida, ou pronta pra comprar. Responda direto o que ela`,
+        `perguntou, curto, e conduza ao fechamento; não reapresente o produto do zero nem repita o que o site já mostrou, a não ser que`,
+        `ela pergunte. O que a afasta: ser ignorada, ouvir a mesma coisa duas vezes, insistência depois de um não e link antes da hora.`,
+      ]
+    : [
+        `Ela chegou por um anúncio, mas não recebeu a apresentação do colete: responda o que ela trouxe, curto, e conduza ao fechamento.`,
+        `O que a afasta: ser ignorada, ouvir a mesma coisa duas vezes, insistência depois de um não e link antes da hora.`,
+      ]),
   ``,
   `NENHUMA ABERTURA FOI MANDADA AQUI. Vídeo, avaliações, os seus áudios gravados e a tabela de tamanhos o sistema manda sozinho`,
   `quando ela pede, e eles aparecem no histórico: nunca diga que vai mandar nem que mandou o que não está lá. Se o histórico já`,
@@ -768,11 +775,15 @@ export const checkoutFactLines = (
     return `${d.slice(8, 10)}/${d.slice(5, 7)} às ${Number(d.slice(11, 13))}h`;
   };
   const pieces = (n: number | null | undefined) => (n && n > 1 ? `${n} peças` : `1 peça`);
+  // The offer's name and the status come from a webhook nobody signs the text of (review of ecea0c3, 8): one line, letters, digits
+  // and a few signs, 40 characters — never an instruction smuggled into the prompt.
+  const plainFact = (v: string | null | undefined): string =>
+    String(v ?? "").normalize("NFC").replace(/[^\p{L}\p{N} ,.%/()+-]/gu, " ").replace(/\s+/g, " ").trim().slice(0, 40).trim();
   const lines: string[] = [];
   const cartAt = when(cart?.at);
   if (cart && cartAt) {
     lines.push(
-      `carrinho aberto no checkout em ${cartAt}: ${pieces(cart.quantity)}${cart.offerName ? ` (${cart.offerName})` : ``}` +
+      `carrinho aberto no checkout em ${cartAt}: ${pieces(cart.quantity)}${plainFact(cart.offerName) ? ` (${plainFact(cart.offerName)})` : ``}` +
         `${cart.offerPriceBrl ? `, ${money(cart.offerPriceBrl)}` : ``}, sem finalizar`,
     );
   }
@@ -781,7 +792,7 @@ export const checkoutFactLines = (
   if (order && orderAt) {
     lines.push(
       `pedido feito em ${orderAt}: ${pieces(order.units)}${Number.isFinite(amount) && amount > 0 ? `, ${money(amount)}` : ``}, ` +
-        `${order.payment_method === "cod" ? `pagamento na entrega` : `pagamento antecipado`}, status da plataforma "${order.status ?? "criado"}"`,
+        `${order.payment_method === "cod" ? `pagamento na entrega` : `pagamento antecipado`}, status da plataforma "${plainFact(order.status) || "criado"}"`,
     );
   }
   return lines;
@@ -926,8 +937,12 @@ export const systemPrompt = (
   turnFacts: {
     stockLine?: string | null;
     prepayFreightBrl?: number | null;
-    /** She came from the site, not an ad, and no opening went (2026-10-27): the ad paragraphs give way to `siteBriefing`. */
+    /** No opening went to her (2026-10-27; review of ecea0c3, 7): the ad paragraphs give way to `siteBriefing`. */
     site?: boolean;
+    /** With `site`: she came with no ad behind her first message (the site, or her own number). False: an ad, but no opening. */
+    siteOrigin?: boolean;
+    /** The opening is in her history. False: "A ABERTURA JÁ FOI" is never said. Absent: today's prompt. */
+    openingSent?: boolean;
     /** What the Coinzz told about her checkout (`checkoutFactLines`): internal facts, never recited. */
     checkoutFacts?: readonly string[];
   } = {},
@@ -954,12 +969,16 @@ export const systemPrompt = (
     `mudar, nunca sugira que ela está errada do jeito que é. O que muda é o caimento da roupa,`,
     `não o valor dela.`,
     ...(turnFacts.site
-      ? siteBriefing()
+      ? siteBriefing(turnFacts.siteOrigin !== false)
       : [
           `Quase sempre ela vem do anúncio, e AINDA NÃO ESTÁ CONVENCIDA. Primeiro ela precisa ouvir que funciona no`,
           `corpo e na roupa dela, que é confortável e não marca, que ninguém vai enganá-la e que o`,
           `risco é pequeno; só depois vêm a oferta, o preço e os dados. O que a afasta: ser ignorada,`,
           `ouvir a mesma coisa duas vezes, insistência depois de um não, dado pedido sem motivo e link antes da hora.`,
+        ]),
+    ...(turnFacts.site || turnFacts.openingSent === false
+      ? []
+      : [
           ``,
           `A ABERTURA JÁ FOI (roteiro v3, R28). Na primeira mensagem dela o sistema mandou sozinho: a sua apresentação,`,
           `dois áudios seus sobre o colete, o vídeo de uma cliente vestindo, as avaliações e a pergunta do`,

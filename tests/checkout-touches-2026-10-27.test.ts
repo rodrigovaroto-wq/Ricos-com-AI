@@ -120,7 +120,7 @@ describe("carrinho abandonado", () => {
   it("o turno cancela o toque quando ela escreve; a rota do carrinho confere o token em tempo constante", () => {
     expect(turn).toContain("followups?conversation_id=eq.${conversation.id}&kind=eq.cart_recovery&status=eq.scheduled");
     expect(turn).toContain('if (payload.job === "cart") {');
-    expect(turn).toMatch(/if \(payload\.job === "cart"\) \{\n\s+const saleToken = Deno\.env\.get\("SALE_WEBHOOK_TOKEN"\) \?\? "";\n\s+if \(saleToken !== "" && !sameSecret\(/);
+    expect(turn).toMatch(/if \(payload\.job === "cart"\) \{\n[^\n]*\n\s+const saleToken = Deno\.env\.get\("SALE_WEBHOOK_TOKEN"\) \?\? "";\n\s+if \(saleToken === "" \|\| !sameSecret\(/);
   });
 });
 
@@ -148,9 +148,10 @@ describe("Pix pendente", () => {
     expect(onOrderConfirmed(waiting, at, at, "Aprovado", "o1", null, false).cancel).toContain("pix_pending");
     expect(onOrderConfirmed(waiting, at, at, "Expirado", "o1", null, true).cancel).toContain("pix_pending");
     expect(onOrderConfirmed(waiting, at, at, "Cancelado", "o1", null, false).cancel).toContain("pix_pending");
-    // Negation: the same Pix still waiting keeps it; another order's webhook does not take it.
+    // Negation: the same Pix still waiting keeps it; another order of hers still unpaid does not take it.
     expect(onOrderConfirmed(waiting, at, at, "Aguardando pagamento", "o1", null, true).cancel).not.toContain("pix_pending");
-    expect(onOrderConfirmed(waiting, at, at, "Aprovado", "o2", null, false).cancel).not.toContain("pix_pending");
+    expect(onOrderConfirmed(waiting, at, at, "Aguardando pagamento", "o2", null, true).cancel).not.toContain("pix_pending");
+    expect(onOrderConfirmed(waiting, at, at, "Pedido criado", "o2", null, false).cancel).not.toContain("pix_pending");
   });
   it("qualquer pedido cancela o toque do carrinho", () => {
     const cart: ExistingFollowup[] = [{ kind: "cart_recovery", status: "scheduled" }];
@@ -182,7 +183,7 @@ describe("Pix pendente", () => {
 });
 
 describe("silence_3 com o cupom desligado: a retomada", () => {
-  const c = (over: Partial<RenderContext> = {}) => rctx({ size: "G", marketingOptIn: true, paymentPath: "cod", ...over });
+  const c = (over: Partial<RenderContext> = {}) => rctx({ size: "G", sizeSells: true, marketingOptIn: true, paymentPath: "cod", ...over });
   it("texto = template encorpa_retomada, pela chave própria — nunca o template do cupom", () => {
     const d = deliveryFor("silence_3", c(), null);
     expect(d).toMatchObject({ via: "template", name: "encorpa_retomada", language: "pt_BR", variables: ["G", "R$ 109,90"] });
