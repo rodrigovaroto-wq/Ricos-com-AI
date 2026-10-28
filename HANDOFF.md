@@ -13,6 +13,27 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-28 — teste em dois braços (anúncio → WhatsApp × anúncio → site → checkout) PRONTO NA BRANCH, NÃO PUBLICADO.**
+> Branch `claude/site-whatsapp-test` (este repositório, HEAD `c53b827`, já com a v45 ao vivo mesclada) e
+> `claude/site-whatsapp-test` no Encorpa-Website. Grafo §132a, §133 e §134. Três revisões Opus: a última APROVADA.
+>
+> - **Smoke test 26–27/10:** 22 leads, 7 CEPs, 0 com pagamento na entrega, 0 vendas. A causa é a cobertura, não o preço.
+> - **Achado:** a consulta da Logzz (`lookupLogzzUnsafe`) dava falso positivo: o dia de entrega ignora a operação. Os 183 G
+>   estão em BH; SP só tem GG e XGG. A Coinzz (o checkout real) diz a verdade, e a Malu passa a consultar a Coinzz.
+>   O M não tem estoque em lugar nenhum (404): a Malu diz isso e não manda link.
+> - **Oferta nova (`docs/operacao/business-config-2026-10-27.min.json`):** R$ 109,90 nos dois caminhos, frete grátis,
+>   kits 2 por R$ 197,82 e 3 por R$ 263,76, um checkout da Coinzz por quantidade (`encorpa-0`, `encorpa-site-0`,
+>   `oferta-site2-0`), cupom e experimentos desligados.
+> - **Feito no banco:** migração 0033 aplicada em 28/10 (`leads.cart`, `orders.details`).
+> - **Falta, nesta ordem:**
+>   1. Operador: frete grátis nas 3 ofertas da Coinzz (hoje cobra R$ 19,35–31,29 no antecipado e R$ 24,98 na entrega),
+>      pixel `4466808633585371` nas 3 ofertas, páginas de obrigado, postback de carrinho abandonado.
+>   2. `pnpm deploy:turn` (v46) com o OK do operador: o classificador bloqueou o deploy sem ele.
+>   3. n8n: publicar `carrinho-abandonado`, `venda-confirmada` e `whatsapp-envio` (os arquivos da branch).
+>   4. Gravar o `BUSINESS_CONFIG` de 27/10 SÓ depois do item 1, e `job:"health"`.
+>   5. Sócio: submeter os 3 templates (`03-templates-meta.md` §5–§7) e, aprovados, declarar em `channel.templates`.
+>   6. Merge da branch do site e publicação.
+
 > **2026-10-26 — conferência dos pendentes.** PR #82 mergeado (`turn` v44 no ar, função v160). Ainda **não há `turn_outcomes` com
 > `agent_version = 44`** (última mensagem em 23/10): o smoke test espera a primeira conversa real. A função `whatsapp` foi publicada na **v67**
 > em 26/10 com autorização do operador (id da imagem do PR #81 em `messages.media`; GET sem token 403, POST sem assinatura 401).
