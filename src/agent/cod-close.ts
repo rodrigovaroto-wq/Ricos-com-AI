@@ -105,7 +105,7 @@ export const readCodDates = (status: number, body: unknown): CodDatesLookup => {
     return { kind: "dates", dates: [...byDay.values()].sort((x, y) => x.date.localeCompare(y.date)) };
   }
   const message = [b?.message, ...(Array.isArray(b?.errors) ? b.errors : [])].filter((m): m is string => typeof m === "string").join(" ");
-  return status >= 400 && status < 500 && status !== 429 && NO_COD.test(message) ? { kind: "none", reason: message } : { kind: "failed" };
+  return status >= 400 && status < 500 && status !== 429 && NO_COD.test(message) ? { kind: "none", reason: maskPii(message) } : { kind: "failed" };
 };
 
 /** Never throws: the worst answer is `failed`. */
@@ -194,11 +194,19 @@ export const pickDate = (
   let found: { kind: "pick"; date: string } | { kind: "unavailable"; said: string } | null = null;
   for (const part of parts) {
     const t = norm(part).replace(/\bde\s+segunda(?:[\s-]*feira)?\s+(?:a|ate)\s+(?:sexta(?:[\s-]*feira)?|sabado)\b/g, " ");
-    for (const clause of t.split(/[,;.!?\n]+|\bmas\b|\bou\s+melhor\b/)) {
+    const clauses = t.split(/[,;.!?\n]+|\bmas\b|\bou\s+melhor\b/);
+    // Her own doubt after the day ("sexta? não sei", "quinta, talvez") is no pick: the message picks nothing (review of 844743b).
+    if (clauses.slice(1).some((c) => /^\s*(?:(?:eu\s+)?nao\s+sei|sei\s+la|talvez|vou\s+ver|acho\s+que\s+nao)\b/.test(c))) {
+      found = null;
+      continue;
+    }
+    for (const clause of clauses) {
+      const named = new Set<string>();
       for (const m of clause.matchAll(DAY)) {
         const before = clause.slice(0, m.index ?? 0);
         const after = clause.slice((m.index ?? 0) + m[0].length);
-        if (/\b(?:nao|nem|nunca|sem)\b/.test(before) || /^\s*(?:nao|nem)\b/.test(after)) continue;
+        // A denial anywhere in the day's own clause: "não estou em casa na quinta", "quinta eu não posso", "quinta não".
+        if (/\b(?:nao|nem|nunca|sem)\b/.test(before) || /\b(?:nao|nem|nunca)\b/.test(after)) continue;
         const iso: string | null = m[1]
           ? dates.find((d) => PLAIN_WEEKDAYS[new Date(`${d.date}T12:00:00Z`).getUTCDay()] === m[1])?.date ?? null
           : m[2]
@@ -219,16 +227,26 @@ export const pickDate = (
           : m[4]
           ? `dia ${m[4]}`
           : "esse dia";
-        found = iso ? { kind: "pick", date: iso } : { kind: "unavailable", said };
+        named.add(iso ?? said);
+        // Two days left open in one clause ("quinta ou sexta") is a question back, never the last one.
+        found = named.size > 1 ? null : iso ? { kind: "pick", date: iso } : { kind: "unavailable", said };
       }
     }
   }
   return found;
 };
 
-/** "muda a data", "quero outro dia", "troca o dia": the date asked again, without a new one named. */
+/**
+ * "muda a data", "quero outro dia", "troca o dia": the date asked again, without a new one named. Not denied in its clause ("não
+ * quero mudar a data", "não precisa trocar o dia"), and "outro dia" only as a day wanted ("outro dia eu compro" is "some day").
+ */
 export const asksDateChange = (parts: readonly string[]): boolean =>
-  parts.some((p) => /\b(?:mud|troc|alter)\w*\b[^.?!]{0,20}\b(?:data|dia)\b|\boutr[ao]\s+(?:data|dia)\b/.test(norm(p)));
+  parts.some((p) =>
+    norm(p).split(/[,;.!?\n]+|\bmas\b/).some((c) => {
+      const m = /\b(?:mud|troc|alter)\w*\b[^.?!]{0,20}\b(?:data|dia)\b|\b(?:quero|queria|prefiro|preferia|pode\s+ser|tem|teria|seria|escolher|marcar|pra|para)\s+(?:um\s+|uma\s+|n)?outr[ao]\s+(?:data|dia)\b/.exec(c);
+      return m !== null && !/\b(?:nao|nem|nunca)\b/.test(c.slice(0, m.index));
+    }),
+  );
 
 /**
  * Every message of her burst is a bare yes — an allowlist of the whole message (Lesson 3): "sim", "confirmo", "pode confirmar",
@@ -238,13 +256,16 @@ const YES = /^(?:(?:sim+|s+|isso(?:\s+mesmo)?|confirm(?:o|a|ado|ada|ar)|pode(?:\
 export const confirmsOrder = (parts: readonly string[]): boolean =>
   parts.length > 0 &&
   parts.every((p) => {
+    // A question is never a yes: "confirmado?", "pode?", "tá certo?", "sim?" (review of 844743b).
+    if (/[?¿]/.test(p)) return false;
     const t = norm(p).replace(/[\p{Extended_Pictographic}\u{FE0F}\u{200D}]/gu, " ").replace(/[^a-z\s]/g, " ").replace(/\s+/g, " ").trim();
     return t !== "" && YES.test(t);
   });
 
 /**
  * The house number she sent to the ask that named it ("100", "nº 45, apto 12", "o número é 100 casa 2"). A CEP or a CPF in the
- * segment is never a house number. Null when the ask did not name it or nothing reads.
+ * segment is never a house number. After the number only a complement may follow (apto, bloco, casa…): "29/10", "30 de outubro",
+ * "2 peças", "14:00" are a date, a count or a time, never the door (review of 844743b). Null when the ask did not name it.
  */
 export const houseNumberIn = (parts: readonly string[], asked: boolean): { number: string; complement: string | null } | null => {
   if (!asked) return null;
@@ -256,11 +277,14 @@ export const houseNumberIn = (parts: readonly string[], asked: boolean): { numbe
       const m = /^(?:(?:o\s+)?n(?:[º°o.]|u|ú)?(?:mero)?\s*(?:da\s+casa\s*)?(?:[:.]|[ée]\s+)?\s*)?(\d{1,5}|s\/?n)\b\s*[-–]?\s*(.*)$/i.exec(s);
       if (!m) continue;
       const rest = m[2]!.replace(/^(?:e\s+)/i, "").trim();
-      found = { number: m[1]!.toLowerCase().replace(/^s\/?n$/, "s/n"), complement: rest && rest.length <= 40 && /^\p{L}/u.test(rest) ? rest : null };
+      if (rest !== "" && !(rest.length <= 40 && new RegExp(`^(?:${COMPLEMENT})(?![\\p{L}])`, "iu").test(rest))) continue;
+      found = { number: m[1]!.toLowerCase().replace(/^s\/?n$/, "s/n"), complement: rest || null };
     }
   }
   return found;
 };
+
+const COMPLEMENT = "apto|apt|ap|apartamento|bloco|bl|casa|cs|fundos|frente|sobrado|loja|sala|andar|torre|lote|quadra|qd|conjunto|cj";
 
 /** A cell phone in her answer to `PHONE_ASK`: DDD + 9 + 8 digits, national form. */
 export const cellIn = (parts: readonly string[]): string | null => {
@@ -414,8 +438,9 @@ export const closeStep = (input: {
       `${DATES_HEAD}${joined(labels, "ou")}. Qual dia fica melhor pra você?`;
   const dataLine = missing.length === 0
     ? null
-    : `${f.cpfInvalid && !cpf ? "Esse CPF não confere, algum número pode ter saído trocado 😕 " : ""}${DATA_HEAD}${datesLine ? "também " : ""}${joined(missing, "e")} 😊`;
-  const text = [datesLine, dataLine].filter(Boolean).join("\n\n");
+    : `${f.cpfInvalid && !cpf ? "Esse CPF não confere, algum número pode ter saído trocado 😕 " : ""}${DATA_HEAD}${joined(missing, "e")} 😊`;
+  // The day first, on its own; her data after it (review of 844743b: asked together, "29/10" was read as the house number).
+  const text = (datesLine ?? dataLine)!;
   return text === lastOutbound
     ? { kind: "model", state, directive: closeDirective(f.dates, missing, false) }
     : { kind: "send", text, state, reason: date ? "pedido na entrega: dados que faltam" : "pedido na entrega: datas da entrega" };
@@ -473,9 +498,11 @@ export type ImportResult =
   | { readonly kind: "phone"; readonly message: string }
   /** The Logzz keeps one open main order per customer. */
   | { readonly kind: "open_order"; readonly message: string }
-  /** 409, 429, 5xx, the network, an answer without the order: nothing known to be created; the same id is safe to send again. */
+  /** 409 "Pedido em processamento": the Logzz is creating it — the SAME id, a moment later, answers its order_code. */
+  | { readonly kind: "processing"; readonly message: string }
+  /** 429, 5xx, the network, an answer without the order: nothing known to be created; the same id is safe to send again. */
   | { readonly kind: "retry"; readonly message: string }
-  /** 401/403/404: the token or the URL — the operator's to fix. */
+  /** 401/403/404, 409 "Integração desativada": the token, the URL or the integration — the operator's to fix. */
   | { readonly kind: "config"; readonly message: string }
   | { readonly kind: "rejected"; readonly message: string };
 
@@ -487,14 +514,22 @@ const isoOf = (v: unknown): string | null => {
   return br ? `${br[3]}-${br[2]}-${br[1]}` : null;
 };
 
+/** Her CPF and phone out of any text the system keeps or e-mails (a Logzz error may echo them, review of 844743b). */
+export const maskPii = (text: string): string =>
+  text
+    .replace(/\d{3}\.?\d{3}\.?\d{3}-?\d{2}/g, "***CPF***")
+    .replace(/(?:\+?55\s*)?\(?\d{2}\)?\s*9?\d{4}[\s.-]?\d{4}/g, "***TEL***");
+
 export const readImport = (status: number, body: unknown, asked: string): ImportResult => {
   const b = body as { status?: unknown; message?: unknown; order_code?: unknown; delivery_date?: unknown; rescheduled?: unknown } | null;
-  const message = typeof b?.message === "string" ? b.message : `HTTP ${status}`;
-  if (status >= 200 && status < 300 && b?.status === "success" && typeof b.order_code === "string" && b.order_code.trim() !== "") {
+  const message = maskPii(typeof b?.message === "string" ? b.message : `HTTP ${status}`);
+  // A 2xx with the order's code is the order, whatever else it says: the same external_id again answers 200 with the order it made.
+  if (status >= 200 && status < 300 && b?.status !== "error" && typeof b?.order_code === "string" && b.order_code.trim() !== "") {
     // The day the order holds is the one the Logzz answered: `rescheduled` moved it when hers was full.
     return { kind: "created", orderCode: b.order_code.trim(), deliveryDate: isoOf(b.delivery_date) ?? asked, rescheduled: b.rescheduled === true };
   }
-  if (status === 401 || status === 403 || status === 404) return { kind: "config", message };
+  if (status === 401 || status === 403 || status === 404 || (status === 409 && /desativad/.test(norm(message)))) return { kind: "config", message };
+  if (status === 409 && /processamento/.test(norm(message))) return { kind: "processing", message };
   if (status === 409 || status === 429 || status >= 500 || (status >= 200 && status < 300)) return { kind: "retry", message };
   const t = norm(message);
   if (/data de entrega indisponivel/.test(t)) return { kind: "date_gone", message };
@@ -522,21 +557,27 @@ export const placeOrder = async (
     }
   };
   const first = await once();
-  if (first.kind !== "retry") return first;
-  await wait(2000);
+  if (first.kind !== "retry" && first.kind !== "processing") return first;
+  // Processing: the Logzz asked for "instantes" — a longer wait, then the same id.
+  await wait(first.kind === "processing" ? 4000 : 2000);
   return once();
 };
 
 /** Her order, said once it exists: the number and the day the Logzz answered (`rescheduled`: hers was full, the next one). */
 export const closeConfirmed = (orderCode: string, deliveryDate: string, rescheduled: boolean, priceBrl: number): string =>
   `Pedido confirmado! 🎉 Nº ${orderCode}\n\n` +
-  `Sua entrega fica pra ${dateLabel(deliveryDate)}${rescheduled ? " — o dia que você escolheu lotou, e o sistema passou pro próximo disponível" : ""}.` +
+  `Sua entrega fica pra ${dateLabel(deliveryDate)}` +
+  // Moved by the Logzz (the day she chose was full): said plainly, and she may ask for another (operator's decision pending, §135).
+  (rescheduled ? `: o dia que você escolheu lotou, e o sistema passou pro próximo disponível. Se esse dia não der pra você, é só me falar aqui.` : `.`) +
   ` Deixa ${money(priceBrl)} separado pra pagar quando receber: dinheiro, Pix ou cartão, na maquininha do entregador.\n\n` +
   `Qualquer dúvida, é só me chamar aqui 💛`;
 
 /** The import did not answer: said truthfully, with the same summary under it — her "SIM" again sends the same order id. */
 export const closeRetryLater = (summary: string): string =>
   `Não consegui registrar seu pedido agora, o sistema da entrega não respondeu 😔 Tento de novo assim que você me responder.\n\n${summary}`;
+/** 409 "Pedido em processamento" twice: the order is being made — said as such, the summary under it, her "SIM" asks the same id. */
+export const closeProcessing = (summary: string): string =>
+  `Estou finalizando seu pedido no sistema da entrega, só leva um instantinho ⏳ Me responde *SIM* de novo daqui a pouco que eu te passo o número.\n\n${summary}`;
 export const CLOSE_CPF_REFUSED = "O sistema da entrega não aceitou esse CPF 😕 Confere pra mim e me manda de novo? Tem que ser o CPF de quem vai receber.";
 export const CLOSE_OPEN_ORDER =
   "Vi aqui que já existe um pedido seu em aberto na transportadora 💛 Pra não duplicar, não criei outro agora. Me conta o que você precisa que eu te ajudo.";

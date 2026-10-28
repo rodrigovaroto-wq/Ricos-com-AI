@@ -274,6 +274,11 @@ export interface GateContext {
    * by `delivery_promise`. Absent (every other turn, the sweep): no day at all, as before.
    */
   codDates?: readonly string[];
+  /**
+   * The sale on delivery is being closed in the conversation and no order exists yet (grafo §135): `order_claim` refuses any
+   * sentence that says the order is confirmed, placed, scheduled or registered — only the import makes it so. Absent: idle.
+   */
+  closeOpen?: boolean;
 }
 
 /**
@@ -1637,6 +1642,45 @@ const gates: readonly Gate[] = [
         if (NEGATION.test(sentence) || /\b(?:antecip\w*|rastre\w*|transportadora|envio|postad\w*)\b/.test(sentence)) continue;
         const atTheDoor = m[0].startsWith("carteir") || /\b(?:na\s+entrega|ao\s+entregador|pro\s+entregador|para\s+o\s+entregador|na\s+porta|no\s+ato|ao\s+receber)\b/.test(sentence);
         if (atTheDoor && !askedAt(t, at + m[0].length)) return "says the mail carries a pay-at-the-door order";
+      }
+      return null;
+    },
+  },
+  {
+    /**
+     * The order on delivery exists only after the import answered (grafo §135, review of 844743b): "Prontinho, seu pedido está
+     * confirmado pra quinta (29/10)! 🎉", "Seu pedido foi agendado", "Seu pedido está registrado" passed the whole chain while it
+     * waited for her SIM. Idle unless `closeOpen`. A denial or a condition in the same clause is the truth ("ainda não está
+     * confirmado", "só fica confirmado quando você responder SIM", "assim que você disser SIM eu confirmo").
+     */
+    name: "order_claim",
+    remedy: "rewrite",
+    briefing: () =>
+      `Quando o pedido na entrega é fechado aqui na conversa, ele só existe depois que ela responde SIM ao resumo e o sistema ` +
+      `devolve o número: antes disso, nunca diga que o pedido está confirmado, feito, agendado, registrado ou criado.`,
+    check: (text, ctx) => {
+      if (ctx.closeOpen !== true) return null;
+      const t = norm(text);
+      const PARTICIPLE = String.raw`(?:confirmad|agendad|registrad|feit|criad|finalizad|fechad|realizad|garantid|reservad)[oa]s?`;
+      const claims = [
+        new RegExp(String.raw`\bpedido\b[^.!?;\n]{0,40}?\b${PARTICIPLE}\b`, "g"),
+        new RegExp(String.raw`\b(?:confirmei|agendei|registrei|criei|finalizei|fechei|fiz|reservei)\b[^.!?;\n]{0,30}\bpedido\b`, "g"),
+        new RegExp(String.raw`\b(?:prontinho|pronto|feito|confirmado|agendado)\s*[!,.]?\s*(?:seu|o)\s+pedido\b`, "g"),
+        new RegExp(String.raw`\b(?:entrega|tudo)\s+(?:esta|ta|ficou|foi|ja\s+esta)\s+${PARTICIPLE}\b`, "g"),
+      ];
+      for (const re of claims) {
+        for (const m of t.matchAll(re)) {
+          const at = m.index ?? 0;
+          const from = Math.max(t.lastIndexOf(".", at), t.lastIndexOf("!", at), t.lastIndexOf("?", at), t.lastIndexOf(";", at), t.lastIndexOf("\n", at)) + 1;
+          // Denied or conditioned before it in its sentence ("ainda não está confirmado", "só fica confirmado…"), or conditioned right
+          // after it ("fica confirmado assim que você disser SIM"). A "só" or "quando" further on is another clause, never an excuse.
+          const head = t.slice(from, at + m[0].length);
+          const tail = t.slice(at + m[0].length, at + m[0].length + 20);
+          if (/\b(?:nao|nunca|nem|so|somente|apenas|assim\s+que|quando|depois\s+que|se|antes\s+de)\b/.test(head) || /^\s*,?\s*(?:assim\s+que|quando|depois\s+que|se|so\s+(?:quando|depois))\b/.test(tail)) continue;
+          // Asked, not claimed: "posso confirmar o pedido?", "o pedido ficou confirmado?" is hers to answer.
+          if (/\?/.test(t.slice(at + m[0].length).split(/[.!\n]/)[0] ?? "")) continue;
+          return "claims the order is confirmed before the import made it";
+        }
       }
       return null;
     },

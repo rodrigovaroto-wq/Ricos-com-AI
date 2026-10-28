@@ -12,6 +12,8 @@ import {
   CLOSE_CPF_REFUSED,
   CLOSE_OPEN_ORDER,
   PHONE_ASK,
+  closeProcessing,
+  maskPii,
   SUMMARY_HEAD,
   asksDateChange,
   cachedCodDates,
@@ -207,13 +209,15 @@ describe("4. o sim explícito: a mensagem inteira, cada uma da rajada", () => {
 });
 
 describe("5. os passos do fechamento", () => {
-  it("sem dia e sem dados: as datas reais e o que falta, numa mensagem", () => {
+  it("sem dia: só as datas reais; com o dia, o que falta numa mensagem própria", () => {
     const s = step({ facts: { name: "Maria", cpf: null, stored: {} } });
     expect(s.kind).toBe("send");
     const text = (s as { text: string }).text;
-    expect(text).toContain("📅 Posso agendar sua entrega pra quinta (29/10), sexta (30/10) ou sábado (31/10).");
-    expect(text).toContain("seu nome completo, seu CPF e o número da casa");
+    expect(text).toBe("📅 Posso agendar sua entrega pra quinta (29/10), sexta (30/10) ou sábado (31/10). Qual dia fica melhor pra você?");
     expect(isCloseMessage(text)).toBe(true);
+    const data = (step({ facts: { name: "Maria", cpf: null, stored: {} }, parts: ["quinta"], lastOutbound: text }) as { text: string }).text;
+    expect(data).toContain("seu nome completo, seu CPF e o número da casa");
+    expect(data).not.toContain("📅");
   });
   it("com o dia e os dados: o resumo, com o CPF mascarado e a pergunta do SIM", () => {
     const s = step({ parts: ["quinta"] });
@@ -340,10 +344,15 @@ describe("6. a importação: o mesmo resumo, o mesmo pedido", () => {
     expect(readImport(422, { status: "error", message: "CPF do cliente inválido ou irregular." }, "x").kind).toBe("cpf");
     expect(readImport(422, { status: "error", message: "Número de telefone inválido" }, "x").kind).toBe("phone");
     expect(readImport(422, { status: "error", message: "Já existe um pedido principal sem finalização em nome desse(a) cliente." }, "x").kind).toBe("open_order");
-    expect(readImport(409, { status: "error", message: "Pedido em processamento…" }, "x").kind).toBe("retry");
+    expect(readImport(409, { status: "error", message: "Pedido em processamento. Tente novamente em instantes." }, "x").kind).toBe("processing");
+    expect(readImport(409, { status: "error", message: "Integração desativada" }, "x").kind).toBe("config");
+    expect(readImport(409, { status: "error", message: "Conflito" }, "x").kind).toBe("retry");
     expect(readImport(429, null, "x").kind).toBe("retry");
     expect(readImport(500, { status: "error", message: "Não foi possível criar o pedido agora" }, "x").kind).toBe("retry");
     expect(readImport(200, { status: "success" }, "x").kind).toBe("retry");
+    // The same external_id again: 200 with the order it made, whatever the status field says.
+    expect(readImport(200, { order_code: "LZ123", delivery_date: "2026-10-29" }, "x")).toMatchObject({ kind: "created", orderCode: "LZ123" });
+    expect(readImport(200, { status: "error", order_code: "LZ123" }, "x").kind).not.toBe("created");
     expect(readImport(401, { message: "Unauthenticated." }, "x").kind).toBe("config");
     expect(readImport(404, null, "x").kind).toBe("config");
     expect(readImport(422, { status: "error", message: "O campo offer é obrigatório." }, "x").kind).toBe("rejected");
@@ -441,7 +450,7 @@ describe("9. config: campo novo opcional; o arquivo de 28/10 é o de 27/10 mais 
 
 describe("10. o turno: fiação do fechamento", () => {
   it("o pedido só é criado no confirm, com o token e o id do resumo, e a confirmação da régua não sai duas vezes", () => {
-    expect(turn).toContain('if (close?.kind === "confirm" && closePkg && LOGZZ_TOKEN)');
+    expect(turn).toContain('if (close?.kind === "confirm" && closePkg && LOGZZ_TOKEN && holdsConversation)');
     expect(turn).toContain("const importId = await closeOrderId(conversation.id, close.summary);");
     expect(turn).toContain("placeOrder(logzzPoster(IMPORT_TIMEOUT_MS), CONFIG.logzzImport!.importUrl!, LOGZZ_TOKEN,");
     expect(turn).toContain('kind=eq.order_confirmed&status=eq.scheduled');
@@ -456,5 +465,107 @@ describe("10. o turno: fiação do fechamento", () => {
   it("o webhook da venda acha a linha importada antes de gravar", () => {
     expect(turn).toContain("const twin = importedTwin(");
     expect(turn).toContain("    if (twin !== null && twin !== order.externalId) {");
+  });
+});
+
+describe("11. revisão Opus do 844743b", () => {
+  const datesAsk = (step() as { text: string }).text;
+  const dataAsk = (step({ parts: ["quinta"], facts: { cpf: null, stored: {} }, lastOutbound: datesAsk }) as { text: string }).text;
+  it("1. a data nunca vira o número da casa", () => {
+    for (const p of [["29/10"], ["30 de outubro"], ["2 peças"], ["às 14:00"], ["dia 30"], ["14h"]]) expect(houseNumberIn(p, true), p.join()).toBeNull();
+    expect(houseNumberIn(["45", "29/10"], true)).toEqual({ number: "45", complement: null });
+    expect(houseNumberIn(["45 casa 2"], true)).toEqual({ number: "45", complement: "casa 2" });
+    // The day is asked alone: her "29/10" to the dates ask never meets a number ask.
+    expect(datesAsk).not.toContain("número da casa");
+    const s = step({ parts: ["45", "29/10"], state: { date: "2026-10-29" }, facts: { stored: {} }, lastOutbound: dataAsk });
+    expect((s as { text: string }).text).toContain("Rua Barão do Triunfo, 45 ");
+  });
+  it("2. uma pergunta nunca é sim", () => {
+    for (const q of ["confirmado?", "pode?", "tá certo?", "isso?", "sim?", "pode ser?", "Confirma? 🙂"]) expect(confirmsOrder([q]), q).toBe(false);
+    const summary = (step({ parts: ["quinta"] }) as { text: string }).text;
+    expect(step({ state: { date: "2026-10-29", number: "100" }, parts: ["confirmado?"], lastOutbound: summary }).kind).toBe("model");
+  });
+  it("3. 'pedido confirmado' antes da importação é vetado com o fechamento aberto, com e sem as datas", () => {
+    const claims = (t: string, over: object = {}) =>
+      runGates(t, ctx({ config: prod, closeOpen: true, ...over })).traces.filter((x) => x.verdict === "block").map((x) => x.gate);
+    for (const t of [
+      "Prontinho, seu pedido está confirmado pra quinta (29/10)! 🎉",
+      "Seu pedido foi agendado pra quinta (29/10).",
+      "Seu pedido está registrado.",
+      "Pronto, seu pedido foi feito!",
+      "Já confirmei seu pedido 😊",
+      "Pedido confirmado! Chega quinta.",
+      "Prontinho, seu pedido está confirmado pra quinta, só falta você aguardar.",
+    ]) {
+      expect(claims(t), t).toContain("order_claim");
+      expect(claims(t, { codDates: ISO }), t).toContain("order_claim");
+    }
+  });
+  it("3. negação: o que é verdade passa; sem fechamento aberto o gate fica quieto", () => {
+    const claims = (t: string, over: object = {}) =>
+      runGates(t, ctx({ config: prod, closeOpen: true, codDates: ISO, ...over })).traces.filter((x) => x.verdict === "block").map((x) => x.gate);
+    for (const t of [
+      "Seu pedido ainda não está confirmado: falta o seu SIM.",
+      "Assim que você disser SIM eu confirmo o pedido 😊",
+      "O pedido só fica confirmado quando você responder SIM.",
+      "Seu pedido fica confirmado assim que você responder SIM.",
+      "Posso confirmar o pedido?",
+      (step({ parts: ["quinta"] }) as { text: string }).text,
+      datesAsk,
+      dataAsk,
+      closeRetryLater((step({ parts: ["quinta"] }) as { text: string }).text),
+      closeProcessing((step({ parts: ["quinta"] }) as { text: string }).text),
+      CLOSE_OPEN_ORDER,
+    ]) expect(claims(t), t).not.toContain("order_claim");
+    expect(claims("Seu pedido está confirmado!", { closeOpen: undefined })).not.toContain("order_claim");
+    // Only the real order's line, after the import: the turn closes the gate before sending it.
+    expect(claims(closeConfirmed("LZ1", "2026-10-29", false, 109.9), { closeOpen: undefined, codDates: ["2026-10-29"] })).toEqual([]);
+  });
+  it("3. o prompt diz o que o gate cobra", () => {
+    expect(closeDirective(DATES, [], true)).toContain("Nunca diga que o pedido está confirmado");
+    expect(turn).toContain("gateCloseOpen = false;");
+    expect(turn).toContain("    gateCloseOpen = true;\n");
+    expect(turn.match(/\.\.\.\(gateCloseOpen \? \{ closeOpen: true \} : \{\}\)/g)?.length).toBe(3);
+  });
+  it("4. 409 'em processamento' espera e manda o MESMO id; duas vezes, a linha honesta com o resumo", async () => {
+    const payload = { external_id: "malu-c1-abc", delivery_date: "2026-10-29" } as unknown as ReturnType<typeof importPayload>;
+    const waits: number[] = [];
+    const answers = [{ status: 409, body: { status: "error", message: "Pedido em processamento. Tente novamente em instantes." } }, { status: 200, body: { order_code: "LZ7" } }];
+    const r = await placeOrder(async () => answers.shift()!, "u", "t", payload, async (ms) => waits.push(ms));
+    expect(r).toMatchObject({ kind: "created", orderCode: "LZ7" });
+    expect(waits).toEqual([4000]);
+    const summary = (step({ parts: ["quinta"] }) as { text: string }).text;
+    expect(closeProcessing(summary).endsWith(summary)).toBe(true);
+    expect(closeProcessing(summary)).not.toMatch(/não consegui/i);
+    expect(step({ state: { date: "2026-10-29", number: "100" }, parts: ["sim"], lastOutbound: closeProcessing(summary) }).kind).toBe("confirm");
+  });
+  it("4. só o turno que segura a conversa importa", () => {
+    expect(turn).toContain("const holdsConversation = isRevise || (internal.claimed?.id === conversation.id && !claimFailed);");
+    expect(turn).toContain('if (close?.kind === "confirm" && closePkg && LOGZZ_TOKEN && holdsConversation) {');
+  });
+  it("5. reagendado: o dia novo dito com clareza, ela pode pedir outro, e o operador avisado", () => {
+    const text = closeConfirmed("LZ1", "2026-10-30", true, 109.9);
+    expect(text).toContain("Sua entrega fica pra sexta (30/10): o dia que você escolheu lotou");
+    expect(text).toContain("Se esse dia não der pra você, é só me falar aqui.");
+    expect(vetoes(text, ["2026-10-30"])).toEqual([]);
+    expect(turn).toContain("if (result.rescheduled) extraNotify = `pedido ${result.orderCode} reagendado pela Logzz");
+  });
+  it("6. negação no dia e na troca", () => {
+    expect(pickDate(["quinta eu não posso"], DATES, NOW)).toBeNull();
+    expect(pickDate(["quinta ou sexta"], DATES, NOW)).toBeNull();
+    expect(pickDate(["sexta? não sei"], DATES, NOW)).toBeNull();
+    expect(pickDate(["quinta, talvez"], DATES, NOW)).toBeNull();
+    // Still read: a correction, and a day with a word of doubt about something else in another message.
+    expect(pickDate(["pode ser sexta? não, quinta"], DATES, NOW)).toEqual({ kind: "pick", date: "2026-10-29" });
+    expect(pickDate(["sexta"], DATES, NOW)).toEqual({ kind: "pick", date: "2026-10-30" });
+    for (const p of ["não quero mudar a data", "não precisa trocar o dia", "não muda o dia", "outro dia eu compro"]) expect(asksDateChange([p]), p).toBe(false);
+    for (const p of ["muda a data", "sim, mas muda a data", "queria outro dia", "pode ser outra data?", "troca o dia pra mim"]) expect(asksDateChange([p]), p).toBe(true);
+  });
+  it("7. CPF e telefone mascarados no que é guardado e mandado por e-mail", () => {
+    expect(maskPii("CPF 529.982.247-25 inválido; telefone (11) 98765-4321")).toBe("CPF ***CPF*** inválido; telefone ***TEL***");
+    expect(readImport(422, { status: "error", message: "CPF 52998224725 do cliente inválido ou irregular." }, "x")).toEqual({ kind: "cpf", message: "CPF ***CPF*** do cliente inválido ou irregular." });
+    const none = readCodDates(422, { message: "Área não disponível para entrega. 11987654321" });
+    expect(none.kind).toBe("none");
+    expect(JSON.stringify(none)).not.toMatch(/\d{8}/);
   });
 });

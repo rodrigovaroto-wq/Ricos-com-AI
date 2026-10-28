@@ -98,6 +98,7 @@ import {
   closeDirective,
   closeNoCodLine,
   closeOrderId,
+  closeProcessing,
   closeRetryLater,
   type CloseState,
   closeStep,
@@ -3454,6 +3455,8 @@ const handleTurn = async (
   // The Logzz dates of her package while the sale on delivery closes here (grafo §135): the only days a line may name. Declared
   // before `sendFixed`, which reads it (memory: turn-closure-antes-da-declaracao).
   let gateCodDates: readonly string[] | undefined;
+  // The close is open and no order exists yet: `order_claim` refuses "pedido confirmado" until the import answers (review of 844743b).
+  let gateCloseOpen = false;
   const outboundBefore = async (): Promise<readonly string[]> =>
     recentOutboundRead ??
     ((await db(
@@ -3481,6 +3484,7 @@ const handleTurn = async (
       paymentPath: path,
       codUnavailable,
       ...(gateCodDates ? { codDates: gateCodDates } : {}),
+      ...(gateCloseOpen ? { closeOpen: true } : {}),
       postponing,
       units: pieces,
     });
@@ -4646,7 +4650,10 @@ const handleTurn = async (
     ? ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(",")})&select=status&limit=20`).catch(() => null)) ?? [])
     : null;
   const closeOn = herStatuses !== null && herStatuses.every((o: { status: string | null }) => ["recusado", "entregue_pago"].includes(stageForOrder(o.status ?? undefined) ?? ""));
-  if (closeOn) gateCodDates = codDates.map((d) => d.date);
+  if (closeOn) {
+    gateCodDates = codDates.map((d) => d.date);
+    gateCloseOpen = true;
+  }
   const linkNow = linkUnheld && !kitFirst && !closeOn;
   // The close's next step (grafo §135), pure; its state is kept at once, whatever this turn then sends. What the CEP itself says
   // of the street (ViaCEP): empty on a town's general CEP, and then her street is asked.
@@ -4682,7 +4689,7 @@ const handleTurn = async (
   if (close && JSON.stringify(close.state) !== JSON.stringify(closeState)) await saveAddress({ codClose: close.state });
   // Every close line through the turn's chain, with the dates of the lookup; vetoed, the model answers under the directive.
   const closeGated = async (text: string): Promise<boolean> => {
-    const gated = runGates(text, { config: turnConfig, layer: "agent", optedOut: false, now: new Date(), paymentPath: "cod", codUnavailable, units, ...(gateCodDates ? { codDates: gateCodDates } : {}) });
+    const gated = runGates(text, { config: turnConfig, layer: "agent", optedOut: false, now: new Date(), paymentPath: "cod", codUnavailable, units, ...(gateCodDates ? { codDates: gateCodDates } : {}), ...(gateCloseOpen ? { closeOpen: true } : {}) });
     await recordTraces(conversation.id, gated.traces);
     return passed(gated);
   };
@@ -5062,7 +5069,10 @@ const handleTurn = async (
       const sent = await sendFunnelTurn([{ text: opening(close.text) }], close.reason, {}, (askedBeside || saidBeside) && !isResume && !close.text.startsWith(SUMMARY_HEAD));
       if (sent) return sent;
     }
-    if (close?.kind === "confirm" && closePkg && LOGZZ_TOKEN) {
+    // Only the turn that holds the conversation imports (`replying_since`, grafo §61): a revision runs inside its hold; the sweep's
+    // retry and a turn whose claim failed hold nothing, and two "sim" turns racing would both reach the import (review of 844743b).
+    const holdsConversation = isRevise || (internal.claimed?.id === conversation.id && !claimFailed);
+    if (close?.kind === "confirm" && closePkg && LOGZZ_TOKEN && holdsConversation) {
       const chosen = close.order.date.date;
       // The day re-checked right before the import: it may have filled since the summary.
       const recheck = await lookupCodDates(logzzPoster(REGION_TIMEOUT_MS), addressDraft.cep!, closePkg);
@@ -5121,9 +5131,12 @@ const handleTurn = async (
           }).catch(() => null);
           await saveAddress({ codClose: {} });
           closeDone = true;
+          gateCloseOpen = false;
           gateCodDates = [result.deliveryDate];
+          // Moved by the Logzz: she is told the new day and that she may ask another; the operator, the order (operator's call pending).
+          if (result.rescheduled) extraNotify = `pedido ${result.orderCode} reagendado pela Logzz de ${chosen} para ${result.deliveryDate}`;
           const text = closeConfirmed(result.orderCode, result.deliveryDate, result.rescheduled, closeFacts!.priceBrl);
-          const sent = await sendFixed(text, `pedido na entrega criado pela importação: ${result.orderCode}`, "cod", {}, false, closePkg.units);
+          const sent = await sendFixed(text, `pedido na entrega criado pela importação: ${result.orderCode}`, "cod", {}, false, closePkg.units, "auto");
           // Said here, the ruler's own confirmation five minutes later would be the second one. Index: messages_conversation_idx.
           const said = ((await db(`messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&body=eq.${encodeURIComponent(text)}&select=id&limit=1`).catch(() => null))?.length ?? 0) > 0;
           if (said) {
@@ -5148,6 +5161,10 @@ const handleTurn = async (
         } else if (result.kind === "phone") {
           await saveAddress({ codClose: { ...close.state, badPhone: close.order.phone } });
           const sent = await sendFixed(PHONE_ASK, "pedido na entrega: a Logzz recusou o telefone", "cod");
+          if (sent) return sent;
+        } else if (result.kind === "processing") {
+          // The Logzz is still making it (409 twice): no "não consegui" — the same summary, her SIM asks the same id again.
+          const sent = await sendFixed(closeProcessing(close.summary), "pedido na entrega: a Logzz ainda processa o pedido", "cod", {}, false, closePkg.units);
           if (sent) return sent;
         } else {
           // Already open there, or nothing created (409/429/5xx twice, the token, an answer not understood): said truthfully, the
@@ -5496,6 +5513,7 @@ const handleTurn = async (
       sameDayWindow: region?.sameDay ?? false,
       // Grafo §135: the Logzz dates of her package, the only days the close lets her hear.
       ...(gateCodDates ? { codDates: gateCodDates } : {}),
+      ...(gateCloseOpen ? { closeOpen: true } : {}),
       regionKnown: region !== null,
       // Plan 16 §4.6–4.7: the stock and the freight the prompt taught this turn, the same values (`turnFacts`).
       ...factsGate,

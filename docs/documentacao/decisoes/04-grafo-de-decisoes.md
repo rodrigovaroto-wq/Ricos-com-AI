@@ -4657,6 +4657,53 @@ mudou (`T6e-praca-nao-gravada`, `E6-kit-depois-do-link`, `O27-link-do-m`). Confi
 - Uma lead com pedido vivo (de outro canal) não fecha pela importação, e o link da entrega da Coinzz volta a valer para ela.
 - `utm_*`: `whatsapp` / `ctwa` ou `site` / o `source_id` do anúncio; campanha, conteúdo e termo vazios.
 
+### A. A revisão Opus do 844743b (reprovada, 2026-10-28)
+
+**Sintoma.**
+- `houseNumberIn` lia a resposta da data como o número da casa, porque `closeStep` pedia as datas e os dados na mesma mensagem:
+  "29/10" → número 29; "45" e "29/10" na mesma rajada → o 29 sobrescrevia o 45; "30 de outubro" → número 30 com complemento "de
+  outubro"; "2 peças" → número 2.
+- `confirmsOrder` tirava a pontuação: "confirmado?", "pode?", "tá certo?", "isso?", "sim?", "pode ser?" criavam o pedido.
+- Nenhum gate vetava "pedido confirmado/agendado/registrado/feito" antes da importação: "Prontinho, seu pedido está confirmado pra quinta
+  (29/10)! 🎉", "Seu pedido foi agendado pra quinta (29/10).", "Seu pedido está registrado." passavam a cadeia com e sem `codDates`.
+- `readImport`: o 409 "Pedido em processamento" virava "não consegui"; o 200 do mesmo `external_id` sem `status: "success"` não era o
+  pedido; o 409 "Integração desativada" não era falha de configuração. A importação não exigia a trava da conversa (`replying_since`):
+  a nova tentativa da varredura e um turno cuja trava falhou chegavam à importação.
+- `rescheduled: true`: a data nova era dita, mas sem a saída de pedir outra e sem aviso ao operador.
+- `pickDate`: "quinta eu não posso" escolhia a quinta; "quinta ou sexta", a sexta; "sexta? não sei", a sexta. `asksDateChange` lia
+  "não quero mudar a data", "não precisa trocar o dia", "não muda o dia", "outro dia eu compro" como pedido de troca.
+- A mensagem de erro da Logzz, que pode ecoar o CPF, ia crua para `extraNotify`, `turn_outcomes.reason`, o e-mail e
+  `codDates.result.reason`.
+
+**Causa.** As leituras de texto novas olharam a palavra, não a pergunta, o lugar nem a negação (Lição 1 e Lição 10 de novo); a
+promessa "nada confirmado antes do SIM" estava só na diretiva, sem gate (prompt e gate são a mesma promessa); e a importação confiou no
+`external_id` sem a trava que impede dois turnos de correrem até ela.
+
+**Correção.**
+- `closeStep`: o dia é perguntado sozinho; os dados vêm na mensagem seguinte. `houseNumberIn`: depois do número só cabe um complemento
+  (apto, bloco, casa…); data, mês, contagem e hora nunca são número, e um token que não é endereço não sobrescreve o número da rajada.
+- `confirmsOrder`: mensagem com "?" nunca é sim.
+- Gate `order_claim` (`GateContext.closeOpen`): com o fechamento aberto e sem pedido, veta "pedido confirmado/feito/agendado/registrado/
+  criado", "já confirmei seu pedido", "prontinho, seu pedido…"; passa a negação ou a condição antes dela ou logo depois ("ainda não está
+  confirmado", "só fica confirmado quando…", "fica confirmado assim que você responder SIM") e a pergunta. A turn abre (`gateCloseOpen`)
+  com `closeOn` em `sendFixed`, `closeGated` e no laço do modelo, e fecha só depois do `order_code`, para `closeConfirmed` (camada
+  "auto"). O briefing do gate diz o mesmo no prompt.
+- `readImport`: 2xx com `order_code` (sem `status: "error"`) é o pedido; 409 "processamento" é `processing` — `placeOrder` espera 4 s e
+  manda o MESMO id; duas vezes, `closeProcessing` (sem "não consegui", o resumo embaixo); 409 "desativada" é `config`. Só importa o turno
+  que segura a conversa (`holdsConversation`: a revisão, ou a trava ganha sem falha).
+- `rescheduled`: decisão do operador PENDENTE; por padrão a data devolvida é aceita, dita com "Se esse dia não der pra você, é só me
+  falar aqui", e o operador recebe e-mail com o `order_code` e as duas datas.
+- `pickDate`: negação em qualquer ponto da oração do dia; dois dias abertos na mesma oração não escolhem; dúvida logo depois ("não sei",
+  "talvez", "sei lá") anula a mensagem. `asksDateChange`: negada na oração não troca; "outro dia" só como dia desejado.
+- `maskPii` mascara CPF e telefone na mensagem de erro da importação e no motivo do "sem entrega" das datas.
+
+**Guarda.** `tests/cod-close-2026-10-28.test.ts` §11 (as frases exatas da revisão, nos dois sentidos); contagens de gates em
+`guardrails.test.ts`, `remedy.test.ts` e `human-handoff.test.ts`; mutações `O32-*` (13), 28/28 pegas junto com as `O31-*`, as quatro
+antigas e `O31-negacao-do-dia` atualizada. `pnpm dev:gates`: 0 afrouxados (o `order_claim` só age com `closeOpen`).
+
+**Resíduos.** O "sim" segue texto, não botão (§25). Com a trava falhada ou na nova tentativa da varredura, o sim não importa naquele
+turno: o modelo responde e o próximo sim importa.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
