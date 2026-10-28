@@ -968,6 +968,7 @@ export const systemPrompt = (
     `desejo, com carinho e sem pena — nunca aponte defeito, nunca diga que ela "precisa"`,
     `mudar, nunca sugira que ela está errada do jeito que é. O que muda é o caimento da roupa,`,
     `não o valor dela.`,
+    `O colete serve para homem também, e o tamanho se acha do mesmo jeito, pela cintura: se perguntarem, diga que sim.`,
     ...(turnFacts.site
       ? siteBriefing(turnFacts.siteOrigin !== false)
       : [
@@ -1205,7 +1206,7 @@ export const systemPrompt = (
     ...freightBriefing(config, turnFacts.prepayFreightBrl ?? null),
     ``,
     `Tamanhos P, M, G, GG, XGG por cintura: 60-68, 68-76, 76-84, 84-92, 92-100 cm. A tabela vai até o`,
-    `XGG, que veste cintura de até 100 cm (até o 52 de calça). O tamanho é a`,
+    `XGG, que veste cintura de até 100 cm (do 52 de calça para cima; o 56 ainda é XGG). O tamanho é a`,
     `dúvida que mais trava a venda, e você ajuda ela a achar o dela perguntando uma coisa só:`,
     `que tamanho de calça ela veste e fica confortável. Não pergunte se ela gosta mais soltinha ou`,
     `mais justinha: isso não muda o tamanho. A palavra "manequim" confunde, use palavra simples. Aceite número (38,`,

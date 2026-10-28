@@ -4361,6 +4361,14 @@ inteiro e não o registrável.
 
 **Guarda.** `tests/persona-2026-10-24-review-fixes.test.ts`; mutações `G132-*`.
 
+## 132a. Calça 56 e colete para homem (operador, 2026-10-26)
+
+- **Sintoma:** o prompt dizia que a tabela vai até o 52 de calça, mas `sizeFromDressSize` lê 53–56 como XGG; a revisão de personas de 24/10 viu a contradição.
+- **Caminho tentado e desfeito:** tratar 53–56 como "além da tabela" (commit anterior). O operador corrigiu: o XGG da tabela é do 52 para cima, então o 56 entra.
+- **Correção:** `sizing.ts` voltou ao que era (56 é XGG, `sizeBeyondTable` a partir do 57); o prompt agora diz "do 52 de calça para cima; o 56 ainda é XGG", igual ao código. O colete serve para homem também (linha em `QUEM ESTÁ DO OUTRO LADO`).
+- **Postura:** nada mudou (R16.6; `health_claim` veta "corrige/trata").
+- **Guarda:** `pnpm test`.
+
 ## 133. Oferta nova: um preço, frete grátis nos dois caminhos, um checkout da Coinzz, e o M sem estoque (operador, 2026-10-27)
 
 **Decisão do operador.** Volta dos anúncios só nas cidades com pagamento na entrega. R$ 109,90 nos dois caminhos (`prepayDiscountPercent` 0),
