@@ -13,6 +13,10 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-28, fim do dia — DOCUMENTO DE RETOMADA COMPLETO: [`docs/operacao/estado-2026-10-28-fim-do-dia.md`](docs/operacao/estado-2026-10-28-fim-do-dia.md).**
+> Lá: o que está no ar (turn v47, config de 28/10, site, n8n, Coinzz, Logzz), o que foi construído, o que ficou inacabado, os
+> 8 passos que faltam em ordem, os riscos e como retomar. As entradas de 28/10 logo abaixo são o histórico do dia.
+
 > **2026-10-28 20:07 UTC — NO AR: `turn` v47 (função v171, commit `329cb31`) + `BUSINESS_CONFIG` de 28/10** (operador colou; sha
 > `98213272…` conferido pelo cofre). Alarme de cobertura 20:11 UTC: `healthy` (boot com o config novo ok). A venda na entrega pela
 > importação da Logzz está LIGADA (`logzzImport` + `LOGZZ_API_TOKEN`). **Não provada de ponta a ponta:** falta o pedido de teste do
