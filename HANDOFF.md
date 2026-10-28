@@ -13,6 +13,12 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-28 13:23 UTC — PUBLICADO (operador autorizou):** `turn` **v46** (função v165, commit `75408f4`), ainda com o
+> `BUSINESS_CONFIG` de 23/10 (oferta antiga, cobertura pela Logzz). Alarme de cobertura das 13:26 UTC: `healthy`. Site
+> Encorpa-Website `main` = `1525764`, no ar no Netlify (`encorpa-fashion.com.br`): pixel 4466808633585371, R$ 109,90,
+> kits, "Frete grátis*", WhatsApp da Malu — conferido com Playwright. **Atenção:** o site já promete frete grátis e a Coinzz
+> ainda cobra (R$ 19,35–19,96 em 28/10); o operador sabia. Itens 2 e 6 abaixo feitos; seguem 1, 3, 4 e 5.
+
 > **2026-10-28 — teste em dois braços (anúncio → WhatsApp × anúncio → site → checkout) PRONTO NA BRANCH, NÃO PUBLICADO.**
 > Branch `claude/site-whatsapp-test` (este repositório, HEAD `c53b827`, já com a v45 ao vivo mesclada) e
 > `claude/site-whatsapp-test` no Encorpa-Website. Grafo §132a, §133 e §134. Três revisões Opus: a última APROVADA.
