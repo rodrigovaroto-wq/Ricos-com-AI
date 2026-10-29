@@ -107,6 +107,12 @@ export interface BusinessConfig {
    */
   experiments?: { fastOpening?: boolean; linkAfterChoice?: boolean };
   /**
+   * The pay-on-delivery sale closed in the conversation by the Logzz Order Import API (operator, 2026-10-28, grafo §135):
+   * the import URL, the Logzz parent product, the offer code per number of pieces and the Logzz variation code of each size.
+   * OPTIONAL, every key — any absent in the secret (or no `LOGZZ_API_TOKEN` secret), the Coinzz link closes both paths, as before.
+   */
+  logzzImport?: import("../agent/cod-close.js").LogzzOrderConfig;
+  /**
    * Os templates que a Meta já aprovou, um por toque da régua. OPCIONAL, e ausente
    * significa que nenhum foi aprovado ainda — o que barra todo toque que caia fora da
    * janela de 24h em vez de mandar texto livre que a Cloud API recusaria. Ver

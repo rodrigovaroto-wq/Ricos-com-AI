@@ -221,7 +221,8 @@ const COMMON_WORDS =
 /** Words a name never starts with — what follows "nome dela" when it is not a name. */
 const NOT_A_FIRST_NAME =
   // "prefiro não passar", "pode ser sem", "sem nome" after the name ask are refusals, not names (review of round 2).
-  /^(eu|te|ta|esta|e|eh|igual|mesmo|mesma|passo|vou|vai|ja|nao|sei|depois|o|a|no|na|do|da|de|um|uma|ele|ela|meu|minha|seu|sua|que|com|pra|para|mae|filha|irma|esposa|amiga|tia|avo|sogra|prefiro|prefere|pode|sem|manda|deixa|precisa|obrigada|obrigado|nossa|vixe|pera|perai|antes|calma|eita|gente|ah|ai|ui|oxe|oxi|uai|poxa|puxa|caramba|deus|gracas|aff|hum|hmm|tipo|parque|vila|jardim|bairro|centro|condominio|residencial|conjunto|segue|endereco)$/;
+  // "as duas G", "os dois G", "ambas G": the kit's sizes answered, filed as her name into the link (real-model retest, 2026-10-29).
+  /^(eu|te|ta|esta|e|eh|igual|mesmo|mesma|passo|vou|vai|ja|nao|sei|depois|o|a|no|na|do|da|de|um|uma|ele|ela|meu|minha|seu|sua|que|com|pra|para|mae|filha|irma|esposa|amiga|tia|avo|sogra|prefiro|prefere|pode|sem|manda|deixa|precisa|obrigada|obrigado|nossa|vixe|pera|perai|antes|calma|eita|gente|ah|ai|ui|oxe|oxi|uai|poxa|puxa|caramba|deus|gracas|aff|hum|hmm|tipo|parque|vila|jardim|bairro|centro|condominio|residencial|conjunto|segue|endereco|as|os|duas|dois|ambas|ambos|todas|todos|tres)$/;
 
 const UFS = "AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO";
 const UF_ALONE = new RegExp(`^(?:${UFS})$`);

@@ -116,11 +116,13 @@ describe("o job health na turn", () => {
   const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
 
   it("a conversa e o alarme usam o mesmo fetcher, e não há segundo fetch de região", () => {
-    expect(turn).toMatch(/lookupRegion\(\s*regionFetcher\(/);
+    // Grafo §136: the conversation's lookups go through `cepFetcher`, the same `regionFetcher` with the turn's ViaCEP answers reused.
+    expect(turn).toContain("const cepFetcher = (timeoutMs: number): Fetcher => reuseViaCep(viaCepBodies, regionFetcher(timeoutMs));");
+    expect(turn).toMatch(/lookupRegion\(\s*cepFetcher\(/);
     expect(turn).toMatch(/checkCoverage\(\s*regionFetcher\(/);
     // R26.3: the second, short try of the same lookup; §117: each other size of a kit — all through the same fetcher.
     expect(turn.match(/lookupRegion\(/g)).toHaveLength(3);
-    expect(turn.match(/lookupRegion\(\s*regionFetcher\(/g)).toHaveLength(3);
+    expect(turn.match(/lookupRegion\(\s*cepFetcher\(/g)).toHaveLength(3);
     // The only fetch that reads `headers` from its caller is the extracted one.
     expect(turn.match(/fetch\(url, \{\s*headers,/g)).toHaveLength(1);
   });

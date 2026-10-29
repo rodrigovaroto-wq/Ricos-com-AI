@@ -96,7 +96,7 @@ describe("E6 — experimento B: link logo depois da escolha do pagamento", () =>
     // Review of 2695b80: hold only when the offer goes this same turn, and never after a link went out.
     expect(kitHoldsLink({ ...b, pathChosen: false })).toBe(false);
     expect(kitHoldsLink({ ...b, linkSentBefore: true })).toBe(false);
-    expect(turn).toContain("const linkNow = linkUnheld && !kitFirst;");
+    expect(turn).toContain("const linkNow = linkUnheld && !kitFirst && !closeOn;");
     expect(turn).toContain("levando mais peças o desconto sobe");
     // the "vou pensar" gets the link even while the kit is pending (review of 2695b80, 1)
     expect(turn).toContain("thinkLink = linkUnheld && !(linkInChat");

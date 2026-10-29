@@ -51,7 +51,7 @@ describe("a régua pela faixa do score (§4.2)", () => {
   });
 
   it("o turno lê a faixa guardada ao armar a régua: só o tamanho e a faixa do lead (0029 aplicada em 21/10)", () => {
-    expect(turn).toContain("select=*,leads(size,score_band,orders(status)),followups(kind,sent_at)");
+    expect(turn).toContain("select=*,leads(size,score_band,stock_out:address->region->>sizeOutOfStock,stock_zip:address->region->>zip,dates_cep:address->codDates->>cep,dates_kind:address->codDates->result->>kind,orders(status)),followups(kind,sent_at)");
     expect(turn).toContain("body: JSON.stringify(rulerForBand(rows, at?.leads?.score_band)),");
   });
 });
@@ -182,13 +182,13 @@ describe("index.ts — a fiação do plano 16", () => {
     expect(turn).toContain("const prepayFreightBrl = await prepayFreight(regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS), addressDraft.cep, region.place, freightPieces);");
     expect(turn).toContain("else if (region.prepayFreightFor !== freightFor) {");
     // After the kit's own coverage, which can turn the kit prepaid; and kept in the cache the turn writes on the lead.
-    expect(at("const freightPieces: Size[] | null = units === 1")).toBeGreaterThan(at("if (missing) region = { ...region, cod: false"));
+    expect(at("const freightPieces: Size[] | null = units === 1")).toBeGreaterThan(at("region = kitRegion(region, regionSize, answers);"));
     expect(turn).toContain("if (freshRegion && !freshRegion.cod) freshRegion = { ...freshRegion, prepayFreightBrl, prepayFreightFor: freightFor };");
     // /code-review of wave 0: a kit freight cached on a delivery region (G+M made prepaid) never reaches the next turn's one piece.
     expect(turn).toContain("if (region && (region.cod || freightFor === null || region.prepayFreightFor !== freightFor)) region = { ...region, prepayFreightBrl: null, prepayFreightFor: null };");
     expect(at("if (region && (region.cod || freightFor === null")).toBeLessThan(at("const { stockLine, stockLeft, prepayFreightBrl } = regionTurnFacts(CONFIG, {"));
     // The offer's own freight line is one piece's: a kit's freight is said by the model, under the kit.
-    expect(turn).toContain("offerBubbles(CONFIG, { cod, dates: region.dates, prepayFreightBrl: units === 1 ? prepayFreightBrl : null }, new Date(),");
+    expect(turn).toContain("offerBubbles(CONFIG, { cod, dates: region.dates, prepayFreightBrl: units === 1 ? prepayFreightBrl : null, closesHere: cod && close !== null }, new Date(),");
   });
 
   it("objeção vaga: uma pergunta, nunca sobre a recusa, e o 'vou pensar' de hoje fica para a segunda vez", () => {
@@ -310,7 +310,7 @@ describe("/code-review do PR 77", () => {
   });
 
   it("a régua lê só o tamanho e a faixa do lead, nunca a linha inteira", () => {
-    expect(turn).toContain("leads(size,score_band,orders(status))");
+    expect(turn).toContain("leads(size,score_band,stock_out:address->region->>sizeOutOfStock,stock_zip:address->region->>zip,dates_cep:address->codDates->>cep,dates_kind:address->codDates->result->>kind,orders(status))");
     expect(turn).not.toContain("leads(*,");
   });
 });

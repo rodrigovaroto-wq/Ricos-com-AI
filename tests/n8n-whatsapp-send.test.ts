@@ -70,6 +70,11 @@ describe("n8n: envio pela Cloud API", () => {
     expect(o!.json.payload).toEqual(templateMessage("5511", "encorpa_retomada", "pt_BR", ["R$ 129,90", "7"]));
   });
 
+  it("template com botão de URL (o carrinho, 2026-10-27): o slug vai no componente do botão, igual ao canal", () => {
+    const [o] = run(live, [{ to: "5511", via: "template", name: "encorpa_carrinho_site", language: "pt_BR", variables: ["Ana"], urlButton: "encorpa-0" }]);
+    expect(o!.json.payload).toEqual(templateMessage("5511", "encorpa_carrinho_site", "pt_BR", ["Ana"], "encorpa-0"));
+  });
+
   it("toque da régua como texto", () => {
     expect(run(live, [{ to: "5511", via: "text", body: "Oi de novo" }])[0]!.json.payload).toEqual(textMessage("5511", "Oi de novo"));
   });

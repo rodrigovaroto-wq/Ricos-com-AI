@@ -88,7 +88,7 @@ describe("a primeira mensagem dela pede resposta depois da abertura?", () => {
 
 describe("a oferta depois do CEP", () => {
   it("na entrega: o preço do config, frete grátis, quem recebe e a data da consulta", () => {
-    // Copy v4 (operator, 2026-10-20): "Menos de 24 Horas" only when the checkout's first day is tomorrow.
+    // Copy v4 (operator, 2026-10-20; kept on 2026-10-29): "Menos de 24 Horas" when the checkout's first day is tomorrow (or today).
     const t = codOfferText(config, "2026-10-20", now);
     // The operator's exact text (2026-10-21, grafo §121).
     expect(t).toBe(
@@ -96,6 +96,7 @@ describe("a oferta depois do CEP", () => {
         "\n\n✅*Não Paga Nada Agora*, só quando chegar aí, no dinheiro, Pix ou cartão!\n\n🔁 *7 Dias de Garantia* pra trocar ou devolver se não gostar.",
     );
     expect(t).toContain("Seu Pedido Chegará em *Menos de 24 Horas!!*");
+    expect(codOfferText(config, "2026-10-19", now)).toContain("Seu Pedido Chegará em *Menos de 24 Horas!!*");
     expect(t).toContain("no dinheiro, Pix ou cartão");
     expect(t).toContain("*7 Dias de Garantia* pra trocar ou devolver");
     const later = codOfferText(config, "2026-10-22", now);
@@ -261,7 +262,10 @@ describe("revisão do v3: os furos que ela achou", () => {
 
 describe("copy v4 (operador, 2026-10-20): o que já estava no ar continua reconhecido", () => {
   it("a abertura e as ofertas de antes ainda contam como mandadas", () => {
-    expect(openingWasSent([LEGACY_SIZE_ASK])).toBe(true);
+    // Since the review of 2474091 the opening is proved by its first line (the R28 one too), never by the size ask, which other
+    // bubbles also send.
+    expect(openingWasSent(["Olá, tudo bem?\nMeu nome é Malu, vou te explicar tudo sobre a nossa cinta modeladora 🥰"], "Malu")).toBe(true);
+    expect(openingWasSent([LEGACY_SIZE_ASK], "Malu")).toBe(false);
     expect(lastOfferKind(["⭐ DE R$ 216,50 POR R$ 129,90 ⭐\n🚛 FRETE GRÁTIS: …"], config)).toBe("cod");
     expect(lastOfferKind(["Pra sua cidade o colete vai pelos Correios, com código de rastreio 📦\n…"], config)).toBe("prepay");
     expect(lastOfferKind(["⭐ DE R$ 216,50 POR R$ 129,90 ⭐\nCampinas costuma ter pagamento na entrega, mas…"], config)).toBe("both");

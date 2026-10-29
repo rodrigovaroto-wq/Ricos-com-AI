@@ -13,6 +13,151 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-29 ~15:00 UTC — FIM DA SESSÃO. COMECE AQUI: seção 14 de
+> [`docs/operacao/estado-2026-10-28-fim-do-dia.md`](docs/operacao/estado-2026-10-28-fim-do-dia.md).** No ar: `turn` v48 (função v177,
+> commit `1e4609c`, alarme `healthy`) + `business-config-2026-10-29b` (Coinzz no WhatsApp e no site, R$ 109,90, âncora R$ 179,90,
+> cupom só no follow-up). PR #83 mesclado em `main`. Próximo: decisão do operador sobre o preço dos kits com cupom, pedido de teste pela
+> Malu, templates da Meta, teste A/B de 5 dias (lista em ordem na seção 14).
+
+> **2026-10-29 ~12:30 UTC — PAUSA pedida pelo operador. Estado exato e ordem do que falta: seção 13 de
+> [`docs/operacao/estado-2026-10-28-fim-do-dia.md`](docs/operacao/estado-2026-10-28-fim-do-dia.md).** No ar: `turn` v47 +
+> `business-config-2026-10-29b` (Coinzz no WhatsApp, cupom ativo, âncora R$ 179,90). Em andamento, salvo e não revisado: branch
+> `wip/practical-fixes-coupon-2026-10-29` (`6961ec0`). PR #83 aberto, CI verde.
+
+> **2026-10-28, fim do dia — DOCUMENTO DE RETOMADA COMPLETO: [`docs/operacao/estado-2026-10-28-fim-do-dia.md`](docs/operacao/estado-2026-10-28-fim-do-dia.md).**
+> Lá: o que está no ar (turn v47, config de 28/10, site, n8n, Coinzz, Logzz), o que foi construído, o que ficou inacabado, os
+> 8 passos que faltam em ordem, os riscos e como retomar. As entradas de 28/10 logo abaixo são o histórico do dia.
+
+> **2026-10-28 20:07 UTC — NO AR: `turn` v47 (função v171, commit `329cb31`) + `BUSINESS_CONFIG` de 28/10** (operador colou; sha
+> `98213272…` conferido pelo cofre). Alarme de cobertura 20:11 UTC: `healthy` (boot com o config novo ok). A venda na entrega pela
+> importação da Logzz está LIGADA (`logzzImport` + `LOGZZ_API_TOKEN`). **Não provada de ponta a ponta:** falta o pedido de teste do
+> operador pela Malu (CPF e endereço dele), cancelando depois na Logzz — confere `variations[].hash` e a idempotência por `external_id`.
+> Decisões do operador (28/10): `rescheduled` = manter (a Malu avisa a cliente e manda e-mail). Pendências com o operador/sócio:
+> pixel 4466808633585371 nas 3 ofertas da Coinzz (operador aplica quando o sócio mandar o token da API de Conversões), templates
+> `encorpa_carrinho_site`/`encorpa_pix_pendente`/`encorpa_retomada` (sócio), conversa com o fornecedor sobre o estoque Coinzz × Logzz
+> (operador devolve o resultado). Falta também: PRs para a `main` dos dois repositórios e o teste A/B de 5 dias.
+
+> **2026-10-28 (noite) — venda na entrega pela importação da Logzz: APROVADA pela revisão Opus, NÃO publicada.**
+> Branch `claude/site-whatsapp-test` HEAD `d67e83e` (checklist único do operador: dia + nome + CPF + número numa lista, depois só o que
+> falta, depois o resumo, e o pedido só no SIM puro ao resumo atual; gate `order_claim`; nome checado por `isPlausibleName`;
+> correções de nome e número depois do resumo; CEP geral só com a rua). Validado: 9.357 testes, typecheck, `typecheck:function`,
+> `dev:conversas` 1655/1655, `dev:gates` 0 afrouxados, mutações O31–O37 81/81. Grafo §135 A–F. O "Interrompido no meio" e o item 1
+> do quadro abaixo estão FEITOS (a branch `wip/checklist-close-2026-10-28` está superada).
+> **Falta:** (1) `pnpm deploy:turn` (v47) — barrado pelo classificador, precisa do "pode publicar" do operador; sem o config de 28/10
+> o fechamento fica desligado (comportamento de hoje). (2) Operador cola `docs/operacao/business-config-2026-10-28.min.json` no
+> `BUSINESS_CONFIG` (`LOGZZ_API_TOKEN` já está no Supabase). (3) Pedido de teste do operador pela Malu, cancelar na Logzz.
+
+> **2026-10-28 (fim do dia) — EXECUÇÃO PARADA PELO OPERADOR. Estado exato para retomar sem refazer.**
+>
+> **No ar (produção):** `turn` **v46** (commit `75408f4`: origem anúncio/site, modo site, carrinho e Pix da Coinzz, retomada);
+> `BUSINESS_CONFIG` = `business-config-2026-10-27.min.json` (sha `b6a13293…`: R$ 109,90 nos dois caminhos, frete grátis, kits
+> 197,82/263,76, checkouts Coinzz `encorpa-0`/`encorpa-site-0`/`oferta-site2-0`, cobertura pela Coinzz, cupom e experimentos off);
+> migração 0033; n8n `venda-confirmada`, `whatsapp-envio` atualizados e `Carrinho abandonado` (`xqaepviTcGHDI5YK`) ativo; site
+> Encorpa-Website `main` `1525764` no Netlify. Coinzz: frete grátis (OmniCash recadastrada) e postback de carrinho feitos pelo
+> operador. **Falta o pixel 4466808633585371 nas 3 ofertas da Coinzz** e a API de Conversões (o sócio manda o token).
+>
+> **Pronto na branch, NÃO publicado:** venda na entrega fechada pela Malu com a importação da Logzz (`src/agent/cod-close.ts`,
+> grafo §135) — commits `844743b` + `c72b56e` na `claude/site-whatsapp-test`. Validado (9.318 testes, typecheck, `typecheck:function`,
+> `dev:conversas`, `dev:gates` 0 afrouxados, mutações). Revisão Opus de `c72b56e`: **um bloqueante aberto** — o gate `order_claim`
+> deixa passar "Agora é só aguardar, seu pedido está confirmado!", "Se precisar me chama, seu pedido está agendado pra quinta",
+> "Seu pedido está confirmado, quando o entregador chegar…", "Fechado! Sua entrega é quinta", "Seu colete já está garantido…".
+> Config para essa venda: `docs/operacao/business-config-2026-10-28.min.json` (27/10 + `logzzImport`: URL `orivd974`, produto
+> `prow6pq0`, ofertas `sal0g3mo`/`salng30n`/`sal6gz39`, variações P `progm9w6` M `pro37j6q` G `projm2ov` GG `prolm313` XG `prox1jxp`).
+> Segredo `LOGZZ_API_TOKEN`: operador gravou no Supabase (o mesmo da credencial "Logzz API" do n8n). Importação `orivd974`
+> mapeada (com `external_id`); sondas para Manaus provaram oferta e variação (sem pedido criado).
+>
+> **Interrompido no meio:** a mudança do operador para o fluxo em **checklist único** (a Malu manda uma mensagem com dia, nome, CPF e
+> número; pede só o que faltar; depois só o resumo consolidado; no SIM, cria o pedido) + o aperto do `order_claim` + "45A"/"45 B"
+> + reenviar o resumo quando o turno sem trava recebe um SIM. O implementador foi parado no meio: o que ele escreveu está na branch
+> **`wip/checklist-close-2026-10-28`** (um commit, NÃO validado, NÃO testado). A `claude/site-whatsapp-test` ficou limpa em `c72b56e`.
+>
+> **Falta, nesta ordem:**
+> 1. Terminar o checklist único + `order_claim` + "45A" (partindo da `wip/…` ou de `c72b56e`; ler o grafo §135 e os achados acima),
+>    com testes, mutações `O33-*`, validações, grafo §135; nova revisão Opus até APROVADO.
+> 2. Publicar: `pnpm deploy:turn` (v47) → gravar `BUSINESS_CONFIG` = `business-config-2026-10-28.min.json` (o classificador barra
+>    a gravação pelo agente: o operador cola) → conferir sha e o alarme `healthy`.
+> 3. Pedido de teste real do operador pela Malu (CPF e endereço dele) e cancelar na Logzz: prova a importação ponta a ponta.
+> 4. Operador: pixel nas 3 ofertas da Coinzz; token da API de Conversões; decisão sobre `rescheduled` (hoje: aceita, avisa a
+>    cliente e manda e-mail); perguntar ao fornecedor por que o estoque da Coinzz e o da Logzz divergem (comparação em
+>    `docs/operacao/estoque-logzz-x-coinzz-2026-10-28.json`; a Logzz entrega G em SP e M em BH, a Coinzz não).
+> 5. Sócio: templates `encorpa_carrinho_site`, `encorpa_pix_pendente`, `encorpa_retomada` (`03-templates-meta.md` §5–§7);
+>    aprovados → declarar em `channel.templates` (JSON no mesmo doc).
+> 6. Teste A/B de 5 dias (R$ 25/dia em cada conjunto, as cidades da tabela de cobertura); critério: anúncio por venda ≤ R$ 27.
+> 7. PRs para a `main` dos dois repositórios (nenhum aberto; a `main` do Ricos-com-AI ainda está em `dc046cf`, atrás da produção).
+
+> **2026-10-28 ~14:00 UTC — `BUSINESS_CONFIG` de 27/10 NO AR** (colado pelo operador; sha `b6a13293…` conferido). Alarme de
+> cobertura 14:11 UTC `healthy` já pela Coinzz. **Achado:** a API oficial da Logzz de datas por CEP (`/api/delivery-day/options/zip-code`,
+> com `products`) diverge da Coinzz — **corrigido no mesmo dia: a comparação usou os códigos da Coinzz (`pro7ml00`…), que na Logzz são
+> outro produto; o produto da Logzz é `prow6pq0` e os códigos das variações ainda faltam (operador). Não é evidência.**
+> Integração de importação `orivd974` mapeada; oferta `sal0g3mo` aceita (sonda para Manaus, sem pedido criado).
+> Variações da Logzz (operador, 28/10): P `progm9w6`, M `pro37j6q`, G `projm2ov`, GG `prolm313`, XG `prox1jxp` — aceitas na
+> importação (Manaus parou em "Data de entrega indisponível"). Datas da Logzz com elas: SP/Guarulhos/Campinas/Santos G·GG·XGG;
+> BH/Contagem M·G·GG; Goiânia G·GG; Salvador G·XGG; Rio P·GG·XGG; Porto Alegre GG·XGG. **A Logzz entrega G em SP e M em BH; o
+> checkout da Coinzz não oferece pagamento na entrega para eles** — a importação pela Malu recupera essas vendas.
+> Comparação Logzz × Coinzz por cidade e tamanho (28/10): `docs/operacao/estoque-logzz-x-coinzz-2026-10-28.json`. Causa
+> provável: são dois cadastros do colete (Coinzz `pro7ml00`… e Logzz `prow6pq0`/`projm2ov`…), cada um com o seu estoque nas mesmas
+> unidades. A Coinzz também oferece entrega onde a Logzz não tem o tamanho (BH XGG, Goiânia XGG, Salvador GG).
+> Proposta ao operador: a Malu criar o pedido da entrega pela API de importação da Logzz (sem checkout), consultando essa API.
+>
+> **2026-10-28 13:23 UTC — PUBLICADO (operador autorizou):** `turn` **v46** (função v165, commit `75408f4`), ainda com o
+> `BUSINESS_CONFIG` de 23/10 (oferta antiga, cobertura pela Logzz). Alarme de cobertura das 13:26 UTC: `healthy`. Site
+> Encorpa-Website `main` = `1525764`, no ar no Netlify (`encorpa-fashion.com.br`): pixel 4466808633585371, R$ 109,90,
+> kits, "Frete grátis*", WhatsApp da Malu — conferido com Playwright. **Atenção:** o site já promete frete grátis e a Coinzz
+> ainda cobra (R$ 19,35–19,96 em 28/10); o operador sabia. Itens 2 e 6 abaixo feitos; seguem 1, 3, 4 e 5.
+> **n8n publicado em 28/10 (operador autorizou):** `venda-confirmada` e `whatsapp-envio` atualizados (a versão no ar era a
+> da `main`, sem desvio), `Encorpa — Carrinho abandonado` criado e ativo (id `xqaepviTcGHDI5YK`, caminho `encorpa-carrinho`);
+> `pnpm dev:n8n` ok nos 8. Item 3 feito.
+> **Coinzz em 28/10:** operador recadastrou a OmniCash com frete grátis para a cliente; checkout `encorpa-0` conferido: Pix
+> R$ 109,90, Pagar na entrega R$ 109,90 com dias, sem frete; kits R$ 197,82 e R$ 263,76 sem frete. Postback de carrinho
+> cadastrado. **Nenhum pixel carrega nos 3 checkouts** (antes carregava o antigo): falta pôr o 4466808633585371 nas ofertas.
+> **Gravar o `BUSINESS_CONFIG` de 27/10 foi barrado pelo classificador** (live = 23/10, sha `546c15e6…`; novo sha
+> `b6a13293…`): o operador cola `docs/operacao/business-config-2026-10-27.min.json` ou autoriza; depois `job:"health"`.
+
+> **2026-10-28 — teste em dois braços (anúncio → WhatsApp × anúncio → site → checkout) PRONTO NA BRANCH, NÃO PUBLICADO.**
+> Branch `claude/site-whatsapp-test` (este repositório, HEAD `c53b827`, já com a v45 ao vivo mesclada) e
+> `claude/site-whatsapp-test` no Encorpa-Website. Grafo §132a, §133 e §134. Três revisões Opus: a última APROVADA.
+>
+> - **Smoke test 26–27/10:** 22 leads, 7 CEPs, 0 com pagamento na entrega, 0 vendas. A causa é a cobertura, não o preço.
+> - **Achado:** a consulta da Logzz (`lookupLogzzUnsafe`) dava falso positivo: o dia de entrega ignora a operação. Os 183 G
+>   estão em BH; SP só tem GG e XGG. A Coinzz (o checkout real) diz a verdade, e a Malu passa a consultar a Coinzz.
+>   O M não tem estoque em lugar nenhum (404): a Malu diz isso e não manda link.
+> - **Oferta nova (`docs/operacao/business-config-2026-10-27.min.json`):** R$ 109,90 nos dois caminhos, frete grátis,
+>   kits 2 por R$ 197,82 e 3 por R$ 263,76, um checkout da Coinzz por quantidade (`encorpa-0`, `encorpa-site-0`,
+>   `oferta-site2-0`), cupom e experimentos desligados.
+> - **Feito no banco:** migração 0033 aplicada em 28/10 (`leads.cart`, `orders.details`).
+> - **Falta, nesta ordem:**
+>   1. Operador: frete grátis nas 3 ofertas da Coinzz (hoje cobra R$ 19,35–31,29 no antecipado e R$ 24,98 na entrega),
+>      pixel `4466808633585371` nas 3 ofertas, páginas de obrigado, postback de carrinho abandonado.
+>   2. `pnpm deploy:turn` (v46) com o OK do operador: o classificador bloqueou o deploy sem ele.
+>   3. n8n: publicar `carrinho-abandonado`, `venda-confirmada` e `whatsapp-envio` (os arquivos da branch).
+>   4. Gravar o `BUSINESS_CONFIG` de 27/10 SÓ depois do item 1, e `job:"health"`.
+>   5. Sócio: submeter os 3 templates (`03-templates-meta.md` §5–§7) e, aprovados, declarar em `channel.templates`.
+>   6. Merge da branch do site e publicação.
+> - **Parado no meio (28/10):** o `pnpm deploy:turn` foi barrado pelo classificador de permissão ("Production Deploy").
+>   O `--dry-run` passou: v45 → v46, 18 arquivos, commit `c53b827`. Nada da branch está no ar, só a migração 0033.
+>   A função `whatsapp` mudou só em `templateMessage` (botão de URL do template de carrinho), de forma retrocompatível:
+>   publicar antes de declarar o template do carrinho.
+> - **Validação no HEAD:** 9.265 testes, `typecheck`, `lint`, `typecheck:function`, espelho, `dev:conversas` 1655/1655,
+>   `dev:gates` 0 afrouxados e 18 endurecidos (todos `price_promise` com desconto do antecipado em 0%), mutações 913/913.
+> - **Postback de carrinho na Coinzz:** `.../webhook/encorpa-carrinho?token=<SALE_WEBHOOK_TOKEN>`. Com o segredo vazio, a
+>   rota recusa.
+> - **Templates, depois de aprovados:** acrescentar ao `channel.templates`:
+>   `"cart_recovery": {"name":"encorpa_carrinho_site","language":"pt_BR","variables":["firstName"],"urlButton":"checkoutSlug"}`,
+>   `"pix_pending": {"name":"encorpa_pix_pendente","language":"pt_BR","variables":["firstName","orderNumber","price"]}`,
+>   `"silence_3_retomada": {"name":"encorpa_retomada","language":"pt_BR","variables":["size","price"]}`.
+> - **Site (Encorpa-Website, branch `claude/site-whatsapp-test`, HEAD `1525764`):** preço único R$ 109,90, seletor
+>   de 1/2/3 peças para o checkout certo, "Frete grátis* / *para a maioria das cidades", WhatsApp da Malu
+>   5511913179168, pixel 4466808633585371, sem "gente de verdade" no WhatsApp. O `CountdownBar` reinicia 32 h por
+>   visitante (não mexido). O `scripts/personas.mjs` do site já falhava na `main` e está obsoleto.
+> - **Resíduos aceitos:** a variante de frase "No Pix tem desconto: de R$ 216,50 por R$ 109,90" passa o
+>   `price_promise`; "tem vídeo? não quero comprar sem ver" não manda o vídeo; a data de entrega do pedido da Coinzz
+>   não é lida no n8n, então o `order_eve` não se arma para pedido da Coinzz; o kit compara só a URL de 1 peça em `oneCheckout`.
+
+> **2026-10-26 — conferência dos pendentes.** PR #82 mergeado (`turn` v44 no ar, função v160). Ainda **não há `turn_outcomes` com
+> `agent_version = 44`** (última mensagem em 23/10): o smoke test espera a primeira conversa real. A função `whatsapp` foi publicada na **v67**
+> em 26/10 com autorização do operador (id da imagem do PR #81 em `messages.media`; GET sem token 403, POST sem assinatura 401).
+> **Falta provar:** foto real em Conversas e áudio transcrito. Workflow n8n "conversa não resolvida" do portal atualizado em produção.
+
 > **2026-10-25 — `turn` v44 NO AR** (função v160, `agent_versions` 44, commit `88a8d6d`, 03:50 UTC, `pnpm deploy:turn`).
 >
 > - Antes do deploy, sem desvio: a v43 no ar era o mesmo código da `main`.

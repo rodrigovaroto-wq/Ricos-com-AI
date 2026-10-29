@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { PRICES } from "@/llm/pricing.js";
 import { MS_PER_WORD, bubbleDelayMs, splitBubbles } from "@/agent/pacing.js";
+import { regionDirectiveFor } from "@/agent/prompt.js";
 
 /**
  * The Edge Function ships its own copy of certain modules, because Supabase
@@ -26,6 +27,7 @@ const mirrored = [
   ["src/agent/agent-version.ts", "supabase/functions/turn/agent-version.ts"],
   ["src/agent/experiments.ts", "supabase/functions/turn/experiments.ts"],
   ["src/agent/funnel.ts", "supabase/functions/turn/funnel.ts"],
+  ["src/agent/cod-close.ts", "supabase/functions/turn/cod-close.ts"],
   ["src/channel/whatsapp.ts", "supabase/functions/whatsapp/whatsapp.ts"],
   ["src/channel/inbound-signature.ts", "supabase/functions/whatsapp/inbound-signature.ts"],
   ["src/channel/inbound-signature.ts", "supabase/functions/turn/inbound-signature.ts"],
@@ -376,8 +378,10 @@ describe("rodada 3 na Edge Function", () => {
     expect(source).not.toContain("frete grátis, e ainda sai mais barato");
     expect(source).not.toContain("saída boa");
     // R28: the no-delivery directive says the Correios path, and never that she pays at the door.
-    expect(source).toContain("ali o colete vai pelos Correios, no pagamento antecipado");
-    expect(source).toContain("nunca diga que ela paga na entrega, ao entregador ou quando receber.");
+    // Moved to prompt.ts on 2026-10-27 (review of 481f2d3): read by calling it.
+    const noCod = regionDirectiveFor({ cod: false, sameDay: false }, null);
+    expect(noCod).toContain("ali o colete vai pelos Correios, no pagamento antecipado");
+    expect(noCod).toContain("nunca diga que ela paga na entrega, ao entregador ou quando receber.");
   });
 
   it("o nome vai no link em caixa de nome, e o guardado fica como ela escreveu", () => {
@@ -411,7 +415,7 @@ describe("M-03 na Edge Function", () => {
     // Grafo §65: the newest link anywhere in the conversation, not the last three messages.
     expect(source).toContain('const linkJustSent = !cepMoved && foreignUrl === null && linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? ""));');
     expect(source).toContain("const linkUnheld = !linkJustSent && linkReady && !withdrew;");
-    expect(source).toContain("const linkNow = linkUnheld && !kitFirst;");
+    expect(source).toContain("const linkNow = linkUnheld && !kitFirst && !closeOn;");
     expect(source).toContain("thinkLink = linkUnheld && !(linkInChat && closesConversation(spoken(inbound.body ?? \"\")))");
   });
 });
@@ -514,12 +518,13 @@ describe("kits: revisão de código (2026-09-25)", () => {
     expect(source).toContain("Number.isFinite(choiceAt) && Date.now() - choiceAt <= KIT_MEMORY_MS");
     // The ruler speaks of the order, and a deferred reply is re-gated with the kit and path.
     expect(source).toContain("orders?lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method,status,scheduled_for&order=created_at.desc&limit=1");
-    expect(source).toContain("      paymentPath: touchPath,\n      units: touchUnits,");
+    expect(source).toContain("      paymentPath: kind === \"pix_pending\" ? \"prepay\" : touchPath,\n      units: touchUnits,");
     expect(source).toContain("...(order && Number(order.amount_brl) > 0 ? { amountBrl: Number(order.amount_brl) } : {}),");
     // A goodbye after the link is in the chat does not resend it.
     expect(source).toContain("thinkLink = linkUnheld && !(linkInChat && closesConversation(spoken(inbound.body ?? \"\")))");
     // O10: the sale webhook refuses a forged sale when the secret is set.
-    expect(source).toContain('if (saleToken !== "" && !sameSecret(String(payload.token ?? ""), saleToken)) {');
+    // The sale route's own check (the cart route has its own since 2026-10-27, guarded in tests/checkout-touches-2026-10-27.test.ts).
+    expect(source).toContain('if (saleToken !== "" && !sameSecret(String(payload.token ?? ""), saleToken)) {\n      return json(401, { error: "token do webhook de venda inválido" });');
     expect(source).toContain('return json(401, { error: "token do webhook de venda inválido" });');
     // The gate knows the pieces in play.
     expect(source).toContain("      paymentPath: linkPath,\n      // The pieces in play: a kit price needs the kit, a 1-piece price the single piece.\n      units,");

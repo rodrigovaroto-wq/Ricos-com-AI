@@ -4361,6 +4361,808 @@ inteiro e não o registrável.
 
 **Guarda.** `tests/persona-2026-10-24-review-fixes.test.ts`; mutações `G132-*`.
 
+## 132a. Calça 56 e colete para homem (operador, 2026-10-26)
+
+- **Sintoma:** o prompt dizia que a tabela vai até o 52 de calça, mas `sizeFromDressSize` lê 53–56 como XGG; a revisão de personas de 24/10 viu a contradição.
+- **Caminho tentado e desfeito:** tratar 53–56 como "além da tabela" (commit anterior). O operador corrigiu: o XGG da tabela é do 52 para cima, então o 56 entra.
+- **Correção:** `sizing.ts` voltou ao que era (56 é XGG, `sizeBeyondTable` a partir do 57); o prompt agora diz "do 52 de calça para cima; o 56 ainda é XGG", igual ao código. O colete serve para homem também (linha em `QUEM ESTÁ DO OUTRO LADO`).
+- **Postura:** nada mudou (R16.6; `health_claim` veta "corrige/trata").
+- **Guarda:** `pnpm test`.
+
+## 133. Oferta nova: um preço, frete grátis nos dois caminhos, um checkout da Coinzz, e o M sem estoque (operador, 2026-10-27)
+
+**Decisão do operador.** Volta dos anúncios só nas cidades com pagamento na entrega. R$ 109,90 nos dois caminhos (`prepayDiscountPercent` 0),
+`freeShipping: true` (o operador paga o frete), kits de 2 (R$ 197,82, 10%) e 3 (R$ 263,76, 20%) iguais nos dois caminhos, um checkout da
+Coinzz por quantidade com Cartão, Pix e "Pagar na entrega" dentro (`encorpa-0`, `encorpa-site-0`, `oferta-site2-0`), cupom e experimentos
+desligados, `checkout.logzz` fora. Config: `docs/operacao/business-config-2026-10-27.min.json` (o resto igual ao de 23/10).
+
+**Sintomas que a oferta traria com o código de antes.**
+- A caixa do antecipado abriria com "Você Ganhou um Desconto Adicional de *0%!!!*" (`PREPAY_HEADLINE`), e o segundo link dos dois checkouts com
+  "*Você Ganhou Mais 0% de Desconto!!*" (`bothPrepayBubbles`). O prompt ensinava "*Você Ganhou um Desconto Adicional*" como destaque.
+- O preço antes do CEP dizia "pagando na entrega" com o mesmo preço e o frete grátis nos dois (`priceBeforeCepMessage`).
+- O link da entrega levava o CPF em `cpf` e o telefone com o 55, que são da Logzz; o checkout da entrega agora é da Coinzz
+  (`buildPrefilledCheckoutLink` escolhia pelo caminho, não pela plataforma — o "CPF no link: Logzz `cpf`, Coinzz `document`" do §11).
+- A cliente de M ouvia a entrega de outro tamanho (§105: o 404 da Coinzz pelo M era lido como mapeamento errado, e o checkout da Logzz decidia).
+  Playwright de 27/10 no `encorpa-0`: o M bloqueia a compra nos dois caminhos, em toda cidade.
+
+**Conferido sem mudar.** `prepayOfferText` já tirava o valor do frete com `freeShipping === true`. Sem `checkout.logzz` e com o `codUrl` na Coinzz,
+`logzzIdsOf` dá `null` e `lookupRegion` vai a `lookupCoinzz`, que bate com o checkout real (SP G: só antecipado; SP GG e Goiânia GG: porta;
+BH G: porta). `availabilityQuery` com `billing_moments[]` = só `on_delivery` ou os dois deu a mesma resposta (curl, 27/10). `has_pending_cash_on_delivery`
+(por endereço) vem com as janelas preenchidas (Av. Paulista 100: `true` e três dias) e `readAvailability` lê só as janelas; `hasPendingCod` não é
+usado pela `turn`. O alarme (`checkCoverage`, `COVERAGE_ALARM_CEPS`) pergunta sem tamanho: sadio enquanto algum tamanho tem a porta em SP (o GG
+e o XGG têm; o G não) — não alarma falso e não fica cego à porta sumida.
+
+**Correção.**
+- `PREPAY_HEADLINE` com 0% é a linha dos Correios (`LEGACY_PREPAY_HEADLINE`, que `offerKindOf` já lia como antecipado); `prepayOfferText` não
+  repete os Correios e diz "*FRETE GRÁTIS!!*" onde estaria o frete; `bothPrepayBubbles` só cita desconto acima de 0%; o destaque do prompt idem.
+- `priceBeforeCepMessage`: com preço único e frete grátis, "O colete sai de R$ 216,50 por R$ 109,90, com frete grátis 😊".
+- `buildPrefilledCheckoutLink`: `cpf` e o 55 só para URL da Logzz; qualquer outra (a Coinzz) leva `document` e DDD + número, nos dois caminhos.
+- `lookupCoinzz`: o tamanho dela sem resposta (`null`, o 404) com outro tamanho respondendo é `cod: false`, `sizeOutOfStock: true`. Lançar
+  (timeout) segue `failed`; nenhum tamanho respondendo segue `failed`. Na Logzz, como segunda fonte, nada muda (só o "sim" dela vale).
+- `handleTurn`: com `sizeOut`, o `guide` da linha honesta (`sizeOutOfStockLine`: "O M está sem estoque agora 😔 Se quiser, eu te aviso aqui assim
+  que ele voltar, tá bom?"), e-mail ao operador uma vez (`SIZE_OUT_REASON` em `turn_outcomes`); dita antes, outra linha sem repetir; nenhum link
+  (`linkReady` com `sizeOut === null`) e nenhuma oferta fixa (o `guide` segura). Um kit com uma peça de tamanho sem estoque, idem.
+
+**Caminhos descartados.** Campo novo no config com os tamanhos sem estoque (a consulta já diz, por CEP, e o secret não tem a chave); ler o M como
+`otherSizesInStock` (levaria à caixa do antecipado, que também não vende o M).
+
+**Resíduos.**
+- O kit só confere os outros tamanhos onde o dela tem a porta (bloco do §117): kit com M numa região sem porta vai ao antecipado com o M.
+- Conversa aberta com a caixa velha ("Desconto Adicional de *10%*", "POR R$ 129,90") não é lida como oferta pelo `offerKindOf` com o config novo.
+- Os dois checkouts (`bothLinksBubbles`) mandam o mesmo URL duas vezes; "oferta especial" no segundo é o mesmo preço.
+- n8n "Normaliza a venda": a data agendada é lida só no topo do corpo (`date_delivery`, da Logzz); o pedido da Coinzz vem aninhado em `order.*`,
+  e o nome do campo da data dela não foi conferido — sem a data, a véspera (`order_eve`) não se arma. `afterpay` já vira `cod`. O telefone do suporte de troca é o da Logzz (`returns.logzzSupportPhone`).
+- `dev:conversas` com o config novo: 1650/1655; as 5 são o arco "agente promete um frete grátis que não existe", cuja premissa a decisão desfez.
+
+**Guarda.** `tests/offer-2026-10-27.test.ts`, o canto "produção 27/10" em `tests/prompt.test.ts`, `tests/availability.test.ts` (o M); mutações `O27-*`.
+
+**Revisão (2026-10-27, reprovada).** O prompt, a régua, o kit, o fallback depois de cinco vetos e o cache ainda vendiam o tamanho sem
+estoque, e o desconto do antecipado era dito a 0%: causa, correção e guarda no §134 A. O resíduo "os dois checkouts mandam o mesmo URL
+duas vezes" foi fechado no §134 B.
+
+## 134. O teste em dois braços (anúncio → WhatsApp e anúncio → site → checkout), os toques da Coinzz, e a revisão do §133 (operador, 2026-10-27)
+
+### A. A revisão Opus do §133 (481f2d3, reprovada)
+
+**Sintoma.**
+- Com o tamanho sem estoque (`sizeOut`), o prompt ainda recebia `regionDirectiveFor` ("siga no antecipado, com o desconto") e a
+  diretiva de identidade (nome e CPF de uma venda que não fecha). Reprodução: CEP 04710-090, M, "e pelo pix dá?".
+- `scheduleSilenceTouches` não tinha saída para o tamanho sem estoque: uma hora depois, `silence_1` dizia à cliente do M "No antecipado
+  o colete sai por R$ 109,90".
+- Kit: o M só era lido sem estoque se fosse a primeira peça sem entrega (`answers.find` da primeira não-entrega), e o bloco só rodava
+  com `region?.cod` — com o tamanho dela sem a entrega e um M no kit, saía o link do kit antecipado com o M.
+- Depois de cinco vetos, o fallback era `noCodMessage`/`deadlineFallbackMessage` (oferecem o antecipado), e `turn_outcomes.reason`
+  gravava `SIZE_OUT_REASON` mesmo sem a linha ter saído — o turno seguinte achava que ela já tinha ouvido.
+- "com o desconto", "diga o desconto do antecipado" e "o desconto do antecipado e dos kits" com o antecipado a 0%; e o gate deixava
+  passar "Pagando no Pix antecipado tem desconto 😊" (frase que o prompt antigo ensinava, R21.6).
+- `cachedRegion` servia por até 1 h uma região gravada antes da leitura do estoque (M com `cod: true` de outro tamanho).
+- O comentário do 5d-bis dizia que "a Coinzz erra o M" — falso desde o §133.
+
+**Causa.** O §133 tratou o tamanho sem estoque no ponto de decisão do link e da oferta fixa, mas o prompt, a régua, o kit, o fallback e
+o cache tinham cada um a sua leitura da região, e nenhuma olhava `sizeOutOfStock`.
+
+**Correção.**
+- `regionDirectiveFor` saiu da `turn` para `prompt.ts` (testável), lê o desconto do config e devolve `null` com `sizeOut`; a diretiva de
+  identidade também cala com `sizeOut`.
+- `scheduleSilenceTouches` cancela tudo com o `sizeOut` do turno ou a região guardada sem estoque
+  (`stock_out:address->region->>sizeOutOfStock`); a varredura (`runFollowupSweep`) cancela na hora do envio todo toque de silêncio de
+  quem tem a região guardada sem estoque (toques armados antes do deploy ou por resposta adiada).
+- `kitRegion` (`availability.ts`): uma peça sem estoque em qualquer posição e em qualquer caminho deixa o kit sem estoque; só depois, onde
+  o tamanho dela tem a entrega, a peça sem entrega leva o kit ao antecipado. O bloco do kit roda também onde o tamanho dela não tem a entrega.
+- Fallback com `sizeOut`: `sizeOutFallback` (a linha, ou a curta se já dita); `SIZE_OUT_REASON` só é gravado quando a resposta disse que
+  acabou (`sizeOutLineSent`, com negação).
+- `price_promise`: com `prepayDiscountPercent` 0, uma frase que nomeia só o antecipado (sem kit, cupom, contagem de peças, entrega nem
+  pergunta) e afirma desconto/"mais barato" sem negação antes é vetada; o briefing do gate diz "O antecipado não tem desconto".
+- `CachedRegion.stockAware`: a `turn` grava; cache sem ele não é servido.
+
+**Guarda.** `tests/offer-2026-10-27-review.test.ts` (comportamental: `regionDirectiveFor`, `kitRegion`, `sizeOutFallback`,
+`sizeOutLineSent`, `cachedRegion`, `runGates`); mutações `O28-diretiva-sem-estoque`, `O28-identidade-sem-estoque`,
+`O28-regua-sem-estoque`, `O28-regua-sem-estoque-na-varredura`, `O28-kit-peca-sem-estoque`, `O28-fallback-sem-estoque`,
+`O28-motivo-so-se-disse`, `O28-desconto-do-config`, `O28-gate-desconto-0`, `O28-cache-sem-estoque`. `pnpm dev:gates`: 0 afrouxados,
+15 endurecidos (todos `price_promise`, desconto do antecipado com 0%).
+
+### B. O teste em dois braços (operador, 2026-10-27)
+
+**Decisão do operador.** Cinco dias, as mesmas 12–16 cidades, a mesma oferta: (A) anúncio → WhatsApp (Click-to-WhatsApp, a `referral`
+vira `leads.source`); (B) anúncio → site → checkout da Coinzz, com botão de WhatsApp para a Malu.
+
+**Sintomas que o código de antes teria.**
+- Toda lead nova recebia a abertura de 9 balões (áudios, vídeo, avaliações) — inclusive quem já viu tudo no site.
+- O prompt afirmava "A ABERTURA JÁ FOI" e "quase sempre ela vem do anúncio" para todas.
+- O carrinho abandonado e o Pix gerado e não pago não chegavam a ninguém; o pedido de quem nunca escreveu era recusado (`unknown_lead`).
+- O `silence_3` com o cupom desligado saía vazio (memória `stage-nunca-e-escrito`).
+- `bothLinksBubbles` mandava o mesmo URL da Coinzz duas vezes, com "oferta especial" do mesmo preço (resíduo do §133).
+
+**Correção.**
+- Origem: `fromAd` = `leads.source` ou a `referral` da mensagem (nunca o texto). Sem anúncio e sem abertura enviada = `siteMode`: sem
+  abertura e, dentro do horário, sem recibo; a primeira resposta é do modelo (`openingDirective` com `fromSite`: só cumprimentou → "Me
+  conta, qual a sua dúvida sobre o colete?"); o prompt troca os parágrafos do anúncio por `siteBriefing`. Lead feito pelo checkout
+  ganha `source` na primeira mensagem de anúncio (só sobre `null`).
+- Mídia a pedido no modo site: `requestedMedia` escolhe, por código, o vídeo (vídeo, foto do produto, "como fica no corpo"), as avaliações
+  ("é bom mesmo?", "funciona mesmo?", avaliação, depoimento) e os dois áudios ("manda áudio"); a tabela continua `asksSizeTable`. Negação:
+  recusou, já viu, não consegue tocar, a foto é dela (comprovante). Enviada com `sendFunnelTurn` e a retomada do n8n responde o resto.
+- Fatos do checkout: `checkoutFactLines` (o carrinho de `leads.cart` e o pedido mais novo) entram como "O QUE O CHECKOUT DA COINZZ
+  CONTOU DELA — referência sua, NUNCA formato de mensagem", sem dado pessoal.
+- `cart_recovery`: n8n "Carrinho abandonado" → `job: "cart"` (token `SALE_WEBHOOK_TOKEN` em tempo constante) → `recordCart`: acha o
+  lead por `leadForPhone` (exato, depois os 8 últimos dígitos; dois = recusa) ou cria (`checkoutLead`, sem `source`), guarda o carrinho
+  (só o primeiro nome) e arma UM toque 30 min depois (`armsCartRecovery`). **Decisão do operador: não depende do opt-in de marketing**
+  (ela digitou o telefone no nosso checkout para comprar); nunca duas vezes, nunca a opt-out, nunca sobre pedido, nunca com ela
+  conversando (última mensagem < 30 min) nem com o `checkout_reminder` esperando; de madrugada, o `business_hours` adia. Ela escreveu →
+  o turno cancela; chegou pedido → `onOrderConfirmed` cancela. Fora da janela, só o template `encorpa_carrinho_site` (MARKETING) com
+  `firstName` e o slug do `checkout_url` no botão de URL (`TemplateBinding.urlButton`, `templateMessage`, "Monta os envios").
+- `pix_pending`: o pedido com "Aguardando pagamento" E o código do Pix (`awaitsPix`) arma um toque 30 min depois; aprovado, expirado ou
+  cancelado cancela; na hora do envio a varredura relê o pedido. Template `encorpa_pix_pendente` (UTILITY): `firstName`, `orderNumber`,
+  `price`. "Reenviar o Pix" (`asksPixCode`) manda o código que o webhook trouxe (`pixResendTexts`, `orders.details`).
+- O pedido de quem nunca escreveu (o site) cria o lead e a conversa (`recordOrder`), para o Pix e a régua pós-pedido; telefone que não é
+  brasileiro segue `unknown_lead`. O turno acha o lead com ou sem o nono dígito (`phoneTwins`): o checkout grava com o 9, o WhatsApp
+  entrega quase sempre sem.
+- `silence_3` com o cupom desligado: a retomada (`encorpa_retomada`, MARKETING, com opt-in), chave própria `silence_3_retomada` —
+  o template do cupom (`en`, outras variáveis) nunca sai com esse texto. Só com o tamanho dela, frete grátis nos dois caminhos e o
+  preço do caminho igual ao da entrega.
+- Um checkout para os dois pagamentos (`oneCheckout`): `bothLinksBubbles` manda UM link com os dois jeitos de pagar; o "não apareceu
+  dia" não manda o segundo link, e a diretiva diz que o mesmo link aceita Pix e cartão.
+- Migração `0033_checkout_cart_and_order_details.sql`: `leads.cart` e `orders.details` (jsonb). `followups` não muda (unique
+  `(conversation_id, kind)`, memória `on-conflict-partial-index`).
+
+**Caminhos descartados.** Tabela própria de carrinhos (um por lead basta, e a leitura vem com o lead); inferir a origem do texto da
+saudação (o operador edita a mensagem pronta); deixar o modelo decidir a mídia (tool-calling, R11.1); declarar os templates novos no
+config antes da aprovação; usar a chave `silence_3` para a retomada (o secret declara nela o template do cupom); ler a data de entrega da
+Coinzz em `order.delivery_time`/`order.deadline_delivery` sem fixture que prove o campo.
+
+**Resíduos.**
+- A data de entrega do pedido da Coinzz continua não lida (só `date_delivery` no topo, da Logzz): sem ela, a véspera não arma.
+- `oneCheckout` no "não apareceu dia" compara os URLs de uma peça; kits com checkouts diferentes por caminho seguiriam o fluxo antigo.
+- Uma peça de kit sem estoque não é guardada na região do lead: a resposta adiada à noite pode armar a régua (o turno seguinte cancela).
+- O site cria lead para todo comprador: a régua pós-pedido (`order_confirmed` etc.) passa a valer também para quem só comprou no site,
+  quando os templates dela estiverem declarados.
+- Templates não aprovados: fora da janela, os três toques ficam bloqueados (e-mail "toque(s) da régua não saíram") até a declaração.
+
+**Guarda.** `tests/checkout-touches-2026-10-27.test.ts` (o texto de cada toque = o corpo do template em
+`docs/agente-ia/06-script/03-templates-meta.md` §5–§7, preenchido com as variáveis de `deliveryFor`; gates com o config de 27/10;
+negações de `requestedMedia` e `asksPixCode`; os normalizadores do n8n executados); `tests/n8n-workflows.test.ts` (carrinho-abandonado);
+`tests/n8n-whatsapp-send.test.ts` (botão de URL); mutações `O28-carrinho-*`, `O28-pix-*`, `O28-retomada-template-do-cupom`,
+`O28-site-sem-abertura`, `O28-midia-negacao`, `O28-um-link`, `O28-token-carrinho`, `O28-token-rota-carrinho`, `O28-botao-url`. Nove mutações antigas (`R10.4-venda`, `adiada-kit`, `O10-venda`, `TPL-antecipado-cobra`, `G66-uma-vez-por-dia-fiacao`, `E3-braco-a-de-madrugada`, `r21-taxa-da-troca-volta`, `G117-kit-com-um-tamanho-so`, `G117-kit-falha-vira-dois-links`) tiveram o texto de origem atualizado; `O10-venda` passou a exigir o 401 da rota de venda (a do carrinho repete a linha).
+
+### C. A revisão Opus do ecea0c3 (reprovada, 2026-10-27)
+
+**Sintoma.**
+- `onOrderConfirmed` só cancelava o `pix_pending` pelo pedido que o armou, e a varredura relia só esse pedido: quem pagou um segundo
+  pedido ouviria "seu pedido #1 está aguardando o Pix".
+- `asksPixCode` lia "já mandei o pix", "enviei o pix", "te mandei o comprovante do pix", "qual o valor / o desconto do pix?", "código
+  de rastreio" e "código de barras do boleto" como pedido do código; o reenvio rodava antes do "paguei" (4a0), fora da cadeia de gates.
+- `requestedMedia` mandava mídia ao marcador do sistema ("[a cliente mandou um vídeo sem texto]"), ao passado ("vi o vídeo no site",
+  "assisti o video") e à menção ("a moça do vídeo", "desculpa o áudio", "li as avaliações").
+- `leadForPhone` achava o lead pelos 8 últimos dígitos: o lead do Rio ganharia o carrinho de uma paulistana.
+- A retomada prometia "o seu colete no tamanho M" a quem disse "uso 40" sem CEP (o M sem estoque).
+- `phoneTwins("551133334444")` inventava "5511933334444" (outro assinante).
+- O lead do site que voltou por um anúncio ganhava `source`, perdia o modo site, e o prompt dizia "A ABERTURA JÁ FOI" sem abertura.
+- A rota `job:"cart"` aceitava qualquer chamada com o `SALE_WEBHOOK_TOKEN` vazio, e agora cria lead e arma toque de marketing; o nome
+  da oferta e o status do webhook entravam no prompt crus (até 120 caracteres, com quebra de linha).
+- `dev:gates`: "No Pix sai por R$ 109,90, já com desconto" (o desconto do preço cheio, verdadeiro) seria vetado.
+
+**Causa.** As heurísticas novas leram a palavra (pix, vídeo, final do telefone) e não o pedido, o tempo ou o dono; e os toques novos
+olharam só o seu próprio pedido, não os da cliente.
+
+**Correção.**
+- `checkoutDone` (`onOrderConfirmed`): qualquer pedido pago dela cancela o `pix_pending`; a varredura usa `pixStillDue` (o pedido do toque
+  ainda aguarda o Pix E nenhum pedido dela está pago).
+- `asksPixCode`: só o pedido no presente — o código nomeado ("código do pix", "copia e cola", "qr code") com um verbo de pedido, ou "manda /
+  reenvia o pix"; o passado e o comprovante, rastreio, boleto e barras ficam fora; "paguei não" não é pagamento. `pixResendFor` não manda
+  ao lado do "paguei" nem com pedido pago; o turno o chama depois do 4a0, com `sendFixed` na camada "auto" (como as linhas do 4a0).
+- `requestedMedia`: tira os marcadores entre colchetes e exige o pedido explícito (tem / manda / mostra / pode mandar / quero ver …) colado
+  ao que se pede; "foto da etiqueta" e foto do pagamento ficam fora; "como fica no corpo?" e "é bom mesmo?" só como pergunta.
+- `leadForPhone`: `phoneTwins(leadPhoneOf(phone))`, o exato primeiro, nunca `like.*`; `herLeadIds` usa a mesma regra.
+- `sizeSells` (região guardada `stockAware`, para o tamanho dela, sem `sizeOutOfStock`) entra em `RenderContext.sizeSells`; sem ela,
+  `retomadaFor` não fala.
+- `phoneTwins` só gera o gêmeo quando o número local de 8 dígitos começa com 6–9 (celular).
+- `siteMode` = nenhuma abertura enviada (exceto a primeira mensagem de uma lead nova de anúncio, que segue o caminho de hoje);
+  `systemPrompt` só diz "A ABERTURA JÁ FOI" com `openingSent`; `siteBriefing(fromSite)` não afirma o site a quem veio de anúncio.
+- `job:"cart"` recusa com o segredo vazio; `recordOrder` só cria lead com o segredo setado (`mayCreateLead`). `checkoutFactLines` passa
+  oferta e status por `plainFact` (uma linha, letras, dígitos e poucos sinais, 40 caracteres).
+- `price_promise`: "já com desconto" e o preço cheio na frase não são o desconto do antecipado.
+
+**Fica como está.** `recordOrder` lê `orders.details` em toda venda: a 0033 é aplicada antes do deploy (coordenador).
+
+**Guarda.** `tests/review-ecea0c3.test.ts`; mutações `O29-*` (16). `pnpm dev:gates`: 0 afrouxados; os 16 endurecidos são títulos de
+teste, frases dela ou a promessa falsa do desconto do antecipado — nenhuma linha verdadeira da agente.
+
+### D. A revisão Opus do 2474091 (reprovada, 2026-10-28)
+
+**Sintoma.**
+- A isenção do desconto do preço cheio em `price_promise` pulava a FRASE inteira: com "já com desconto" ou o R$ 216,50 nela, passavam
+  "No Pix sai mais barato, já com desconto.", "De R$ 216,50 por R$ 109,90, e no Pix ainda tem mais desconto.", "Pagando antecipado sai
+  mais em conta que na hora, de R$ 216,50 por R$ 109,90." e "Pagando no Pix você ganha desconto extra, já com desconto do site".
+- `openingSent` (turno) e `openingWasSent` provavam a abertura pelo `SIZE_ASK`, que também fecha `sizeFirstBubbles` e `offerAsk`: a lead
+  do site que mandou o CEP antes do tamanho saía do modo site, e o prompt dizia "A ABERTURA JÁ FOI".
+- `asksPixCode` não lia "não consegui pagar, manda o qr code", "o pix expirou, manda outro", "não fiz o pix ainda, me manda o código", e lia
+  "manda o pix não" como pedido; `requestedMedia("tem video? nao precisa")` mandava o vídeo.
+
+**Causa.** A Lição 1 de novo: a isenção foi escrita para a frase, não para a palavra, e a mentira ao lado dela passou. E a prova da
+abertura foi um balão que a abertura compartilha com outros.
+
+**Correção.**
+- `price_promise`: cada ocorrência é lida; só a palavra "desconto" sozinha é isenta, e só dentro de "já com desconto" ou numa frase com o
+  preço cheio — nunca com "mais / ainda / outro / extra / adicional" antes ou "extra / adicional / a mais / especial" depois. "mais
+  barato", "mais em conta", "sai menos" nunca são isentos.
+- `OPENING_FIRST` (e `LEGACY_OPENING_FIRST`, a do R28): a primeira linha da abertura, que só ela manda, prova a abertura em
+  `openingWasSent(outbound, agentName)` e no `openingSent` do turno. Nenhum outro chamador de `openingWasSent`.
+- `asksPixCode`: "não paguei / não fiz / não consegui pagar" não é pagamento; a recusa vale só na mesma oração, antes ou depois do pedido
+  ("manda o pix não"); "o código" vale numa mensagem sobre o Pix; "expirou / venceu" com "manda outro / novo" é pedido.
+- `requestedMedia`: a recusa depois do pedido ("não precisa", "não quero", "deixa pra lá", "esquece") cala a mídia.
+
+**Guarda.** `tests/review-2474091.test.ts` (as quatro mentiras e uma quinta vetadas, as verdades passando; a abertura negada pelo
+`sizeFirstBubbles` e pelo `offerAsk`); mutações `O30-*` (8); `O29-desconto-do-preco-cheio` atualizada.
+
+## 135. A venda na entrega fechada na conversa, pela importação de pedidos da Logzz (operador, 2026-10-28)
+
+**Decisão do operador.** No braço do WhatsApp a Malu fecha o pagamento na entrega dentro da conversa, criando o pedido pela API de
+importação da Logzz — sem checkout para ela. O antecipado segue no link da Coinzz; o braço do site não muda. Sem aprovação manual:
+toda chamada bem-sucedida é um pedido real, e um pedido errado custa R$ 9,99 na porta. Por isso o pedido só nasce do "sim" explícito
+a um resumo que a Malu mandou, em código determinístico (R11.1, sem tool-calling).
+
+**Sintoma.** O checkout da Coinzz e a Logzz discordam sobre onde há pagamento na entrega por tamanho, e quem entrega é a Logzz. Com
+os códigos de variação da Logzz (`prow6pq0` + P `progm9w6`, M `pro37j6q`, G `projm2ov`, GG `prolm313`, XG `prox1jxp`), a consulta de
+datas de 28/10 (coordenador) deu SP/Guarulhos/Campinas/Santos G, GG e XGG; BH/Contagem M, G e GG; Goiânia G e GG; Salvador G e XGG;
+Rio P, GG e XGG; Porto Alegre GG e XGG; Manaus nada. A Logzz tem o G em São Paulo, onde o checkout da Coinzz não vende o G na entrega:
+a importação recupera essa venda. (Uma comparação anterior, feita com os códigos de produto da COINZZ como variação, não é evidência.)
+
+**Caminhos que falharam.**
+- Os códigos `pro4gpo2`… como variação: são produtos da Coinzz. A importação responde "A variação do pedido é diferente do produto." e a
+  consulta de datas "A variação … não pertence ao produto prow6pq0" (sonda do coordenador, CEP sem entrega, nenhum pedido criado).
+- Ler o "sim" de qualquer lugar (Lição 10): o pedido só sai com a ÚLTIMA mensagem da Malu sendo o resumo refeito dos fatos de agora
+  (`lastOutbound.endsWith(summary)`) e TODA mensagem da rajada sendo um sim puro (`confirmsOrder`, lista de permissão da mensagem inteira,
+  Lição 3). Botão de WhatsApp (o sinal estruturado do §25) exigiria mudar o envio do n8n; fica como resíduo.
+
+**Correção.**
+- `src/agent/cod-close.ts` (espelhado): `codPackage` (oferta por quantidade + variações; qualquer chave faltando = desligado),
+  `lookupCodDates`/`readCodDates` (POST público `delivery-day/options/zip-code/{cep}` com
+  `{"products":[{"code":"prow6pq0","quantity":N,"variants":[{"code":…,"quantity":n}]}]}`; os três "não entrega aí" da Logzz são `none`;
+  429, 5xx, "Erro ao buscar opções de entrega", erro de campo e rede são `failed`, nunca "sem entrega" — L2), `cachedCodDates` (10 min,
+  mesmo dia, mesmo CEP e pacote), `pickDate` (último dia não negado; "de segunda a sexta" não é dia; dia fora da lista = indisponível),
+  `asksDateChange`, `confirmsOrder`, `houseNumberIn`, `cellIn`, `nationalPhone`, `closeStep` (datas reais → nome completo, CPF, número/
+  complemento, rua e bairro no CEP geral → resumo → `confirm`), `closeSummary` (CPF mascarado `***.***.**9-25`), `closeOrderId`
+  (`malu-<conversa>-<sha256 do resumo>`: o mesmo resumo é o mesmo pedido na Logzz), `importPayload` (exatamente as chaves mapeadas),
+  `readImport` e `placeOrder` (409/429/5xx/rede: mais uma vez com o MESMO id), `closeConfirmed` (a data DEVOLVIDA, com `rescheduled`),
+  `importedTwin` (o webhook da venda acha a linha importada: nosso id, o `order_code`, ou o único pedido importado em aberto dela).
+- `handleTurn`: com `CONFIG.logzzImport` completo e o segredo `LOGZZ_API_TOKEN`, a porta é a consulta da Logzz para o pacote dela
+  (`region` sobrescrita: datas → `cod: true` mesmo onde a Coinzz dá 404 no tamanho; `none` → antecipado; `failed` → a consulta de antes
+  fica). `closeOn` (caminho da entrega, sem tamanho esgotado, kit só com preço no config, nenhum pedido vivo dela) tira o link da
+  Coinzz da entrega (`linkNow`, `thinkLink`); a caixa da oferta diz "é só me falar" (`codOfferText(…, closesHere)`) e leva a pergunta do
+  fechamento; cada linha passa a cadeia de gates (`closeGated`, `sendFixed`); o estado fica em `leads.address.codClose` e as datas em
+  `leads.address.codDates`. No `confirm`: a data reconsultada; lotou → datas novas; `none` → linha honesta e o link do antecipado (sem
+  ele para o tamanho que a Coinzz não vende); criado → `recordOrder` (status "Agendado", `scheduled_for` = data devolvida,
+  `details.importId`/`orderNumber`) para a régua pós-pedido, e o `order_confirmed` da régua cancelado quando a confirmação da Malu foi
+  gravada; CPF recusado → `badCpf` e o CPF pedido de novo; telefone recusado → `badPhone` e o celular pedido; pedido aberto, 409/500 duas
+  vezes, token/URL → a verdade, o resumo de novo embaixo (o "SIM" seguinte manda o mesmo id) e e-mail ao operador (`extraNotify`).
+- `recordOrder`: o webhook de um pedido importado grava sobre a linha da importação (`importedTwin`), guardando `details.webhookId`.
+- Gate e prompt, a mesma promessa: `GateContext.codDates` — `delivery_promise` deixa passar só um dia (dia da semana, "dd/mm", "dia dd",
+  com o "(dd/mm)" logo depois lido junto) que é UMA das datas da consulta (`offeredDay`); sem `codDates`, tudo como antes. A diretiva
+  (`closeDirective`) ensina só essas datas, nenhum link, e nada "confirmado" antes do SIM.
+- O M que a Logzz entrega e a Coinzz não vende: no antecipado, nenhum link (`prepayOut`) e o modelo oferece a entrega.
+
+**Guarda.** `tests/cod-close-2026-10-28.test.ts` (42: negações do dia, do sim, do número; falha ≠ sem entrega; o mesmo id nas
+tentativas; o webhook sem linha dupla; as linhas fixas passando a cadeia com as datas e vetadas sem elas ou com dia fora delas; o config
+de 28/10 = o de 27/10 + `logzzImport`, nunca os códigos da Coinzz); mutações `O31-*` (11), 14/14 pegas junto com as antigas cujo texto
+mudou (`T6e-praca-nao-gravada`, `E6-kit-depois-do-link`, `O27-link-do-m`). Config: `docs/operacao/business-config-2026-10-28.min.json`.
+
+**Resíduos.**
+- `variations[].hash` com o código da variação foi validado pela importação até "Data de entrega indisponível." (Manaus, coordenador);
+  o primeiro pedido real ainda é a prova do mapeamento inteiro.
+- O "sim" é texto, não botão (§25): a âncora é o resumo como última mensagem e a mensagem inteira como sim.
+- Com uma pergunta ao lado do resumo, o resumo vai sem a resposta (a resposta do modelo viraria a última mensagem e o sim seguinte
+  pediria o resumo de novo).
+- Consulta da Logzz que falhou: vale a da Coinzz, como antes (e o "M sem estoque" dela). O prompt fixo ainda fala de "escolher o dia
+  no checkout" em alguns parágrafos; a diretiva do fechamento é mais específica.
+- CPF recusado por ela: o pedido na entrega não fecha sem CPF; o modelo segue sob a diretiva.
+- Uma lead com pedido vivo (de outro canal) não fecha pela importação, e o link da entrega da Coinzz volta a valer para ela.
+- `utm_*`: `whatsapp` / `ctwa` ou `site` / o `source_id` do anúncio; campanha, conteúdo e termo vazios.
+
+### A. A revisão Opus do 844743b (reprovada, 2026-10-28)
+
+**Sintoma.**
+- `houseNumberIn` lia a resposta da data como o número da casa, porque `closeStep` pedia as datas e os dados na mesma mensagem:
+  "29/10" → número 29; "45" e "29/10" na mesma rajada → o 29 sobrescrevia o 45; "30 de outubro" → número 30 com complemento "de
+  outubro"; "2 peças" → número 2.
+- `confirmsOrder` tirava a pontuação: "confirmado?", "pode?", "tá certo?", "isso?", "sim?", "pode ser?" criavam o pedido.
+- Nenhum gate vetava "pedido confirmado/agendado/registrado/feito" antes da importação: "Prontinho, seu pedido está confirmado pra quinta
+  (29/10)! 🎉", "Seu pedido foi agendado pra quinta (29/10).", "Seu pedido está registrado." passavam a cadeia com e sem `codDates`.
+- `readImport`: o 409 "Pedido em processamento" virava "não consegui"; o 200 do mesmo `external_id` sem `status: "success"` não era o
+  pedido; o 409 "Integração desativada" não era falha de configuração. A importação não exigia a trava da conversa (`replying_since`):
+  a nova tentativa da varredura e um turno cuja trava falhou chegavam à importação.
+- `rescheduled: true`: a data nova era dita, mas sem a saída de pedir outra e sem aviso ao operador.
+- `pickDate`: "quinta eu não posso" escolhia a quinta; "quinta ou sexta", a sexta; "sexta? não sei", a sexta. `asksDateChange` lia
+  "não quero mudar a data", "não precisa trocar o dia", "não muda o dia", "outro dia eu compro" como pedido de troca.
+- A mensagem de erro da Logzz, que pode ecoar o CPF, ia crua para `extraNotify`, `turn_outcomes.reason`, o e-mail e
+  `codDates.result.reason`.
+
+**Causa.** As leituras de texto novas olharam a palavra, não a pergunta, o lugar nem a negação (Lição 1 e Lição 10 de novo); a
+promessa "nada confirmado antes do SIM" estava só na diretiva, sem gate (prompt e gate são a mesma promessa); e a importação confiou no
+`external_id` sem a trava que impede dois turnos de correrem até ela.
+
+**Correção.**
+- `closeStep`: o dia é perguntado sozinho; os dados vêm na mensagem seguinte. `houseNumberIn`: depois do número só cabe um complemento
+  (apto, bloco, casa…); data, mês, contagem e hora nunca são número, e um token que não é endereço não sobrescreve o número da rajada.
+- `confirmsOrder`: mensagem com "?" nunca é sim.
+- Gate `order_claim` (`GateContext.closeOpen`): com o fechamento aberto e sem pedido, veta "pedido confirmado/feito/agendado/registrado/
+  criado", "já confirmei seu pedido", "prontinho, seu pedido…"; passa a negação ou a condição antes dela ou logo depois ("ainda não está
+  confirmado", "só fica confirmado quando…", "fica confirmado assim que você responder SIM") e a pergunta. A turn abre (`gateCloseOpen`)
+  com `closeOn` em `sendFixed`, `closeGated` e no laço do modelo, e fecha só depois do `order_code`, para `closeConfirmed` (camada
+  "auto"). O briefing do gate diz o mesmo no prompt.
+- `readImport`: 2xx com `order_code` (sem `status: "error"`) é o pedido; 409 "processamento" é `processing` — `placeOrder` espera 4 s e
+  manda o MESMO id; duas vezes, `closeProcessing` (sem "não consegui", o resumo embaixo); 409 "desativada" é `config`. Só importa o turno
+  que segura a conversa (`holdsConversation`: a revisão, ou a trava ganha sem falha).
+- `rescheduled`: decisão do operador PENDENTE; por padrão a data devolvida é aceita, dita com "Se esse dia não der pra você, é só me
+  falar aqui", e o operador recebe e-mail com o `order_code` e as duas datas.
+- `pickDate`: negação em qualquer ponto da oração do dia; dois dias abertos na mesma oração não escolhem; dúvida logo depois ("não sei",
+  "talvez", "sei lá") anula a mensagem. `asksDateChange`: negada na oração não troca; "outro dia" só como dia desejado.
+- `maskPii` mascara CPF e telefone na mensagem de erro da importação e no motivo do "sem entrega" das datas.
+
+**Guarda.** `tests/cod-close-2026-10-28.test.ts` §11 (as frases exatas da revisão, nos dois sentidos); contagens de gates em
+`guardrails.test.ts`, `remedy.test.ts` e `human-handoff.test.ts`; mutações `O32-*` (13), 28/28 pegas junto com as `O31-*`, as quatro
+antigas e `O31-negacao-do-dia` atualizada. `pnpm dev:gates`: 0 afrouxados (o `order_claim` só age com `closeOpen`).
+
+**Resíduos.** O "sim" segue texto, não botão (§25). Com a trava falhada ou na nova tentativa da varredura, o sim não importa naquele
+turno: o modelo responde e o próximo sim importa.
+
+### B. A lista única (decisão do operador, 2026-10-28) e a revisão Opus do c72b56e (reprovada)
+
+**Decisão do operador.** O dia perguntado sozinho (§135 A) dá uma mensagem a mais por dado; o operador trocou por **uma lista
+única**: depois do tamanho e do CEP com datas da Logzz, quando ela diz que quer pagar na entrega ou pergunta como funciona, a Malu manda
+UMA mensagem com tudo ("Pra eu agendar sua entrega, me manda:" + 📅 Dia com as datas reais, 👤 Nome completo, 🪪 CPF, 🏠 Número da casa
+(e complemento), 📍 Rua e bairro só no CEP geral da cidade). Ela responde em qualquer ordem, numa mensagem ou em várias; depois de cada
+resposta, só o que ainda falta ("Anotado! Só falta me mandar:", mesmo formato, nunca o que ela já deu); com tudo, só o resumo
+consolidado ("📝 Confere se está tudo certo:" … "Responda *SIM*…"); no SIM explícito (`confirmsOrder`), a importação.
+
+**Sintoma (revisão Opus do c72b56e).**
+- `order_claim` deixava passar, com o fechamento aberto e sem pedido: "Agora é só aguardar, seu pedido está confirmado!", "Se precisar
+  de algo me chama, seu pedido está agendado pra quinta (29/10).", "Seu pedido está confirmado, quando o entregador chegar você paga.",
+  "Tudo certo, já agendei sua entrega pra quinta (29/10)!", "Fechado! Sua entrega é quinta (29/10).", "Combinado, sua entrega fica pra
+  quinta (29/10) 💛", "Seu colete já está garantido pra quinta (29/10)!".
+- O sim num turno sem a trava da conversa (`holdsConversation` falso) caía no modelo: a resposta dele virava a última mensagem e o
+  "sim" seguinte não tinha resumo a confirmar.
+- Com a lista pedindo tudo junto, `houseNumberIn` tinha de ler o número ao lado do dia e do nome ("quinta, Maria Souza, 529.982.247-25,
+  45 apto 12", "29/10 número 45", "dia 30, casa 120") e a letra da casa ("45A", "45 B").
+
+**Causa.** As isenções do `order_claim` olhavam a oração inteira até o fim da afirmação: um "só" ("só aguardar"), um "se" ("se precisar")
+ou um "quando" ("quando o entregador chegar") em outra oração isentavam (Lição 1); e só "pedido" era a coisa afirmada — "entrega",
+"colete" e "compra" escapavam, assim como "sua entrega é/fica pra quinta" sem particípio.
+
+**Caminhos que falharam.** O primeiro rascunho (branch `wip/checklist-close-2026-10-28`) ainda isentava um "não" em qualquer lugar da
+afirmação ("Seu pedido, que não tem frete, está confirmado!") e um "?" em outra oração ("…está confirmado, quer mais alguma coisa?");
+mandava "Anotado!" a uma pergunta que não trazia dado nenhum; lia o "e" de "45 e apto 12" como a letra da casa, o "x" de "2x" também, e
+"45, casa 2" trocava o 45 pelo 2; disparava a lista com qualquer palavra de pagamento (`asksPayment`: "dá pra pagar no cartão?").
+
+**Correção.**
+- `closeStep` (espelhado): `CHECKLIST_HEAD`/`MISSING_HEAD` e os itens (`DAY_ITEM`, `NAME_ITEM`, `CPF_ITEM`, `STREET_ITEM`,
+  `NUMBER_ITEM`); só o que falta depois de uma resposta; nada novo à lista (uma pergunta) → o modelo responde sob a diretiva, nunca
+  "Anotado!". O nome dado à lista (`nameCandidates` + `extractName` em `handleTurn`, `CloseFacts.typedName`) fica em `CloseState.name`.
+  `nameCandidates`: só com a lista pedindo o nome; nunca pedaço com dígito, dia, sim ou complemento ("Bloco B").
+- `houseNumberIn`: o número abre o pedaço, ou vem logo depois de "número", "nº" ou "casa"; letra colada ou separada vira complemento
+  ("45A" → 45 "A"), nunca o "e", o "h" ou o "x"; "45, casa 2" na mesma mensagem é o complemento do 45.
+- `asksHowItWorks` (com "já sei como funciona" fora) e `interpretation.payment_choice === "cod"` disparam a lista em `handleTurn`.
+- `order_claim`: coisas `pedido|entrega|colete|compra`; particípios + "marcado"; "agendei/marquei/garanti … sua entrega"; "fechado/
+  combinado, sua entrega"; "sua entrega é/fica/vai ser pra <dia>". Isenta só a condição colada: negação logo antes do particípio ou da
+  afirmação ("ainda não está confirmado", "ainda não confirmei"), "só fica/será/vai ser confirmado", "vai ser/será/fica agendado assim
+  que/quando você responder…", a oração que abre com "se/assim que/quando você responder…" com a afirmação logo depois, e a pergunta na
+  mesma oração.
+- `handleTurn`: o sim (`confirm`) sem `holdsConversation` reenvia o resumo como linha fixa (`sendFixed`), antes de qualquer resposta do
+  modelo; o próximo "sim" com a trava importa (o mesmo `closeOrderId`).
+- Inalterados: `closeOrderId` idempotente, 409 em processamento com o mesmo id, reagendado avisado e por e-mail, `maskPii`, negação em
+  `pickDate`/`asksDateChange`, consulta falhada nunca lida como sem entrega, nada muda sem `logzzImport`.
+
+**Guarda.** `tests/cod-close-2026-10-28.test.ts` §12 (as frases da decisão e da revisão, nos dois sentidos); mutações `O33-*` (16) e
+`O32-numero-da-data` com o texto novo; `O32-datas-e-dados-juntos` saiu (a decisão do operador substituiu o dia perguntado sozinho; a
+guarda equivalente é `O33-lista-repete`).
+
+**Resíduos.** Um nome de duas palavras que não é nome e passa o `extractName` aparece no resumo, onde ela corrige antes do SIM. A
+pergunta "como funciona" só dispara a lista com o fechamento ligado (`closeOn`); fora dele nada muda.
+
+### C. A revisão Opus do 9d247f3 (reprovada, 2026-10-28)
+
+**Sintoma.**
+1. Nome errado travado no pedido: `nameCandidates` + `extractName` aceitavam "Cartão de crédito", "Dinheiro mesmo", "Cor preta", "Kit
+   duas", "Bela Vista", "Santa Cruz", "Cidade Nova", "Perto do mercado", "Portão azul", "Ao lado da padaria"; e em `closeStep`
+   `[f.typedName, state.name, f.name]` deixava o nome guardado vencer a correção dela ("meu nome é Maria Souza") — o sim seguinte
+   importava "Cartão de crédito".
+2. O `order_claim` do §135 B vetava frases VERDADEIRAS durante todo o fechamento: "Você paga ao entregador quando a entrega for
+   realizada.", "A entrega é feita pelo entregador da Logzz…", "A entrega fica marcada pro dia que você escolher", a própria diretiva
+   ("O pagamento na entrega é fechado aqui na conversa…"), a linha do prompt "…com pagamento na entrega, agendada", "Depois do seu SIM o
+   pedido fica confirmado", "Me responde SIM e seu pedido fica agendado pra quinta (29/10)", "Sua entrega fica pra quinta (29/10) se
+   você confirmar".
+3. Depois de "como funciona o pagamento na entrega?" (`asksHowItWorks`) a lista ia com a resposta do modelo depois (o resume do n8n);
+   a resposta do modelo virava `lastOutbound` e a resposta inteira dela ("quinta, Maria Souza, 529.982.247-25, 45 apto 12") se perdia:
+   `closeStep` só olhava a última mensagem. E a diretiva do modelo, quando a linha fixa não saía, ia sem os itens que faltam.
+4. `houseNumberIn`: ["45","casa 3"] → 3; ["45, 2 andar"] → 2; ["45","apto 12"] perdia o apto; ["45, bloco 2, apto 31"] perdia o "apto 31".
+5. O sim sem a trava repetido reenviava o resumo calado, sem aviso.
+6. No CEP geral da cidade o resumo saía só com a rua, sem o bairro.
+
+**Causa.** (1) Uma lista de proibição de nome sem os lugares do próprio CEP, e a precedência pelo estado em vez da palavra mais nova
+dela. (2) O §135 B leu a COISA ("entrega", "pedido") com qualquer particípio, em vez do estado do pedido DELA já feito (Lição 1 ao
+contrário: um aperto sem a lista do que é verdade). (3) Estado da conversa lido do texto da última mensagem, não da mensagem do
+fechamento (Lição 4). (4) "Último número vence" sem saber o que é complemento.
+
+**Correção.**
+- `nameCandidates(parts, lastOutbound, dates, now, places)`: o que vem depois de "meu nome é", "o nome é", "nome:", "me chamo" vale a
+  qualquer momento e primeiro; a resposta à lista só sem dígito, dia, sim, complemento, pagamento/produto/cor/referência (`NOT_A_NAME`),
+  lugar no começo (`PLACE_FIRST`: santa, são, vila, jardim, cidade, nova, perto, ao…) e nunca igual à rua, ao bairro ou à cidade do CEP
+  (`places`, de ViaCEP e do endereço digitado/guardado, em `handleTurn`). `typedName` passa por `titleCaseName`. Em `closeStep` a palavra
+  dela desta rajada vence o nome guardado; o resumo refeito muda e o sim ao antigo não importa (`lastOutbound.endsWith(summary)`).
+- `order_claim`: só o pedido DELA já feito — "seu/o pedido|entrega|colete|compra|encomenda … está/foi/ficou/já está <particípio>";
+  "agendei/confirmei/marquei/lancei/cadastrei/gerei/efetuei… seu pedido | pra <dia>"; "Pedido confirmado!", "Confirmado pra quinta!",
+  "Tá agendado pra quinta!", "Tudo agendado!" no começo da frase (um "Feito!" solto não); "sua entrega é/fica pra <dia>" só sem
+  condição na frase (se, quando, assim que, depois do, caso, responder, confirmar, escolher, SIM); "já está tudo agendado". Isenções:
+  negação logo antes, a condição dela abrindo a frase ou colada depois, a pergunta na mesma oração.
+- `closeStep({ …, lastList })`: a resposta é lida contra a mensagem mais nova do fechamento na janela (`lastList` em `handleTurn`:
+  `[...recentOutbound].reverse().find(isCloseMessage)`), também `datesAsked` e `closeReady`; o pedido continua exigindo o resumo como
+  ÚLTIMA mensagem. Todo passo leva `directive` com o que falta de verdade, e a diretiva do turno é `close.directive`.
+- `houseNumberIn`: depois de um número, um pedaço de complemento (casa N, apto N, bloco N, "2º andar") entra no complemento, nesta
+  mensagem ou na seguinte, juntos; "N andar" nunca é o número. Um número solto depois é a correção dela ("45", "46") — não segui o
+  "primeiro número vence" sugerido: ele erraria ["30","45"] e a correção, e os casos da revisão ficam certos pelo complemento.
+- O sim sem a trava pela segunda vez seguida (`resends >= 2`): `extraNotify` (uma vez por conversa, `notifyOnce`) e o resumo de novo.
+- CEP geral: rua E bairro antes do resumo (`place`).
+
+**Guarda.** `tests/cod-close-2026-10-28.test.ts` §13 (as frases da revisão nos dois sentidos); `tests/prompt.test.ts` "order_claim ×
+o que o prompt e a diretiva do fechamento ensinam" (toda frase do prompt, do briefing e das três diretivas, com `closeOpen`); mutações
+`O34-*` (16) e as `O32`/`O33` reescritas para o texto novo.
+
+**Resíduos (R21.6, sem frase real ainda).** Passam sem pedido: "Pronto, tá tudo certo pra quinta!", "Prontinho, já está tudo certo com
+seu pedido", "já tá agendadinho", "Fica pra quinta então! 💛", "Seu pedido já tá no sistema", "Seu pedido entrou!" — viram gate só com
+frase vista em conversa. Um nome de duas palavras fora das listas que não é nome ainda aparece no resumo, onde ela corrige antes do SIM.
+
+### D. A revisão Opus do 96b8fc7 (reprovada, 2026-10-28)
+
+**Sintoma.**
+- A. CEP geral travava o fechamento: o bairro só era lido com a palavra "bairro"; "quinta, Rua das Flores 45, Centro" voltava "Só
+  falta: 📍 Rua e bairro", e "Rua das Flores, Centro" ou "Centro" nunca completavam.
+- B. O nome errado ainda chegava ao pedido por `f.name` (`extractIdentityBurst` → `mergeIdentity` → `identityDraft`, gravado no lead):
+  "Bela Vista", "Santa Cruz", "Cidade Nova", "Nova Esperança", "Portão azul", "Casa amarela", "Dinheiro mesmo", "Débito mesmo", "Pix
+  mesmo", "Kit duas", "Cor preta". E a correção sem "meu nome é" ("o nome tá errado, é Maria Souza"; "nome errado" + "Maria Souza")
+  não vencia o `state.name`.
+- C. "Último número solto vence" em `houseNumberIn`: ["45","30"] → 30 (a resposta ao dia "sexta (30/10)"), ["45","2"] → 2,
+  ["45","1"] → 1, ["45 apto 12","13"] → 13.
+- D. `order_claim` deixava passar "Já está agendado!", "Tá agendado!", "Já tá confirmado!", "Pronto, agendei!", "Já agendei.",
+  "Feito! Agendei pra você.", "Ficou agendado pra quinta (29/10)", "Deixei agendado pra quinta", e "Sim, sua entrega fica pra quinta
+  (29/10)!" (o "sim" do começo era lido como condição).
+
+**Causa.** (A) Uma exigência que o destino não tem: a Logzz exige CEP, rua, cidade e UF ("Endereço inválido" = faltou um deles), não o
+bairro. (B) O filtro de nome estava num dos dois caminhos que dão nome ao pedido (Lição: conserto na raiz, onde todos passam). (C) O
+§135 C trocou "primeiro vence" por "último vence" para cobrir a correção dela, sem distinguir correção de número solto. (D) A lista do §135
+C cobriu as frases com sujeito, não as soltas; e "sim" na lista de condições casava o eco do sim dela.
+
+**Correção.**
+- A (decisão do operador): só a rua é exigida no CEP geral; o bairro vai quando lido — `typed.neighborhood`, ou o pedaço logo depois da
+  rua na resposta à lista (`hoodAfterStreet`: só letras, nunca um dia nem o nome dela, nem complemento) — e nunca segura o resumo.
+- B: `isPlausibleName(name, places)` é a única checagem, usada por `nameCandidates`, por `closeStep` nas três fontes (`typedName`,
+  `state.name`, `f.name`, com `CloseFacts.places`) e por `handleTurn` antes de gravar o nome da rajada no lead (`addressPlaces`). Recusa a
+  primeira palavra de pagamento, produto, cor-substantivo, referência ou lugar (`NOT_A_NAME_FIRST`), a última "mesmo/vista/duas/azul…"
+  (`NOT_A_NAME_LAST`), complemento e o que é igual à rua, bairro ou cidade do CEP. Sobrenomes como Branco, Preto, Rosa, Verde, Santa
+  Rosa no meio ou no fim passam (o filtro do §135 C barrava "Leticia Castelo Branco"). A correção sem "meu nome é" (`WRONG_NAME`:
+  "nome … errado/trocado/incorreto", "corrige o nome") abre a leitura do nome como a lista faz; "é Maria Souza" perde o "é".
+- C: o primeiro número da rajada é a porta; outro só com marca de correção no começo da mensagem ("não, é 46", "errei, 46", "ops") ou
+  com "número/nº" (`houseNumberIn`). "casa N" depois de um número continua complemento (a revisão do 9d247f3 pediu ["45","casa 3"] → 45
+  "casa 3"; a do 96b8fc7 listou "casa 46" como correção — as duas não cabem juntas, ficou a primeira). `bareDay`: um "30" sozinho à
+  lista que ofereceu "sexta (30/10)" é o dia, lido só quando nada mais na mensagem nomeou um dia, e então nunca vai ao número.
+  `pickDate` não mudou: a leitura do número solto como dia é de `closeStep`, que sabe se a lista pediu o dia.
+- D: `order_claim` ganha "(já) está/tá/ficou <particípio> (pra <dia>)" solto no começo da oração (condicional: "Respondendo SIM, tá
+  agendado pra quinta" passa), "(já) agendei/confirmei/marquei/registrei/lancei… " solto no fim da frase ou com "pra você", e "deixei
+  (tudo) agendado"; a condição deixa de ler "sim" sozinho — só "seu/o SIM", "fala/diz/manda/responde SIM".
+
+**Guarda.** `tests/cod-close-2026-10-28.test.ts` §14 (frases da revisão nos dois sentidos) e o teste 6 do §13 reescrito para a decisão
+A; o canto do `tests/prompt.test.ts` segue passando; mutações `O35-*` (14), `O33-nome-do-complemento`, `O34-nome-lugar` e
+`O34-nome-do-cep` reescritas, e `O34-bairro-cep-geral` substituída por `O35-bairro-bloqueia` (a guarda agora é do contrário).
+
+**Resíduos (R21.6).** Passam ainda: "Confirmado!", "Prontinho, confirmado!", "Agendadinho!", "Pronto, tá tudo certo pra quinta!",
+"Prontinho! Agora é só aguardar o entregador na quinta (29/10)", "Combinado então, quinta (29/10) o entregador passa aí!", "Seu colete
+chega quinta (29/10)!", "Já anotei tudo, chega quinta!". Um nome raro que começa com uma palavra da lista ("Santo Antônio Silva") é
+recusado e a lista pede o nome de novo. O nome errado já gravado no lead antes deste conserto continua lá; o fechamento não o usa.
+
+### E. A revisão Opus do 360625b (reprovada num ponto, 2026-10-28)
+
+**Sintoma.**
+1. (bloqueante) Depois do resumo, a correção do número da casa era ignorada: em `closeStep`, `asked = list.includes(NUMBER_ITEM)` é falso
+   sobre o resumo, e `houseNumberIn` não rodava. "o número é 46", "errei, o número é 46", "errei o número, é 46", "não é 45, é 46" →
+   `model`, o resumo seguia com 45 e o SIM seguinte importava o 45.
+2. `bareDay` lia o "30" de "Maria Souza, 529.982.247-25, 30" como o dia (era o número da casa).
+3. `hoodAfterStreet` aceitava como bairro uma referência ("perto do mercado") ou o que se lê como nome de pessoa.
+4. "errei o nome, Ana Silva" e "o nome certo é…" não corrigiam; um nome completo solto logo depois do resumo também não.
+5. `order_claim` vetava frases verdadeiras sobre região e tamanho: "Já confirmei aqui: tem entrega na sua região!", "Confirmei aqui,
+   tem entrega sim na sua região 😊", "…o G é o seu tamanho, tá confirmado!".
+
+**Causa.** (1) A correção do nome ganhou leitura sobre o resumo no §135 C/D, a do número não: a mesma regra escrita para um campo só.
+(2) `bareDay` lia pedaços, não a mensagem. (5) As formas soltas do §135 D não tinham sujeito, então liam qualquer "confirmei" ou "tá
+confirmado" como o pedido.
+
+**Correção.**
+- `closeStep`: sobre o resumo, com marca de correção ou de número na mensagem (`NUMBER_FIX`: "número", "nº 46", "errei", "corrig…",
+  "na verdade", "não é 45"), `houseNumberIn` lê; o resumo refeito muda e o SIM ao antigo não importa. Sem marca ("quero 2", "às 14h"),
+  nada muda.
+- `bareDay`: só a mensagem inteira que é o número; `houseNumberIn` pula essa mensagem, não pedaços de outras.
+- `hoodAfterStreet`: nunca referência ("perto", "ao lado", "em frente", "atrás", "esquina") nem duas palavras que `isPlausibleName`
+  aceita.
+- `WRONG_NAME` + "errei o nome"; `NAME_INTRO` + "o nome certo é", "meu nome certo é"; `nameCandidates` lê o nome completo solto também
+  quando a última mensagem do fechamento é o resumo (o mesmo nome não muda nada: `model`).
+- `order_claim`: as formas soltas ("tá confirmado!", "confirmei aqui") são isentas quando a frase fala de tamanho, região, CEP,
+  endereço, CPF, dados, estoque, medida, preço ou frete (`OTHER`); "confirmei/agendei…" solto só no fim da frase (não antes de ",", ":"
+  ou ";").
+
+- `hoodAfterStreet` perdeu o parâmetro do nome: a regra das duas palavras plausíveis já recusa o nome dela (a comparação ficou código
+  morto, e `O35-bairro-e-nome` escapava por isso; saiu).
+
+**Guarda.** `tests/cod-close-2026-10-28.test.ts` §15 (as frases da revisão, nos dois sentidos); mutações `O36-*` (10); `O35-claim-ja-
+esta-solto` e `O35-claim-agendei-solto` reescritas para o texto novo. Três mutações antigas escapavam porque a leitura nova cobria o
+mesmo caso por outro caminho; ganharam frase própria no §15: "quinta" + "30" em mensagens separadas (`O35-dia-solto-sobre-dia`), a
+correção do nome fora da lista e do resumo (`O35-correcao-sem-intro`), "30" e "2" soltos depois do resumo (`O36-numero-sem-marca`).
+
+**Resíduos.** "na verdade é casa 3" depois de "45" vira o número 3 (a marca de correção vence "casa N"). Os resíduos do §135 D seguem.
+
+### F. A revisão Opus do d6daa98 (reprovada num ponto, 2026-10-28)
+
+**Sintoma.** O §135 E fez `nameCandidates` ler um nome completo solto depois do resumo como correção, e uma resposta de duas palavras
+virava o nome: "Certinho amiga", "Certinho moça", "Correto amiga", "Maravilha amiga", "Joia amiga", "Top demais", "Dados corretos",
+"Aham certinho" → resumo refeito com "• Nome: Certinho Amiga", e o "sim" seguinte importava. E ainda: "na verdade é 46" depois do resumo
+não corrigia o número; "errei, é casa 2" sobre "45 (apto 12)" virava o número 2.
+
+**Causa.** Lição 3 ao contrário: depois do resumo o que ela mais manda é confirmação, e "nome plausível" é lista de proibição — não
+enumera todo elogio. Do lado do número, a palavra de correção ficava grudada no pedaço ("na verdade é 46" não abria com o número) e
+`houseNumberIn` não sabia do número do resumo, então "casa 2" era o primeiro número da rajada.
+
+**Correção.**
+- `nameCandidates`: depois do resumo, o nome solto só vale se tem uma palavra em comum com o nome do resumo ("Ana Slva" → "Ana Silva",
+  erro de digitação); qualquer outra troca só pela correção explícita (`WRONG_NAME`, `NAME_INTRO`).
+- `houseNumberIn(parts, asked, skip, known)`: o pedaço perde "na verdade/errei/ops/corrigindo" e o "é" do começo antes de ser lido;
+  `closeStep` passa o número do resumo como `known`, então "casa N" é complemento e só "número/nº N" ou a correção trocam o número
+  (sem `known`, na lista, "dia 30, casa 120" segue sendo 120). A marca "o número é 46" também passa com o "é".
+
+**Guarda.** `tests/cod-close-2026-10-28.test.ts` §16 (as oito respostas como negação, o erro de digitação e a correção explícita como
+afirmação, "na verdade é 46", "errei, é casa 2"); §15 teste 4 ajustado (nome solto sem palavra em comum não corrige); mutações `O37-*` (4)
+e `O35-ultimo-numero-vence` reescrita para o texto novo.
+
+**Resíduos.** Um nome novo inteiro depois do resumo, sem "meu nome é"/"errei o nome" e sem palavra em comum, não troca o nome: o
+resumo segue com o nome antigo até ela corrigir de forma explícita.
+
+## 136. O /code-review do 7aaf3a0 (turn v47, 2026-10-29)
+
+**Sintoma.**
+1. O M que a Logzz entrega (BH) e a Coinzz não vende: o turno sobrescreve a região com as datas da Logzz, mas `leads.address.region`
+   guardava a resposta da Coinzz (`sizeOutOfStock: true`, `cod: false`); `scheduleSilenceTouches` (`stock_out`), a varredura
+   (`runFollowupSweep`) e `sizeSells` liam a lead como sem estoque — nenhum toque de silêncio, nenhuma retomada.
+2. Depois do `created` da importação, `recordOrder(...).catch(() => null)` engolia o throw e o `{ ok: false }`: "Pedido confirmado" sem
+   linha em `orders`, sem régua pós-pedido, `closeOn` seguia verdadeiro, a lista recomeçava e a Logzz respondia `open_order`.
+3. `onOrderConfirmed`: o `pix` vinha só do webhook atual — um webhook de status sem `url_pix`/`qrcode_pix` cancelava o `pix_pending`
+   armado; e uma linha antiga do `pix_pending` (qualquer status) impedia o toque do Pix de um pedido novo na mesma conversa.
+4. `checkoutLead`: POST simples em `leads`; carrinho e venda do mesmo telefone novo em corrida → violação de `leads_phone_key` → 500 → a
+   venda não gravada.
+5. `recordCart` guardava o `checkout_url` inteiro, com a query dos nossos links preenchidos (CPF, e-mail, telefone); e a URL do carrinho
+   de teste da Coinzz (`https://checkout.coinzz.com.br/cart/abc123`), que `checkoutSlug` recusa, deixava o botão do template sem slug.
+6. O carrinho armava com "nenhum pedido nas últimas 24 h" (`recordCart`/`armsCartRecovery`) e a varredura cancelava com "qualquer
+   pedido vivo, de sempre": quem já comprou um dia nunca recebia a recuperação.
+7. Com o fechamento ligado, o `cepBody` pedia o ViaCEP de novo no turno em que `lookupRegion` já tinha pedido; e as datas da Logzz
+   esperavam as consultas do kit terminarem.
+
+**Causa.** (1) Duas fontes (Coinzz e Logzz) e só uma guardada como "a região"; os leitores fora do turno não viam a outra. (2) A
+importação confiou que gravar a linha local nunca falha. (3) O toque leu o pedido do webhook, não o pedido guardado, e a regra "uma
+linha por tipo" não distinguia a linha de outro pedido. (4) Insert onde a corrida é possível. (5) O dado guardado foi o que chegou, não o
+que o uso precisa. (6) Duas regras escritas para a mesma decisão.
+
+**Caminho descartado (1).** Gravar a região sobrescrita (ou limpar o `sizeOutOfStock`) em `leads.address.region`, como a revisão
+sugeriu: a região guardada é também o cache (`cachedRegion`) de onde o turno seguinte lê `coinzzSizeOut` — o que segura o link do
+antecipado do M que a Coinzz não vende (`prepayOut`, o `noCod`). Com a consulta da Logzz falhando ou dizendo "não" no turno seguinte, o
+cache sobrescrito mandaria esse link. A região guardada continua a resposta da Coinzz; as datas da Logzz já ficam em
+`leads.address.codDates`, e os leitores leem as duas.
+
+**Correção.**
+1. `logzzSells(regionZip, datesCep, datesKind)` (`followups.ts`, espelhado): as datas guardadas para o pacote dela dizem entrega no CEP
+   da região guardada. `scheduleSilenceTouches` (o select ganha `stock_zip`, `dates_cep`, `dates_kind`), a varredura e
+   `sizeSells(region, size, logzz)` só leem "sem estoque" sem ela.
+2. `handleTurn`: `fileImport` confere `status === "recorded"` e tenta mais uma vez; falhando, `codClose = { orderCode, importedAt }` e
+   `extraNotify` ao operador ("criado na Logzz e não gravado em orders"); `importBlocksClose` (`cod-close.ts`) segura `closeOn` até um
+   webhook gravar um pedido dela depois da importação (`orders.updated_at`, o select ganha a coluna). Os pedidos antigos dela não
+   liberam.
+3. `recordOrder`: `pix` dos detalhes guardados mesclados com os novos (`merged`, que é também o que se grava). `onOrderConfirmed`: com o
+   Pix aguardando e a linha do `pix_pending` de OUTRO pedido cancelada ou enviada, o toque volta em `move`; o laço de `move` em `recordOrder` tira o
+   `status=neq.sent` só para o `pix_pending`. Uma linha ainda agendada (de outro pedido) fica como está.
+4. `checkoutLead`: upsert `leads?on_conflict=phone` com `resolution=merge-duplicates` (só `phone`, o mesmo valor, é mesclado; a linha
+   existente volta).
+5. `cartCheckoutUrl` (`followups.ts`): só origem + caminho; URL que `checkoutSlug` não lê vira o checkout do config pela quantidade (1 →
+   `checkout.prepayUrl`/`codUrl`; 2 e 3 → o `checkoutUrl` do kit); sem quantidade ou sem kit, `null`.
+6. `cartOrderSince(cartAt)` = 24 h antes do carrinho: `recordCart` arma com os pedidos criados desde `cartOrderSince(now)`; a varredura
+   cancela com os pedidos criados desde `cartOrderSince(cart.at)` (o select embute `orders(status,created_at)`). Qualquer status, nas
+   duas pontas. Docstring de `armsCartRecovery` corrigida.
+7. `reuseViaCep` (`availability.ts`): uma resposta do ViaCEP por CEP no turno (`cepFetcher` em `handleTurn`, para a região, o kit e o
+   `cepBody`); null ou erro nunca fica guardado — uma falha não vira "CEP sem rua". As datas da Logzz começam (`datesLook`) antes das
+   consultas do kit e são esperadas depois; `lookupCodDates` nunca lança, e falha continua `failed`, nunca "sem entrega" (L2).
+
+**Não é código (8).** O toque de carrinho é o template MARKETING `encorpa_carrinho_site` sem o opt-in de marketing, por decisão
+explícita do operador (§134 B). Fica como está; **a aprovação do `compliance-reviewer` (LGPD / política de marketing da Meta) está
+pendente.**
+
+**Índices.** Nenhuma query nova: `scheduleSilenceTouches` lê mais três escalares do mesmo `leads` (conversations_pkey + leads_pkey); a
+varredura embute `created_at` nos mesmos `orders` (orders_lead_idx); `herStatuses` ganha `updated_at` (orders_lead_idx); o upsert de
+`leads` usa `leads_phone_key`.
+
+**Guarda.** `tests/code-review-2026-10-29.test.ts` (comportamental: `logzzSells`, `sizeSells`, `importBlocksClose`, `onOrderConfirmed`
+com o Pix de outro pedido, `cartCheckoutUrl` com a URL de teste da Coinzz, `cartOrderSince`, `reuseViaCep`; a fiação na `turn` por
+texto); mutações `O38-*` (17), 17/17 pegas, e as quatro antigas com o texto novo (`G66-uma-vez-por-dia-fiacao`,
+`R26-cobertura-segunda-tentativa`, `O28-regua-sem-estoque`, `O28-regua-sem-estoque-na-varredura`), pegas.
+
+**Resíduos.**
+- `logzzSells` lê as últimas datas guardadas, sem idade: com o fechamento desligado depois (`logzzImport` fora), um "dates" velho
+  continua liberando a régua do M até o próximo turno dela regravar `codDates`.
+- A conversa criada pelo carrinho (`recordCart`) e pela venda (`recordOrder`) não tem chave única em `lead_id` (0001): a corrida não dá
+  500 (a premissa da revisão para ela não vale), mas pode abrir duas conversas; a `turn` usa a mais nova. Um índice único parcial
+  (`closed_at is null`) seria migração com dado de produção a conferir — fica para decisão.
+- A importação sem linha local não arma a régua pós-pedido: o operador recebe o e-mail para gravar o pedido; o webhook da Logzz, quando
+  chega, grava e libera o fechamento.
+
+## 137. O teste prático com o modelo real no config de 29/10, e o cupom só no follow-up (operador, 2026-10-29)
+
+**Contexto.** O config de produção passa a `docs/operacao/business-config-2026-10-29b.min.json` (decisões do operador de 29/10: checkouts
+da Coinzz também no WhatsApp, sem `logzzImport`; cupom SUPER20 ativo; `expressActive` true; teto 0,30; âncora R$ 179,90). Um teste prático
+com o modelo real (R$ 0,16) achou os defeitos abaixo.
+
+**Sintoma.**
+- D1 (frase real, R21.6): "Oi! Vim pelo site, qual tamanho pra quem veste 42?" não ganhou o tamanho: `statedSizeOf` deixa a pergunta de
+  fora (`QUESTION_CLAUSE`), a tabela não respondeu e o `size_claim` vetou o certo "Com 42 de calça o seu é o G…".
+- D3: no modo site, depois de `requestedMedia` mandar o vídeo, a retomada do modelo disse "no site … tem o vídeo vestindo".
+- D4: `requestedMedia("não vi o vídeo ainda, manda?")` dava nada.
+- D8: kit de 2 sem a entrega — a caixa dizia "POR R$ 109,90" (e a imagem do preço de uma peça) acima do link de R$ 197,82; e "Chegará em
+  *Menos de 24 Horas!!*" saía com o primeiro dia amanhã.
+- Fechamento da Logzz (desligado, consertado para voltar pronto): D6 `fileImport` → `recordOrder` → `leadForPhone(lead.phone)`: um número
+  que `leadPhoneOf` recusa terminava "Pedido confirmado" sem linha em `orders`; `turn_outcomes.reason` gravava "X | X". D5 `PHONE_ASK`
+  culpava "o sistema da entrega" quando a recusa era a nossa checagem. D2 depois do resumo, "tá certo?" ia ao modelo ("me responde com SIM
+  que eu confirmo") e o "sim" seguinte recebia o resumo de novo (`lastOutbound.endsWith(summary)` falso).
+- Cupom (**decisão do operador, 29/10**): o SUPER20 é só do follow-up (`silence_3`), nunca da oferta da conversa. No ar (v47) o briefing do
+  `coupon_exists` dizia "está ativo e você pode citá-lo" a quem citasse, e ensinava "o checkout não aplicaria" com o cupom guardado.
+
+**Causa.** D1: a regra de 2026-09-24 (pergunta não sobrescreve o tamanho guardado) também calava a tabela de quem não tinha tamanho
+nenhum. D3: o `siteBriefing` só dizia que o site mostra o vídeo. D4: a negação lia "não vi" como recusa, e o pedido só era lido antes da
+coisa. D8: `offerBubbles` não sabia da quantidade; "Menos de 24 Horas" era a cópia v4 para "amanhã". D6: o lead lido de novo pelo telefone
+quando o turno já tinha o id; `sendFixed` gravava `[reason, extraNotify]` com os dois iguais. D2: estado lido da última mensagem, e a
+conferência do resumo deixada ao modelo. Cupom: o R17.4 (`conversationCoupon`) já calava o cupom antes do toque; faltavam a saída de ela
+citar o cupom, o código e "código de desconto" no gate, e o briefing dizia "o checkout não aplicaria" (falso desde que o cupom está ativo).
+
+**Correção.**
+- D1: `sizeAskedFor` (`sizing.ts`, espelhado): "qual … tamanho/serve/fica" e "pra (quem veste/usa) N" na mesma frase → a tabela; nunca
+  unidade depois do número, nem "pra quem não veste". `handleTurn` usa só sem `statedSizeOf` e sem `lead.size` (a regra de 2026-09-24
+  continua para quem já tem tamanho); o tamanho vai ao `knownSize` do `size_claim` e à diretiva.
+- D3: `mediaNamesOf` (`funnel.ts`) lê as linhas de mídia depois da última mensagem dela; na retomada do modo site, `turnFacts.mediaJustSent`
+  → `siteBriefing` diz "AGORA MESMO … mandou aqui na conversa … não mande ela ao site pra ver, não ofereça mandar de novo".
+- D4: em `requestedMedia`, "não vi/assisti/olhei" não é recusa; o pedido depois da coisa ("o vídeo, manda?") vale só fechando a frase
+  ("vi o vídeo, manda o link" não).
+- D8: `offerBubbles(…, pieces)`: kit → `⭐*Kit com N peças POR R$ …*⭐` (o preço do kit no config para o caminho; sem ele, sem preço) nas
+  duas caixas (`codOfferText`, `prepayOfferText`), sem a imagem do preço de uma peça; `offerKindOf` lê `KIT_HEADLINE_HEAD` como a oferta da
+  entrega; a busca do histórico de ofertas em `handleTurn` (`offerHistory`, índice `messages_conversation_idx`) passa a trazer também
+  `KIT_HEADLINE_HEAD`, senão a caixa do kit fora das últimas 20 mensagens não contava e a oferta voltaria. "Menos de 24 Horas" só com o
+  primeiro dia hoje; amanhã é "Chegará já *amanhã, sexta (30/10)!!*" (muda a regra da cópia v4 do §119, "24 horas quando o primeiro dia é
+  amanhã": o primeiro dia amanhã pode chegar em mais de 24 h; **a confirmar com o operador**, revertível pela mutação `O39-24-horas-amanha`).
+  O prompt deixou de ensinar a frase das 24 horas. O áudio 4 ("amanhã mesmo") continua só com o primeiro dia amanhã.
+- D6: `recordOrder(order, mayCreateLead, known)`: a importação passa o lead do turno; o motivo é deduplicado (`new Set`) nos dois
+  `recordOutcome` do envio fixo.
+- D5: `PHONE_ASK` só pede o celular; a recusa da Logzz manda `PHONE_REFUSED` ("O sistema da entrega não aceitou o número que eu tinha." +
+  o pedido). `isCloseMessage` segue lendo os dois.
+- D2: `checksSummary` (lista de permissão da mensagem inteira: "tá certo?", "está tudo certo?", "certinho?", "confere?", "é isso?") sobre o
+  resumo → linha fixa `SUMMARY_CHECKED` + o resumo, por último (o modelo não responde depois: `close.text.includes(SUMMARY_HEAD)`); o "sim"
+  seguinte importa. Uma pergunta de outra coisa segue com o modelo (resíduo do §135).
+- Cupom (**superado pela regra do operador de 29/10, abaixo**): `namesCoupon` (`followups.ts`): o código, ou "cupom" com o percentual na frase; `handleTurn` libera o cupom na conversa
+  (`couponHers`) com o `silence_3` enviado OU ela citando (esta mensagem, ou uma dela na conversa: `messages` por `conversation_id`,
+  índice `messages_conversation_idx`, filtrado por `ilike` cupo/código, 20 linhas). `coupon_exists` sem o cupom liberado veta também o
+  código e "código de desconto/promocional" e "cupons"; o briefing diz "não anuncia, não oferece e não puxa assunto de cupom… é só do
+  lembrete"; liberado, "já chegou a ela … pode confirmá-lo: o código é SUPER20, digitado por ela no checkout". A negação ("não temos cupom")
+  segue passando no gate, como decidido em 2026-09 (o briefing já ensina não negar); a caixa da oferta e as linhas fixas não levam cupom.
+
+**Caminhos descartados.** Ler a pergunta em `statedSizeOf` (sobrescreveria o tamanho guardado — o teste de 2026-09-24 segue); aceitar o
+"sim" com o resumo entre as mensagens recentes depois de uma resposta do modelo (Lição 10: o modelo pode ter perguntado outra coisa); trocar
+o título da caixa da entrega sem o `offerKindOf` (a oferta seria mandada de novo); "tem cupom?" liberar o código (o cupom é do follow-up).
+
+**Índices.** Uma query nova: o cupom citado por ela, em `messages` por `conversation_id` (`messages_conversation_idx`), só com o cupom
+ativo, sem o toque enviado e sem o cupom nesta mensagem. A de `offerHistory` ganhou um padrão no `or` (mesmo índice).
+
+**Guarda.** `tests/real-test-2026-10-29.test.ts` (as frases do teste real e as negações de cada leitura; fiação na `turn` por texto);
+`tests/prompt.test.ts` ganha dois cantos com o config 29/10b como o turno os monta (`conversationCoupon` guardado e liberado): toda frase
+que o prompt ensina passa a cadeia nos dois, e o prompt e o `coupon_exists` dizem o mesmo (sem o código e vetado antes; com o código e
+liberado depois). Mutações `O39-*` (26, com `O39-caixa-do-kit-no-historico`); `G131-cupom-negado` com o texto novo do briefing; `O28-midia-negacao`,
+`O29-midia-mencao` e `O29-midia-marcador` com o `asked` novo de `requestedMedia` (não se aplicavam mais). `pnpm verificar:guardas` numa
+cópia commitada, sobre as `O39-*` e toda mutação cujo texto, arquivo ou guarda este conserto tocou: 71/71 pegas; as 1.037
+mutações acham o texto de origem.
+`pnpm dev:gates --fail-on-loosen`: 0 afrouxados; endurecidos do `coupon_exists` (o código e "código de desconto" sem o cupom liberado).
+
+**Resíduos.** "qual tamanho pra quem calça 38?" (o verbo calçar) já era lido como M por `statedSizeOf` (`SIZE_CUE` "calça"), antes deste
+conserto. "meu marido veste 42" grava o G na lead, como decidido (o tamanho dito é o atual, de quem for). Com tamanho guardado, a pergunta
+por outro número segue sem a tabela e o `size_claim` veta a resposta certa. O kit de 2 na entrega com o fechamento da Logzz não foi
+exercitado (desligado). A negação do cupom ("não temos cupom no momento") só o briefing impede: o gate lê `turnConfig`, onde o cupom
+guardado e o cupom desligado pelo operador são o mesmo `active: false`, e nesse último a negação é a verdade. Falta o reteste curto com o
+modelo real de D1/D3/D4/D8 e do cupom antes da v48.
+
+- **Decisão do operador (29/10, depois da revisão):** o "Menos de 24 Horas" volta para o primeiro dia **amanhã** (copy v4, §119), e vale também para hoje; a partir do segundo dia, o dia é dito. Guarda: `O39-24-horas-amanha` (agora reinstala a retirada) e `tests/funnel.test.ts`.
+
+### Revisão Opus do cfa04fe (reprovada, 2026-10-29)
+
+**Sintoma.**
+1. `sizeAskedFor` pegava o primeiro número: "qual tamanho pra quem veste 40/42?" e "…40 ou 42?" davam M, "pra 44 ou 46?" dava G. O tamanho
+   errado ia para a lead, e o `size_claim` só deixava passar a resposta errada.
+2. `namesCoupon` liberava o cupom (`couponHers` em `handleTurn`) com "cupom" + percentual numa pergunta ou num pedido: "tem cupom de 20%?",
+   "consegue um cupom de 20 por cento?", "vi 20% de desconto no site, tem cupom?", e até na negação "nao tenho cupom de 20%".
+3. Já existia antes: "Fica R$ 87,92 pra você." passava o `price_promise` com o cupom guardado. R$ 87,92 é o preço por peça do kit de 3, que
+   estava em `allowedPrices` para qualquer quantidade, e coincide com R$ 109,90 menos 20%: o cupom dito como preço.
+
+**Causa.**
+1. `FOR_NUMBER` capturava um número só. A regra de "ficou entre dois, pegue o maior", que `extractDressSize` já aplica a "uso 40 ou 42",
+   não era usada aqui.
+2. "cupom" com o percentual na mesma frase era tomado como prova de que ela tinha o cupom.
+3. O preço da peça do kit (grafo §121, a linha do link) valia como preço de qualquer frase.
+
+**Correção.**
+1. `sizeAskedFor`: o segundo número da faixa ("/", "-", "ou", "a", "e", "entre … e") é lido, e o maior vale. Se o segundo número vem com
+   unidade ("40 ou 42 anos"), a frase toda não é tamanho.
+2. (**Superado pela regra do operador de 29/10, abaixo.**) `namesCoupon`: só o código, ou ela dizendo que TEM o cupom. O verbo de posse (tenho/recebi/ganhei/chegou/veio/me mandaram) vem antes,
+   não pode ser negado, e entre ele e o cupom só cabem artigos e "já/aqui/também". "20% de cupom ainda vale?", sem o verbo, não libera mais.
+3. `price_promise`: o preço por peça de um kit (que não é preço inteiro de nenhuma oferta) só passa numa frase que nomeia a quantidade
+   ("3 peças", "duas peças"), o kit ("kit de 3") ou a peça ("cada", "por peça"). A conta da economia continua usando `allowedPrices` como
+   antes.
+
+**Guarda.** `tests/real-test-2026-10-29.test.ts`, describe "revisão do cfa04fe" (os casos do revisor e as negações: unidade depois da
+faixa, pergunta, pedido, "não tenho", "tenho interesse, tem cupom…?", e as linhas verdadeiras do kit passando). Mutações `O40-*` (7);
+`O39-tamanho-perguntado`, `O39-tamanho-perguntado-negado` e `O39-cupom-dela-sem-percentual` atualizadas para o texto novo. As 1.044
+mutações acham o texto de origem. `pnpm verificar:guardas` numa cópia commitada (411562e + este conserto), sobre `O39-*`, `O40-*` e toda
+mutação do `price_promise`: 57/57 pegas.
+
+**Resíduos.**
+- "qual tamanho pra 42 e pra 46?" (duas perguntas) segue dando o tamanho do primeiro número.
+- "20% de cupom ainda vale?" sem o verbo de posse não libera o cupom: a Malu diz o melhor valor de hoje, e o lembrete continua.
+- `pnpm dev:gates --fail-on-loosen`: 0 afrouxados. Endureceram só frases do `coupon_exists`; nenhuma frase do corpus mudou no `price_promise`
+  por causa do preço da peça do kit.
+
+### Regra do operador (2026-10-29, depois do 5adb420): o cupom vai numa ocasião só, o follow-up
+
+**Decisão do operador.** O cupom é mandado numa ocasião só: o toque do cupom no follow-up (`silence_3`). Na conversa a Malu nunca manda,
+oferece ou confirma o cupom/código porque a cliente o citou ou disse que tem. A única liberação é o toque já enviado a ela (lido por lead,
+como no R17.4). Depois dele, a Malu pode ajudar a usar ("é só digitar SUPER20 no checkout"), porque ela já o recebeu. O resto continua igual:
+- a Malu nunca nega o cupom;
+- as linhas fixas e as caixas nunca levam o cupom;
+- o gate e o prompt dizem o mesmo;
+- o follow-up continua levando o cupom.
+
+**Correção.**
+- `handleTurn` volta a `conversationCoupon(CONFIG, couponTouchSent)`: saem `couponHers` e a busca em `messages` (a consulta nova deste
+  conserto deixou de existir).
+- `namesCoupon` foi apagado de `followups.ts` (espelhado).
+- O briefing liberado do `coupon_exists` diz "já chegou a ela pelo lembrete e você pode ajudá-la a usá-lo".
+- Re-revisão do 5adb420: com o cupom liberado, o preço verdadeiro com o cupom ("Com o cupom de 20% fica R$ 87,92.") era vetado; antes só
+  passava porque 87,92 coincide com o preço por peça do kit de 3. O `price_promise` passa a aceitar `codBrl` e `prepayBrl` com o percentual
+  do cupom (`withCoupon`) só com `ctx.config.coupon.active`. O cupom guardado chega ao gate com `active: false`, então esse preço segue
+  vetado. Os kits com cupom não entram: o turno (`couponCut`/`shopPrices`) também não os calcula. O briefing do `price_promise` ensina os
+  mesmos números só com o cupom liberado ("com o cupom de 20%: R$ 87,92 por peça").
+
+**Guarda.**
+- `tests/real-test-2026-10-29.test.ts`: as frases dela ("tenho o SUPER20", "recebi um cupom de 20%", "tem cupom de 20%?", "nao tenho…")
+  deixam o cupom guardado. Confirmar o código continua vetado. O turno só lê `couponTouchSent`, sem `couponHers` nem `namesCoupon`. O preço
+  com o cupom passa liberado e é vetado guardado; um preço que não é o com cupom segue vetado.
+- `tests/prompt.test.ts`: os cantos "guardado" e "liberado pelo lembrete". O briefing e o gate concordam sobre o código e sobre R$ 87,92.
+- Mutações:
+  - saíram `O39-cupom-dela`, `O39-cupom-dela-sem-percentual`, `O39-cupom-dela-no-turno` e as três `O40-cupom-*` de `namesCoupon`;
+  - entraram `O40-cupom-so-pelo-lembrete` (reinstala "a palavra dela libera"), `O40-cupom-preco-liberado` e `O40-cupom-preco-guardado`.
+- `G121-preco-da-peca-vetado` escapou na primeira rodada: no config de 20/10 (cupom cru ativo), R$ 103,92 é também 129,90 − 20%, e o preço
+  com o cupom passou a esconder a peça do kit. `tests/operator-test-2026-10-21.test.ts` ganhou a mesma frase com o cupom guardado, que é o
+  estado da conversa antes do toque.
+- `pnpm verificar:guardas` numa cópia commitada (5adb420 + este conserto), sobre as `O39-*`, as `O40-*`, toda mutação do `price_promise` e
+  do `coupon_exists`, e as que este conserto tocou: 66/66 pegas. As 1.041 mutações acham o texto de origem.
+
+## 138. O reteste curto do b6e8dfc: dois furos no caminho do kit (2026-10-29)
+
+Reteste com o modelo real (`muse-spark-1.3-contributor`, config 29b, R$ 0,12): sete cenários passaram (tamanho direto, vídeo a pedido,
+"não vi ainda, manda?", caixa do kit com R$ 197,82, "Menos de 24 Horas" no dia seguinte, cupom retido, âncora R$ 179,90). Dois furos:
+
+1. **Sintoma:** "as duas G", resposta natural a "As duas são no G também…?", virou o nome dela — "Pronto, as! 🎉" e `name=As+Duas+G`
+   no link. **Causa:** `extractName` aceita mensagem só de letras; "as", "duas", "ambas" não estavam em lista nenhuma. **Correção:**
+   os artigos e quantidades do kit (`as|os|duas|dois|ambas|ambos|todas|todos|tres`) em `NOT_A_FIRST_NAME`. **Guarda:**
+   `tests/kit-retest-2026-10-29.test.ts`, com "Maria Duarte" e "Assis Oliveira" como negação.
+2. **Sintoma:** "Oi, visto 42, quero 2", depois o CEP: a caixa do kit fechou perguntando o número da calça que ela já tinha dito.
+   **Causa:** `offerAsk` recebe só `sizeKnown`, falso com 1 de 2 tamanhos, e devolve `SIZE_ASK`. **Correção:** `kitSizeAsk` pergunta a
+   peça que falta ("A outra peça também é no G, ou em outro tamanho?"); sem tamanho nenhum continua `SIZE_ASK`. **Guarda:** o mesmo teste.
+
+Fato de estoque, não código: o G em São Paulo (01310-100, 04710-090) não tem pagamento na entrega na Coinzz — o estoque do G está em
+Belo Horizonte. Quem veste G em SP só tem o antecipado hoje.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

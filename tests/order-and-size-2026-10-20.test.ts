@@ -22,8 +22,9 @@ describe("pedido não encontrado", () => {
   it.each(["cod", "prepay"] as const)("passa a cadeia (camada auto) no caminho %s", (p) =>
     expect(runGates(line, ctx({ config, paymentPath: p, layer: "auto" })).traces.filter((t) => t.verdict === "block").map((t) => t.gate)).toEqual([]));
   it("procura pelo lead dela e pelo mesmo número com e sem o nono dígito — nunca só pelo final", () => {
-    expect(turn).toContain("const m = /^55(\\d{2})9?(\\d{8})$/.exec(digits(String(lead.phone ?? \"\")));");
-    expect(turn).toContain("leads?phone=in.(55${m[1]}${m[2]},55${m[1]}9${m[2]})&select=id");
+    // Since the review of ecea0c3 (4, 6) the twins are `phoneTwins`, the webhooks' rule too: a mobile with/without the 9, never a suffix.
+    expect(turn).toContain("const own = digits(String(lead.phone ?? \"\"));");
+    expect(turn).toContain("leads?phone=in.(${phoneTwins(own).join(\",\")})&select=id`).catch(() => null)");
     expect(turn).toContain("const orders: OrderView[] = ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(\",\")})&select=status,payment_method,scheduled_for&order=created_at.desc`)");
   });
   it("só sem nenhum pedido por nenhum caminho (o pedido de status desconhecido existe), e uma vez por conversa", () => {
@@ -40,11 +41,11 @@ describe("pedido não encontrado", () => {
 
 describe("kit: a entrega só com todos os tamanhos dela", () => {
   it("pergunta os outros tamanhos do kit em paralelo; sem entrega ou sem resposta, o kit vai pelo antecipado (nunca os dois links)", () => {
-    expect(turn).toContain("if (region?.cod && units > 1 && addressDraft.cep) {");
+    expect(turn).toContain("if (region && !region.sizeOutOfStock && units > 1 && addressDraft.cep) {");
     expect(turn).toContain("const others = [...new Set(unitSizes)].filter((x): x is Size => (SIZES as readonly string[]).includes(x) && x !== regionSize);");
     expect(turn).toContain("const answers = await Promise.all(others.map((s) =>");
-    expect(turn).toContain('const missing = answers.find(({ r }) => !(r.kind === "found" && r.region.cod));');
-    expect(turn).toContain("if (missing) region = { ...region, cod: false, dates: [], sameDay: false, size: missing.s, otherSizesInStock: regionSize ? [regionSize] : [] };");
+    // The rule moved to `kitRegion` (review of 481f2d3); its behavior is held in tests/offer-2026-10-27-review.test.ts.
+    expect(turn).toContain("region = kitRegion(region, regionSize, answers);");
   });
   it("a oferta da entrega que já foi pergunta se pode ir pelos Correios antes do antecipado (copy v4, 2.5)", () => {
     expect(turn).toContain('} else if (region !== null && offerBefore === "cod" && offerNow === "prepay" && region.size && lastOutbound !== sizeNoCodAsk(region.size)) {');

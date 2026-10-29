@@ -140,7 +140,9 @@ describe("7.4: a régua de silêncio termina em perdido", () => {
     // And a sixth (4a): the anchored silence_2/silence_3 whose reopening is past its deadline.
     // And a seventh (plan 16 §4.2, 2026-10-22): the silence_2/silence_3 of a lead gone cold during the ruler.
     // And an eighth (R30.7, 2026-10-22): the silence_2 armed before the ruler lost its second touch.
-    expect(afterLeave.match(/await leave\("canceled"\);/g)?.length).toBe(8);
+    // And three more (2026-10-27, grafo §134): the cart touch with nothing to say, the Pix no longer waiting, and the silence touch
+    // of a size out of stock.
+    expect(afterLeave.match(/await leave\("canceled"\);/g)?.length).toBe(11);
     expect(afterLeave).toContain('if (!(await leave("sent"))) {');
     const nullBranch = afterLeave.slice(afterLeave.indexOf("if (text === null) {"));
     expect(nullBranch.indexOf("return;")).toBeGreaterThan(-1);
@@ -196,7 +198,7 @@ describe("dois pedidos no mesmo lead: o toque guarda o pedido dele", () => {
     expect(source).toContain("const orderRowId: string | undefined = saved?.[0]?.id;");
     expect(source).toContain("order_id: orderRowId ?? null,");
     expect(source).toContain("followups?conversation_id=eq.${conversation.id}&select=kind,status,order_id");
-    expect(source).toContain("    status,\n    orderRowId,\n    scheduledFor,\n  );");
+    expect(source).toContain("    status,\n    orderRowId,\n    scheduledFor,\n    pix,\n  );");
   });
   it("a varredura lê o pedido do toque, e o último só para linha antiga", () => {
     expect(source).toContain("&select=id,kind,run_at,stop_point,body,order_id,conversation_id,");
@@ -364,7 +366,7 @@ describe("segunda revisão: varredura e webhook de venda", () => {
 
   it("o ponto de parada lê a janela M-03; o lembrete, só a resposta que levou o link", () => {
     expect(source).toContain(
-      "  await scheduleSilenceTouches(\n    conversation.id,\n    stopPointOf(replyText, recentOutbound),\n    linkSentRecently([replyText], CHECKOUT_BASES),\n    new Date(),\n    undefined,\n    endsWithQuestion(replyText),\n  );",
+      "  await scheduleSilenceTouches(\n    conversation.id,\n    stopPointOf(replyText, recentOutbound),\n    linkSentRecently([replyText], CHECKOUT_BASES),\n    new Date(),\n    undefined,\n    endsWithQuestion(replyText),\n    sizeOut !== null,\n  );",
     );
     // The window read by itself before the turn's history exists (grafo §96).
     expect(source).toContain('extra.checkoutUrl ? "link_sent" : stopPointOf(text, await outboundBefore()),');
@@ -508,7 +510,7 @@ describe("depois da compra, a régua de silêncio não volta", () => {
   const sweep = source.slice(source.indexOf("const runFollowupSweep"), source.indexOf('return { status: "swept"'));
 
   it("scheduleSilenceTouches lê estágio e pedidos do lead e, depois da compra, só cancela", () => {
-    const read = schedule.indexOf("conversations?id=eq.${conversationId}&select=*,leads(size,score_band,orders(status))");
+    const read = schedule.indexOf("conversations?id=eq.${conversationId}&select=*,leads(size,score_band,stock_out:address->region->>sizeOutOfStock,stock_zip:address->region->>zip,dates_cep:address->codDates->>cep,dates_kind:address->codDates->result->>kind,orders(status))");
     const guard = schedule.indexOf("if (at && !chasesSilence(");
     expect(read).toBeGreaterThan(-1);
     expect(guard).toBeGreaterThan(read);
@@ -518,7 +520,7 @@ describe("depois da compra, a régua de silêncio não volta", () => {
   });
 
   it("a varredura lê os pedidos do lead e cancela o silêncio de quem comprou antes de qualquer envio", () => {
-    expect(sweep).toContain(",orders(status)))&limit=50");
+    expect(sweep).toContain(",orders(status,created_at)))&limit=50");
     const guard = sweep.indexOf('if (inSilenceRuler(row.kind) && (row.kind === "checkout_reminder" ? !checkoutStillOpen(statuses) : !chasesSilence(');
     expect(guard).toBeGreaterThan(-1);
     expect(guard).toBeLessThan(sweep.indexOf("if (row.kind === RETRY_TURN_KIND)"));
@@ -582,7 +584,7 @@ describe("revisão do PR #39: pós-pedido por status e data, e a praça gravada"
 
   it("o turno grava a praça no lead quando a consulta respondeu", () => {
     expect(source).toContain("const codAvailable = region !== null ? region.cod : addressDraft.cep === storedAddress.cep ? storedAddress.codAvailable : undefined;");
-    expect(source).toContain("if (addressChanged || codAvailable !== storedAddress.codAvailable || freshRegion) {");
+    expect(source).toContain("if (addressChanged || codAvailable !== storedAddress.codAvailable || freshRegion || freshCodDates) {");
     expect(source).toContain("...(codAvailable !== undefined ? { codAvailable } : {}),");
     // Fora do rascunho: a praça não viaja para o pedido da Coinzz nem para a leitura do endereço.
     expect(source).toContain("delete (addressDraft as { codAvailable?: boolean }).codAvailable;");
@@ -592,9 +594,9 @@ describe("revisão do PR #39: pós-pedido por status e data, e a praça gravada"
     const turn = source.slice(source.indexOf("const handleTurn"));
     const declared = turn.indexOf("let codUnavailable = (lead.address as { codAvailable?: boolean } | null)?.codAvailable === false;");
     expect(declared).toBeGreaterThan(-1);
-    // Sete chamadas, contando a da varredura; as seis do turno leem a variável (a volta do dia seguinte saiu do texto fixo, §119;
-    // o gancho do perfil antes da oferta entrou no plano 16 §4.4).
-    expect(source.match(/runGates\(/g)?.length).toBe(7);
+    // Oito chamadas, contando a da varredura; as sete do turno leem a variável (a volta do dia seguinte saiu do texto fixo, §119;
+    // o gancho do perfil antes da oferta entrou no plano 16 §4.4; as linhas do fechamento na entrega, §135).
+    expect(source.match(/runGates\(/g)?.length).toBe(8);
     for (const call of turn.split("runGates(").slice(1)) expect(call.slice(0, call.indexOf("});"))).toContain("codUnavailable");
     // A consulta desta volta vence o que estava gravado.
     expect(turn.indexOf("  codUnavailable = codAvailable === false;\n")).toBeGreaterThan(turn.indexOf("const codAvailable = region !== null"));

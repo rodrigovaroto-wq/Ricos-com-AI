@@ -94,6 +94,7 @@ describe("E2.4 cobertura guardada por CEP", () => {
     sameDay: false,
     labelBrl: null,
     checkedAt: new Date(now - 10 * 60 * 1000).toISOString(),
+    stockAware: true,
   };
 
   it("mesmo CEP há menos de 1 h: usa o guardado, com ou sem hífen", () => {
@@ -124,8 +125,14 @@ describe("E2.4 cobertura guardada por CEP", () => {
     expect(cachedRegion({ ...region, checkedAt: new Date(now + 60_000).toISOString() }, "04710-090", now)).toBeNull();
     expect(cachedRegion(undefined, "04710-090", now)).toBeNull();
   });
+  it("cache gravado antes da leitura do estoque (sem stockAware): consulta de novo — o M não sai como entrega (revisão do 481f2d3)", () => {
+    const { stockAware: _, ...old } = region;
+    expect(cachedRegion(old, "04710-090", now)).toBeNull();
+    expect(cachedRegion({ ...region, stockAware: false }, "04710-090", now)).toBeNull();
+    expect(cachedRegion({ ...region, size: "M", askedSize: "M", cod: false, sizeOutOfStock: true }, "04710-090", now, "M")?.sizeOutOfStock).toBe(true);
+  });
   it("a turn só guarda região encontrada, nunca a consulta que falhou", () => {
-    expect(source).toContain("if (region) freshRegion = { ...region, checkedAt: new Date().toISOString() };");
+    expect(source).toContain("if (region) freshRegion = { ...region, checkedAt: new Date().toISOString(), stockAware: true };");
     expect(source).toContain("const cached = addressDraft.cep ? cachedRegion(storedAddress.region, addressDraft.cep, Date.now(), regionSize) : null;");
     expect(source).toMatch(/if \(cached\) region = cached;\n\s+else if \(addressDraft\.cep\) \{/);
     // The cache never travels into the order body or the link with the address.

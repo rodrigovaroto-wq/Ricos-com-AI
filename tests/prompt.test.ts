@@ -17,6 +17,9 @@ import {
   type PromptConfig,
 } from "@/agent/prompt.js";
 import { config as base, ctx } from "./fixtures.js";
+import { loadBusinessConfig } from "@/config/business.js";
+import { closeDirective } from "@/agent/cod-close.js";
+import { conversationCoupon } from "@/agent/followups.js";
 
 /**
  * The system prompt is the text that decides the most behaviour and, until 2026-09-22,
@@ -42,6 +45,8 @@ const variant = (freeShipping: boolean, discount: boolean, codFreeShipping?: fal
   delivery: { ...base.delivery, freeShipping, ...(codFreeShipping === false ? { codFreeShipping } : {}) },
 });
 
+const withoutStore = ({ store: _, ...c }: PromptConfig): PromptConfig => c;
+
 const corners = [
   { name: "grátis só na entrega, com desconto", config: variant(false, true) },
   { name: "grátis só na entrega, sem desconto", config: variant(false, false) },
@@ -50,6 +55,12 @@ const corners = [
   { name: "frete grátis, com desconto", config: variant(true, true) },
   { name: "frete grátis, sem desconto", config: variant(true, false) },
   { name: "produção: troca pela Logzz, sem custo", config: { ...variant(false, true), returns: { logzzSupportPhone: "+55 11 91132-7877", freeExchange: true } } },
+  // The offer of 2026-10-27: one price, free shipping on both paths, kits the same on both, as the secret carries it — without the
+  // store plan, whose answer is not the one the store tests below read (the corners have none).
+  { name: "produção 27/10: preço único e frete grátis", config: withoutStore(JSON.parse(readFileSync(new URL("../docs/operacao/business-config-2026-10-27.min.json", import.meta.url), "utf8")) as PromptConfig) },
+  // The config of 29/10b (grafo §137): the coupon on, as the turn feeds prompt and gates — held, then released by the follow-up touch only.
+  { name: "produção 29/10: cupom guardado pro lembrete", config: conversationCoupon(withoutStore(JSON.parse(readFileSync(new URL("../docs/operacao/business-config-2026-10-29b.min.json", import.meta.url), "utf8")) as PromptConfig), false) },
+  { name: "produção 29/10: cupom liberado pelo lembrete", config: conversationCoupon(withoutStore(JSON.parse(readFileSync(new URL("../docs/operacao/business-config-2026-10-29b.min.json", import.meta.url), "utf8")) as PromptConfig), true) },
 ] as const;
 
 /** Free on neither path: the only corner where the prompt may not say "frete é grátis" at all. */
@@ -1394,5 +1405,42 @@ describe("turnFacts: o estoque e o frete lidos no turno, a mesma promessa no pro
 
   it.each(corners)("sem turnFacts, o prompt é o de hoje ($name)", ({ config }) => {
     expect(systemPrompt(config, gateBriefing(config), null, null, null, {})).toBe(build(config));
+  });
+});
+
+describe("order_claim × o que o prompt e a diretiva do fechamento ensinam (revisão do 9d247f3)", () => {
+  // Prompt and gate are the same promise: with the close open, nothing the prompt, the gates' briefing or the close directive teaches
+  // may read as "her order is already done".
+  const c = loadBusinessConfig("docs/operacao/business-config-2026-10-28.min.json") as unknown as PromptConfig;
+  const dates = [{ date: "2026-10-29", typeCode: "x" }, { date: "2026-10-30", typeCode: "x" }];
+  it("nenhuma frase ensinada é vetada pelo order_claim com o fechamento aberto", () => {
+    for (const directive of [closeDirective(dates, ["seu CPF"], false), closeDirective(dates, [], true), closeDirective(dates, [], false)]) {
+      const text = systemPrompt(c, gateBriefing(c), null, directive, null);
+      const pieces = [...[...text.matchAll(/["“]([^"”]{8,300})["”]/g)].map((m) => m[1]!), ...text.split(/(?<=[.!?])\s+|\n+/)];
+      const vetoed = pieces.filter((s) =>
+        runGates(s, ctx({ config: c as never, closeOpen: true, codDates: ["2026-10-29", "2026-10-30"] })).traces.some((t) => t.verdict === "block" && t.gate === "order_claim"));
+      expect(vetoed).toEqual([]);
+    }
+  });
+});
+
+describe("o cupom só do lembrete: o prompt e o coupon_exists dizem o mesmo (grafo §137)", () => {
+  const [held, released] = corners.filter((c) => c.name.startsWith("produção 29/10")).map((c) => c.config);
+  const offer = "Usa o cupom SUPER20 no checkout que sai mais em conta.";
+  const gatesOn = (config: PromptConfig) => runGates(offer, ctx({ config })).traces.filter((t) => t.verdict === "block").map((t) => t.gate);
+
+  it("guardado: o prompt não dá o código nem ensina anunciar, e o gate veta anunciá-lo", () => {
+    expect(build(held!)).not.toContain("SUPER20");
+    expect(build(held!)).toContain("não anuncia, não oferece e não puxa assunto de cupom");
+    expect(gatesOn(held!)).toContain("coupon_exists");
+  });
+
+  it("liberado só pelo lembrete enviado: o prompt dá o código e o gate deixa confirmá-lo", () => {
+    expect(build(released!)).toContain("o código é SUPER20");
+    // The price with the coupon, taught and allowed together (re-review of 5adb420); held, neither.
+    expect(build(released!)).toContain("com o cupom de 20%: R$ 87,92 por peça");
+    expect(build(held!)).not.toContain("R$ 87,92 por peça");
+    expect(runGates("Com o cupom de 20% fica R$ 87,92.", ctx({ config: released! })).allowed).toBe(true);
+    expect(gatesOn(released!)).not.toContain("coupon_exists");
   });
 });

@@ -269,20 +269,23 @@ export const textMessage = (to: string, body: string) => ({
   text: { preview_url: false, body },
 });
 
-/** An approved template, outside the 24-hour window, with its body variables in order. */
-export const templateMessage = (to: string, name: string, language: string, variables: readonly string[]) => ({
-  messaging_product: "whatsapp",
-  recipient_type: "individual",
-  to,
-  type: "template",
-  template: {
-    name,
-    language: { code: language },
-    ...(variables.length
-      ? { components: [{ type: "body", parameters: variables.map((text) => ({ type: "text", text })) }] }
-      : {}),
-  },
-});
+/**
+ * An approved template, outside the 24-hour window, with its body variables in order — and, when the template has a dynamic URL
+ * button (the cart's "Finalizar meu pedido", 2026-10-27), that button's {{1}} as a second component (index 0).
+ */
+export const templateMessage = (to: string, name: string, language: string, variables: readonly string[], urlButton?: string) => {
+  const components = [
+    ...(variables.length ? [{ type: "body", parameters: variables.map((text) => ({ type: "text", text })) }] : []),
+    ...(urlButton ? [{ type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: urlButton }] }] : []),
+  ];
+  return {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to,
+    type: "template",
+    template: { name, language: { code: language }, ...(components.length ? { components } : {}) },
+  };
+};
 
 /**
  * Reply buttons (up to 3), inside the 24-hour window. The id is ours and comes back on the tap

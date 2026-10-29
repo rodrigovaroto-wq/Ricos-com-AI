@@ -253,8 +253,8 @@ export const checkSize = async (
 
 /**
  * The size the region query trusts first. Not a business choice — a diagnostic one: G is
- * mapped correctly on the Coinzz side. The M is not (404 for every postcode), so it never
- * decides a region alone.
+ * mapped correctly on the Coinzz side. The M answers 404 for every postcode — out of stock on both paths since 2026-10-27
+ * (`sizeOutOfStock`), not a wrong mapping — so it never decides a region alone.
  */
 export const REFERENCE_SIZE: Size = "G";
 
@@ -291,6 +291,8 @@ export interface Region {
    * reach her is the size, not her region. Absent: not read (a cache from before, the Coinzz fallback, the region's own "no").
    */
   readonly otherSizesInStock?: readonly Size[];
+  /** Her size has no stock to sell on either path (the Coinzz 404 for it, 2026-10-27): no link, no offer. Absent: not read. */
+  readonly sizeOutOfStock?: boolean;
 }
 
 /**
@@ -299,6 +301,24 @@ export interface Region {
  * makes the agent ask again instead of guessing a city.
  */
 export const VIACEP_ENDPOINT = "https://viacep.com.br/ws";
+
+/**
+ * Grafo §136: one ViaCEP answer per CEP in a turn — the region lookup, the kit's sizes and the close's street read the same body
+ * (`cache` lives for one turn). Only an answer is kept: a throw or a null is asked again, so a failure never reads as a CEP with
+ * no street. A call with headers, or to anything else, passes through.
+ */
+export const reuseViaCep = (cache: Map<string, Promise<unknown>>, fetcher: Fetcher): Fetcher => (url, headers) => {
+  if (headers || !url.startsWith(VIACEP_ENDPOINT)) return fetcher(url, headers);
+  const hit = cache.get(url) ?? fetcher(url).then(
+    (body) => (body == null && cache.delete(url), body),
+    (error: unknown) => {
+      cache.delete(url);
+      throw error;
+    },
+  );
+  cache.set(url, hit);
+  return hit;
+};
 
 export const readPlace = (body: unknown): Place | null => {
   const j = body as { localidade?: string; uf?: string; bairro?: string; erro?: unknown } | null;
@@ -540,6 +560,11 @@ const lookupCoinzz = async (fetcher: Fetcher, zip: string, place: Place, size: S
   // Her size, answered, is the truth for her: the G in São Paulo is not promised on the GG's stock (R28 review).
   const hers = answers.find((a) => a.size === size);
   if (hers) return { kind: "found", region: toRegion(zip, place, hers, size) };
+  // Her size answered nothing (the 404 "Não foi possível identificar o endereço", `null` here) while another size answered: the
+  // real Coinzz checkout blocks that size on both paths (Playwright, 2026-10-27: the M in every city), so no door and no stock.
+  if (size !== null && bodies[REGION_SIZES.indexOf(size)] === null) {
+    return { kind: "found", region: { ...toRegion(zip, place, answers[0]!, size), cod: false, dates: [], sameDay: false, labelBrl: null, sizeOutOfStock: true } };
+  }
   const any = toRegion(zip, place, answers.find((a) => a.cod) ?? answers[0]!, null, size);
   // Her size known and not answered: another size's delivery may stand, its "hoje" never does (second review).
   return { kind: "found", region: size === null ? any : { ...any, sameDay: false } };
@@ -578,7 +603,11 @@ export const lookupRegion = (fetcher: Fetcher, zip: string, size: Size | null = 
  * region is ever kept — a failed lookup stays "unknown region", never "no cash on delivery".
  */
 export const REGION_CACHE_MS = 60 * 60 * 1000;
-export type CachedRegion = Region & { readonly checkedAt: string };
+/**
+ * `stockAware`: written by the turn since the out-of-stock reading (review of 481f2d3). A cache without it was written before
+ * `sizeOutOfStock` existed and may say "delivery" for an M that no checkout sells: never served, asked again.
+ */
+export type CachedRegion = Region & { readonly checkedAt: string; readonly stockAware?: boolean };
 
 export const cachedRegion = (
   cached: CachedRegion | null | undefined,
@@ -586,7 +615,7 @@ export const cachedRegion = (
   now: number,
   size: Size | null = null,
 ): Region | null => {
-  if (!cached || cached.zip.replace(/\D/g, "") !== zip.replace(/\D/g, "")) return null;
+  if (!cached || cached.stockAware !== true || cached.zip.replace(/\D/g, "") !== zip.replace(/\D/g, "")) return null;
   // An answer for another size (or for any size, now that hers is known) is asked again (R28).
   if ((cached.askedSize ?? cached.size ?? null) !== size) return null;
   const age = now - Date.parse(cached.checkedAt);
@@ -596,6 +625,21 @@ export const cachedRegion = (
   if (day(Date.parse(cached.checkedAt)) !== day(now)) return null;
   // The same-day window closes during the day: served, but never as "hoje" (E2 review, /code-review).
   return cached.sameDay ? { ...cached, sameDay: false } : cached;
+};
+
+/**
+ * A kit is sold only when every piece is (operator, 2026-10-20, grafo §117), its pieces' sizes asked one by one (`answers`, the
+ * sizes other than hers). A piece with no stock at all, wherever it sits in the kit and whatever her own size's path, makes the kit
+ * out of stock — never a link with that piece (review of 481f2d3: only the first piece without delivery was read, and only where
+ * her size had the delivery). Otherwise, where her size has the delivery, a piece without it (or unanswered) makes the kit prepaid.
+ */
+export const kitRegion = <R extends Region>(region: R, regionSize: Size | null, answers: ReadonlyArray<{ readonly s: Size; readonly r: RegionLookup }>): R => {
+  const out = answers.find(({ r }) => r.kind === "found" && r.region.sizeOutOfStock === true);
+  if (out) return { ...region, cod: false, dates: [], sameDay: false, size: out.s, sizeOutOfStock: true };
+  if (!region.cod) return region;
+  const missing = answers.find(({ r }) => !(r.kind === "found" && r.region.cod));
+  // Her own size has it there: the reason said before the prepaid box is the other piece's size, not her region (A4).
+  return missing ? { ...region, cod: false, dates: [], sameDay: false, size: missing.s, otherSizesInStock: regionSize ? [regionSize] : [] } : region;
 };
 
 export const checkRegion = async (fetcher: Fetcher, zip: string, size: Size | null = null): Promise<Region | null> => {

@@ -70,15 +70,57 @@ import {
   ackGoesUnanswered,
   ackHelpText,
   type AskedDatum,
+  armsCartRecovery,
+  asksPixCode,
+  pixResendFor,
+  pixStillDue,
+  sizeSells,
+  logzzSells,
+  cartCheckoutUrl,
+  cartOrderSince,
+  CART_RECOVERY_MS,
+  checkoutSlug,
+  firstNameOf,
+  leadPhoneOf,
+  phoneTwins,
   type FollowupConfig,
   type FollowupKind,
   type RulerAnchors,
   type StopPoint,
 } from "./followups.ts";
-import { asksForSize, type Size, SIZES, sizeBeyondTable, sizeFromDressSize, statedSizeOf, TABLE_TOP_DRESS, TABLE_TOP_WAIST } from "./sizing.ts";
+import { asksForSize, type Size, SIZES, sizeAskedFor, sizeBeyondTable, sizeFromDressSize, statedSizeOf, TABLE_TOP_DRESS, TABLE_TOP_WAIST } from "./sizing.ts";
 import { acceptsOffers, mayAskOptIn, optInAnswer, optInMessage, suspendsMarketingOptIn } from "./opt-in.ts";
 import { furthest, overwritableBy, reachedStage, type Stage } from "./state-machine.ts";
-import { cachedRegion, type CachedRegion, cepsByStreet, checkCoverage, type Fetcher, healthOf, logzzIdsOf, lookupRegion, lookupsDegraded, prepayFreight, type Region, type RegionLookup } from "./availability.ts";
+import { cachedRegion, type CachedRegion, kitRegion, cepsByStreet, checkCoverage, type Fetcher, healthOf, logzzIdsOf, lookupRegion, lookupsDegraded, prepayFreight, type Region, type RegionLookup, reuseViaCep, VIACEP_ENDPOINT } from "./availability.ts";
+import {
+  cachedCodDates,
+  type CachedCodDates,
+  CLOSE_CPF_REFUSED,
+  CLOSE_OPEN_ORDER,
+  closeConfirmed,
+  closeNoCodLine,
+  closeOrderId,
+  closeProcessing,
+  closeRetryLater,
+  type CloseState,
+  closeStep,
+  type CodDate,
+  codPackage,
+  importedTwin,
+  importBlocksClose,
+  importPayload,
+  asksHowItWorks,
+  isCloseMessage,
+  isPlausibleName,
+  type LogzzOrderConfig,
+  lookupCodDates,
+  nameCandidates,
+  nationalPhone,
+  PHONE_REFUSED,
+  placeOrder,
+  type Poster,
+  SUMMARY_HEAD,
+} from "./cod-close.ts";
 import {
   confirmsAddress,
   extractAddress,
@@ -115,6 +157,7 @@ import {
   extractEmail,
   refusedDatum,
   sentInvalidCpf,
+  extractName,
   type Identity,
 } from "./identity.ts";
 import {
@@ -196,19 +239,30 @@ import {
   PREPAY_HEADLINE,
   LEGACY_PREPAY_HEADLINE,
   BOTH_HEADLINE,
+  KIT_HEADLINE_HEAD,
   BOTH_PREPAY_HEADLINE,
   bothPrepayBubbles,
+  oneCheckout,
+  mediaNamesOf,
+  requestedMedia,
   saysNoDeliveryDay,
   sizeNoCodAsk,
   ADDRESS_NO_COD_ASK,
   SIZE_ASK,
+  OPENING_FIRST,
+  LEGACY_OPENING_FIRST,
   skipsOpening,
   funnelLinkMessage,
   type FunnelBubble,
   type FunnelMedia,
+  kitSizeAsk,
   offerAsk,
+  NAME_ASK,
   offerBubbles,
   noCodReasonLine,
+  sizeOutOfStockLine,
+  sizeOutFallback,
+  sizeOutLineSent,
   sizeFirstBubbles,
   SIZE_BEFORE_OFFER,
   openingBubbles,
@@ -261,7 +315,7 @@ import {
   changesAddress,
   type Interpretation,
 } from "./interpret.ts";
-import { asksDeadline, asksPayment, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, logzzSupportPhone, noCodMessage, offerFallbackMessage, openingDirective, paidDeadlineLine, paymentFallbackMessage, priceBeforeCepMessage, registerDirective, regionTurnFacts, triggerUsesSoFar, personalTriggerDirective, MAX_TRIGGER_USES, systemPrompt as buildSystemPrompt } from "./prompt.ts";
+import { asksDeadline, asksPayment, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, logzzSupportPhone, noCodMessage, offerFallbackMessage, openingDirective, paidDeadlineLine, regionDirectiveFor, checkoutFactLines, paymentFallbackMessage, priceBeforeCepMessage, registerDirective, regionTurnFacts, triggerUsesSoFar, personalTriggerDirective, MAX_TRIGGER_USES, systemPrompt as buildSystemPrompt } from "./prompt.ts";
 import { afterUnansweredTouch, isAudioBody, mergeProfile, profileFold, profileMarks, storedProfileOf, scoreOf, bandOf, scoreTag, type LeadProfile } from "./profile.ts";
 import { sealIsValid } from "./inbound-signature.ts";
 import { agentVersionOf } from "./agent-version.ts";
@@ -482,6 +536,11 @@ interface BusinessConfig extends GateConfig {
    * consents, and `silence_2`/`silence_3` never leave as a template. Turn it on only after 0019.
    */
   channel?: FollowupConfig["channel"] & { askMarketingOptIn?: boolean };
+  /**
+   * The pay-on-delivery sale closed in the conversation by the Logzz Order Import API (operator, 2026-10-28, grafo §135).
+   * OPTIONAL, every key — absent in the secret, or without `LOGZZ_API_TOKEN`, the Coinzz link closes both paths, as before.
+   */
+  logzzImport?: LogzzOrderConfig;
 }
 
 const CONFIG: BusinessConfig = JSON.parse(
@@ -921,47 +980,6 @@ const sizeDirectiveFor = (
 };
 
 /**
- * What the CEP lookup found, on its own (operator, 2026-10-06): until then it rode on the size
- * directive, so a kit — or a CEP before the size — never heard it, and the prepaid was only ever
- * offered as a fallback. Delivery reaches her: the two options and her choice (`twoOptionsMessage`
- * in the prompt), or her choice kept. It does not: only the prepaid, with the one reason
- * (`noCodMessage`). The sentences are the prompt's, so prompt and gate stay one promise.
- */
-const regionDirectiveFor = (
-  region: Pick<Region, "cod" | "sameDay"> | null,
-  choice: "cod" | "prepay" | null,
-  agreedOnly = false,
-  /** The lookup said no where the Logzz delivers as a rule: both checkouts went (operator, 2026-10-19). */
-  unconfirmed = false,
-  /** The offer that fits her region has not gone yet (her size missing, night, a link): never claim it did (review of v3, 9). */
-  offerPending = false,
-): string | null => {
-  if (region === null) return null;
-  if (offerPending) {
-    return `O CEP dela já foi consultado, mas a oferta da região ainda não foi enviada: o sistema manda em seguida. Ainda não` +
-      ` fale de pagamento na entrega, de frete nem de prazo; se o tamanho dela ainda não foi dito, peça o número da calça.`;
-  }
-  if (!region.cod && unconfirmed) {
-    return `A consulta do CEP dela não confirmou o pagamento na entrega, mas a cidade dela costuma ter: o sistema já mandou o link 🟢` +
-      ` (pagar na entrega), e manda o 🔵 (pagar agora, pelos Correios) quando ela disser que não apareceu dia de entrega. Se ela` +
-      ` perguntar, peça pra ela abrir o link 🟢 e ver se aparece o dia da entrega. Não mande link nenhum por conta própria.`;
-  }
-  if (!region.cod) {
-    return `A consulta do CEP dela respondeu: ali o colete vai pelos Correios, no pagamento antecipado (não existe pagamento na` +
-      ` entrega na região dela). A oferta do antecipado já foi enviada pelo sistema, com o desconto: não repita a oferta,` +
-      ` siga no antecipado, e nunca diga que ela paga na entrega, ao entregador ou quando receber.`;
-  }
-  // Script v3 (R28): the delivery offer went fixed, with the audio; she is not asked to choose between two options.
-  const today = region.sameDay ? ` Existe a opção de receber HOJE, em até 4 horas — não guarde isso.` : "";
-  return choice === "prepay"
-    ? `A consulta do CEP dela respondeu: o pagamento na entrega chega ali, mas ela escolheu o antecipado: siga no` +
-      ` antecipado, com o desconto, sem reabrir a comparação.`
-    : `A consulta do CEP dela respondeu: o pagamento na entrega chega ali, com frete grátis, e a oferta já foi enviada` +
-      ` pelo sistema (o quadro do preço e o áudio).${today} Não apresente duas opções nem repita a oferta: siga no` +
-      ` pagamento na entrega. Se ela perguntar do antecipado, diga o desconto do antecipado e deixe ela escolher.`;
-};
-
-/**
  * Name, e-mail and CPF — the three the checkout link carries, and the only three the
  * conversation collects. One question at a time, because a form in a WhatsApp message is
  * where a sale stops.
@@ -1058,6 +1076,8 @@ const checkoutDirectiveFor = (
  */
 /** The turn_outcomes reason of a question about an order the system cannot read: written once, read to e-mail the operator once. */
 const ORDER_UNREADABLE_REASON = "a cliente fala de um pedido que o sistema não lê";
+/** The out-of-stock line said (2026-10-27): its `turn_outcomes.reason`, read so it is said and e-mailed once. */
+const SIZE_OUT_REASON = "sem estoque no tamanho dela, aviso quando voltar";
 // Before the order, a new address is looked up again (operator, 2026-10-20): it may be outside the delivery network.
 const CEP_MOVED_COD = "Conferi o endereço novo: aí também chega com pagamento na entrega 😊\n\nÉ só usar esse endereço no checkout.";
 /** A6 (personas of 2026-10-24): the new CEP looked up, and the delivery does not reach it: the prepaid link with the new address. */
@@ -1278,6 +1298,8 @@ const scheduleSilenceTouches = async (
   postponed?: FollowupKind,
   /** The reply ended in a question: "Ainda está aí?" in 10 minutes (operator, 2026-10-06). */
   askedQuestion = false,
+  /** This turn read a size out of stock (her own, or a kit's piece): nothing is chased (review of 481f2d3). */
+  sizeOut = false,
 ) => {
   // She already bought (`chasesSilence`): every caller routes through here — end of turn,
   // fixed line, deferred reply, re-anchoring — so this is where the ruler stops re-arming.
@@ -1289,7 +1311,7 @@ const scheduleSilenceTouches = async (
   // messages ride in the same request, newest 20 by messages_conversation_idx (conversation_id, created_at).
   // The lead's size and `score_band` only (leads_pkey; 0029 applied on 2026-10-21): never the whole row, which carries her
   // address and the profile's free text (/code-review of plan 16).
-  const at = (await db(`conversations?id=eq.${conversationId}&select=*,leads(size,score_band,orders(status)),followups(kind,sent_at),messages(direction,body,created_at)&messages.order=created_at.desc&messages.limit=20`).catch(() => null))?.[0];
+  const at = (await db(`conversations?id=eq.${conversationId}&select=*,leads(size,score_band,stock_out:address->region->>sizeOutOfStock,stock_zip:address->region->>zip,dates_cep:address->codDates->>cep,dates_kind:address->codDates->result->>kind,orders(status)),followups(kind,sent_at),messages(direction,body,created_at)&messages.order=created_at.desc&messages.limit=20`).catch(() => null))?.[0];
   const orderStatuses = (at?.leads?.orders ?? []).map((o: { status: string | null }) => o.status ?? "");
   // She said no and has not come back to the sale (grafo §69): nothing is chased, the checkout touch included.
   // R26.2: her "então deixa" refuses only where the region has no payment at the door — read from what Malu told her.
@@ -1299,6 +1321,13 @@ const scheduleSilenceTouches = async (
   // Copy v4: the model writes the no-fit answer in its own words, so her own pants number past the table is read too (review of v38).
   if (at && !at.leads?.size && ((at.messages ?? []).some((m: { direction: string; body: string | null }) => m.direction === "outbound" && saidNoFit(m.body ?? "")) ||
     herRecent(at.messages ?? [], spoken).some((m: string) => sizeBeyondTable(m, true) !== null))) {
+    await cancelScheduled(conversationId, "all");
+    return;
+  }
+  // Her size has no stock on either path (review of 481f2d3): every touch would sell a size the checkout does not sell — "No
+  // antecipado o colete sai por R$ 109,90" went to the M an hour later. This turn's reading, or the last region stored for her size —
+  // unless the Logzz dates stored for her say delivery there (`logzzSells`, grafo §136: the M in BH is sold on delivery).
+  if (sizeOut || (at?.leads?.stock_out === "true" && !logzzSells(at.leads.stock_zip, at.leads.dates_cep, at.leads.dates_kind))) {
     await cancelScheduled(conversationId, "all");
     return;
   }
@@ -1379,14 +1408,48 @@ interface OrderWebhook {
   checkoutUrl?: string;
   scheduledFor?: string;
   orderedAt?: string;
+  /** Coinzz (2026-10-27, n8n "Normaliza a venda"): the order's number, her name, the offer, and the Pix while it waits. */
+  orderNumber?: string | null;
+  customerName?: string | null;
+  offerName?: string | null;
+  pixUrl?: string | null;
+  pixCode?: string | null;
+  /** The order the import made in the conversation (grafo §135): its own external id, kept in `details` for the webhook to find. */
+  importId?: string;
 }
+
+/** A short text from a webhook, or null: nothing past `max` characters is kept. */
+const shortText = (v: unknown, max: number): string | null =>
+  typeof v === "string" && v.trim() !== "" && v.trim().length <= max ? v.trim() : null;
+
+/**
+ * A webhook's phone to her lead (sale and cart, 2026-10-27): the same DDD and the same 8 digits, with or without the ninth digit
+ * (`phoneTwins` of `leadPhoneOf`), the exact form first — never a suffix alone (review of ecea0c3, 4: a Rio lead got a São Paulo
+ * woman's cart), the rule `herLeadIds` follows. Index: leads_phone_key.
+ */
+const leadForPhone = async (phone: string): Promise<{ id: string; phone: string; opted_out_at?: string | null } | null> => {
+  const own = leadPhoneOf(phone);
+  if (!own) return null;
+  const rows: Array<{ id: string; phone: string; opted_out_at?: string | null }> =
+    (await db(`leads?phone=in.(${phoneTwins(own).join(",")})&select=id,phone,opted_out_at`)) ?? [];
+  return rows.find((r) => r.phone === own) ?? rows[0] ?? null;
+};
+
+/**
+ * A lead the checkout made (2026-10-27): she bought or abandoned a cart in the Coinzz checkout without writing to us — the site
+ * test's path. No `source`: a lead with no ad behind it is a site lead. Her conversation, open, so the touches have one.
+ */
+// An upsert on the phone (leads_phone_key, grafo §136): the cart and the sale webhooks of a new phone racing made the second POST a
+// unique violation, a 500, and the sale not filed. The row that exists comes back untouched (only `phone`, the same value, is merged).
+const checkoutLead = async (phone: string): Promise<{ id: string; opted_out_at?: string | null }> =>
+  (await db("leads?on_conflict=phone", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ phone }) }))[0];
 
 /** Digits only, which is how a phone survives being written six different ways. */
 const digits = (v: string): string => v.replace(/\D/g, "");
 
 const MAX_EXTERNAL_ID = 128;
 
-const recordOrder = async (order: OrderWebhook) => {
+const recordOrder = async (order: OrderWebhook, mayCreateLead = false, known: { id: string; phone: string; opted_out_at?: string | null } | null = null) => {
   // Without an id every retry inserts a fresh row: `external_id` is unique but nullable,
   // and NULL never conflicts with NULL. Refusing loudly beats duplicating silently.
   if (!order.externalId?.trim()) return { status: "missing_external_id", ok: false };
@@ -1400,31 +1463,51 @@ const recordOrder = async (order: OrderWebhook) => {
   // The webhook writes the phone the way its platform stores it — +55, spaces, dashes,
   // sometimes without the 9. The lead row holds whatever the channel delivered. An exact
   // match is the happy path; the suffix is what stops a sale from silently not existing.
-  const exact = await db(`leads?phone=eq.${encodeURIComponent(order.phone)}&select=id`);
-  const tail = digits(order.phone).slice(-8);
-  let lead = exact?.[0];
-  if (!lead && tail.length === 8) {
-    // Two rows ending the same way is not a match, it is a coin toss — and the loser
-    // gets someone else's sale filed against her, with the follow-ups to match. Asking
-    // for two is how the ambiguity becomes visible; taking [0] threw that away.
-    const bySuffix = await db(`leads?phone=like.*${tail}&select=id&limit=2`);
-    if (bySuffix?.length === 1) lead = bySuffix[0];
-    else if ((bySuffix?.length ?? 0) > 1) {
-      return { status: "ambiguous_phone", phone: order.phone, ok: false };
-    }
-  }
+  const match = known ?? await leadForPhone(order.phone);
+  // A sale from the site, by a woman who never wrote to us (2026-10-27): her lead is made here, with its conversation, so the
+  // Pix touch and the post-order ruler have somewhere to live. A phone that is no Brazilian number stays refused, out loud.
+  // Only with the webhook's secret set (review of ecea0c3, 8): an unauthenticated call never makes a lead.
+  const made = match === null && leadPhoneOf(order.phone) !== null && mayCreateLead;
+  const lead = match ?? (made ? await checkoutLead(leadPhoneOf(order.phone)!) : null);
   // 200 here would tell n8n the sale was filed when nothing was written and the silence
   // ruler is still chasing her. It has to be visible.
   if (!lead) return { status: "unknown_lead", phone: order.phone, ok: false };
 
-  const conversations = await db(
-    `conversations?lead_id=eq.${lead.id}&select=id,stage&order=created_at.desc&limit=1`,
-  );
+  // The webhook of an order the import made (grafo §135) files over that row, never a second one: its id, its code, or her one
+  // open imported order. Index: orders_lead_idx (lead_id); her few imported rows are matched in memory.
+  let webhookId: string | null = null;
+  if (!order.importId) {
+    const imported = (await db(`orders?lead_id=eq.${lead.id}&details->>importId=not.is.null&select=external_id,status,created_at,details`).catch(() => null)) ?? [];
+    const twin = importedTwin(imported, order, isOrderDead, Date.now());
+    if (twin !== null && twin !== order.externalId) {
+      webhookId = order.externalId;
+      order = { ...order, externalId: twin };
+    }
+  }
+
+  const conversations = made
+    ? await db("conversations", { method: "POST", body: JSON.stringify({ lead_id: lead.id }) })
+    : await db(`conversations?lead_id=eq.${lead.id}&select=id,stage&order=created_at.desc&limit=1`);
   const conversation = conversations?.[0] ?? null;
 
   // A dead order stays dead (`orderStatusAfter`): what is written and every decision below
   // read this status, never the late webhook's. Index: orders_external_id_key (unique).
-  const stored = await db(`orders?external_id=eq.${encodeURIComponent(order.externalId)}&select=status,scheduled_for`);
+  const stored = await db(`orders?external_id=eq.${encodeURIComponent(order.externalId)}&select=status,scheduled_for,details`);
+  // The Coinzz details (0033): merged over what an earlier webhook of this order left, a field absent now never erasing one.
+  const details = Object.fromEntries(
+    Object.entries({
+      orderNumber: shortText(order.orderNumber, 64),
+      firstName: firstNameOf(order.customerName),
+      offerName: shortText(order.offerName, 120),
+      pixUrl: shortText(order.pixUrl, 1024)?.startsWith("https://") ? shortText(order.pixUrl, 1024) : null,
+      pixCode: shortText(order.pixCode, 1024),
+      importId: shortText(order.importId, MAX_EXTERNAL_ID),
+      webhookId: shortText(webhookId, MAX_EXTERNAL_ID),
+    }).filter(([, v]) => v !== null),
+  );
+  // The Pix this order holds, stored or new (grafo §136): a status webhook without `url_pix` never cancels the armed Pix touch.
+  const merged: Record<string, unknown> = { ...(stored?.[0]?.details ?? {}), ...details };
+  const pix = Boolean(merged.pixCode || merged.pixUrl);
   const status = orderStatusAfter(stored?.[0]?.status, order.status ?? "created");
   // The delivery day in force (D1): a status webhook without `date_delivery` does not erase
   // the day she chose — without it the eve has no date and the sweep would cancel it.
@@ -1447,6 +1530,7 @@ const recordOrder = async (order: OrderWebhook) => {
       amount_brl: order.amountBrl,
       status,
       scheduled_for: scheduledFor,
+      ...(Object.keys(details).length > 0 ? { details: merged } : {}),
       ...(orderedOn && !Number.isNaN(orderedOn.getTime()) ? { created_at: orderedOn.toISOString() } : {}),
       updated_at: new Date().toISOString(),
     }),
@@ -1500,6 +1584,7 @@ const recordOrder = async (order: OrderWebhook) => {
     status,
     orderRowId,
     scheduledFor,
+    pix,
   );
 
   // Only a row still waiting: the sweep may have just sent it, and a sent touch is history.
@@ -1526,9 +1611,10 @@ const recordOrder = async (order: OrderWebhook) => {
       ),
     });
   }
-  // A new delivery day re-dates the eve this order holds, in place (D1): one row per kind.
+  // A new delivery day re-dates the eve this order holds, in place (D1): one row per kind. The Pix of a later order re-arms its row
+  // even when sent (grafo §136, `onOrderConfirmed`).
   for (const f of effect.move) {
-    await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.${f.kind}&status=neq.sent`, {
+    await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.${f.kind}${f.kind === "pix_pending" ? "" : "&status=neq.sent"}`, {
       method: "PATCH",
       body: JSON.stringify({ status: "scheduled", run_at: f.runAt.toISOString(), order_id: orderRowId ?? null, sent_at: null }),
     });
@@ -1555,6 +1641,79 @@ const recordOrder = async (order: OrderWebhook) => {
     canceled: effect.cancel,
     armed: [...effect.arm, ...effect.move, ...(takeOver?.arm ?? [])].map((f) => f.kind),
   };
+};
+
+/**
+ * The Coinzz "Carrinho Abandonado" webhook, normalized by n8n ("Carrinho abandonado", 2026-10-27). She typed her phone in our
+ * checkout and left: the cart is kept on her lead (for the conversation's facts) and ONE touch is armed 30 minutes later
+ * (`armsCartRecovery`). Her lead is found like a sale's, or made (no `source`: a site lead). Only her first name is kept — no CPF,
+ * no e-mail, no address.
+ */
+interface CartWebhook {
+  phone: string;
+  name?: string | null;
+  offerName?: string | null;
+  quantity?: number | string | null;
+  offerPrice?: number | string | null;
+  checkoutUrl?: string | null;
+}
+
+const recordCart = async (cart: CartWebhook) => {
+  const phone = leadPhoneOf(cart.phone);
+  if (!phone) return { status: "invalid_phone", ok: false };
+  const match = await leadForPhone(cart.phone);
+  const lead = match ?? (await checkoutLead(phone));
+  // Her open conversation, as the turn reads it, so her message cancels the touch. Index: conversations_lead_idx.
+  const conversation =
+    (await db(`conversations?lead_id=eq.${lead.id}&closed_at=is.null&select=id,last_inbound_at&order=created_at.desc&limit=1`))?.[0] ??
+    (await db("conversations", { method: "POST", body: JSON.stringify({ lead_id: lead.id }) }))[0];
+  const now = new Date();
+  const quantity = Number(cart.quantity);
+  const cartQuantity = Number.isInteger(quantity) && quantity >= 1 && quantity <= 10 ? quantity : null;
+  const price = Number(String(cart.offerPrice ?? "").replace(",", "."));
+  await db(`leads?id=eq.${lead.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({
+      cart: {
+        at: now.toISOString(),
+        firstName: firstNameOf(cart.name),
+        offerName: shortText(cart.offerName, 120),
+        quantity: cartQuantity,
+        offerPriceBrl: Number.isFinite(price) && price > 0 ? price : null,
+        // Origin and path only, or the config's checkout for her quantity (grafo §136).
+        checkoutUrl: cartCheckoutUrl(cart.checkoutUrl, cartQuantity, CONFIG.checkout, CONFIG.kits ?? []),
+      },
+    }),
+  });
+  // Her orders of the last day (orders_lead_idx, `cartOrderSince`, the sweep's rule too) and her cart and link touches in any
+  // conversation (conversations_lead_idx, then the unique (conversation_id, kind)): the facts `armsCartRecovery` decides on.
+  const [orders, touches] = await Promise.all([
+    db(`orders?lead_id=eq.${lead.id}&created_at=gte.${encodeURIComponent(cartOrderSince(now).toISOString())}&select=id&limit=1`).catch(() => null),
+    db(`followups?select=kind,status,sent_at,conversations!inner(lead_id)&conversations.lead_id=eq.${lead.id}&kind=in.(cart_recovery,checkout_reminder)`).catch(() => null),
+  ]);
+  // A read that failed arms nothing: a second touch is worse than none.
+  const arm = orders !== null && touches !== null && armsCartRecovery({
+    optedOut: Boolean(lead.opted_out_at),
+    hasOrder: orders.length > 0,
+    cartTouchSent: touches.some((t: { kind: string; sent_at: string | null }) => t.kind === "cart_recovery" && t.sent_at),
+    checkoutReminderPending: touches.some((t: { kind: string; status: string }) => t.kind === "checkout_reminder" && t.status === "scheduled"),
+    lastInboundAt: conversation.last_inbound_at ? new Date(conversation.last_inbound_at) : null,
+    now,
+  });
+  if (arm) {
+    await db("followups?on_conflict=conversation_id,kind", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+      body: JSON.stringify({
+        conversation_id: conversation.id,
+        kind: "cart_recovery",
+        run_at: new Date(now.getTime() + CART_RECOVERY_MS).toISOString(),
+        status: "scheduled",
+        body: null,
+      }),
+    });
+  }
+  return { status: "recorded", leadMade: match === null, armed: arm };
 };
 
 /**
@@ -1586,6 +1745,22 @@ const regionFetcher = (timeoutMs: number): Fetcher => async (url, headers) => {
   // The error carries the parsed body: the Logzz says "no delivery there" as a 400 with a JSON body (2026-10-19).
   if (!r.ok && r.status !== 404) throw Object.assign(new Error(`region lookup HTTP ${r.status}`), { status: r.status, body: await r.json().catch(() => null) });
   return r.ok ? await r.json() : null;
+};
+
+/**
+ * The Logzz Order Import token (grafo §135): a Supabase secret, never the config. Empty: the close is off, the link goes as before.
+ * The POST the dates query and the import share: status and parsed body, a throw only on the network or the timeout.
+ */
+const LOGZZ_TOKEN = Deno.env.get("LOGZZ_API_TOKEN") ?? "";
+const IMPORT_TIMEOUT_MS = 20_000;
+const logzzPoster = (timeoutMs: number): Poster => async (url, body, headers = {}) => {
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { Accept: "application/json", "Content-Type": "application/json", ...headers },
+    body: JSON.stringify(body),
+    signal: AbortSignal.timeout(timeoutMs),
+  });
+  return { status: r.status, body: await r.json().catch(() => null) };
 };
 
 /** São Paulo CEPs the L2 audit (2026-10-08) saw with cash on delivery: one not `cod` is the path gone, not the region. */
@@ -1647,7 +1822,7 @@ const runFollowupSweep = async () => {
       "&select=id,kind,run_at,stop_point,body,order_id,conversation_id,conversations(id,lead_id,stage,last_inbound_at,leads(id,phone,size,opted_out_at,handoff_at,units,units_at,payment_choice,payment_choice_at,address,score,score_band,score_at" +
       (ASK_OPT_IN ? ",marketing_opt_in_at,marketing_opt_in_asked_at,marketing_opt_in_suspended_at,marketing_opt_in_declined_at" : "") +
       // Her orders, for `chasesSilence` below. Index: orders_lead_idx (lead_id).
-      ",orders(status)))&limit=50",
+      ",orders(status,created_at)))&limit=50",
   );
 
   /**
@@ -1666,6 +1841,8 @@ const runFollowupSweep = async () => {
         name: string;
         language: string;
         variables: readonly string[];
+        /** The template's URL button {{1}} (the cart's checkout slug), sent by n8n as a button component. */
+        urlButton?: string;
       }
     | { to: string; kind: string; followupId: string; via: "buttons"; body: string; buttons: ReadonlyArray<{ id: string; title: string }> };
   const toSend: Send[] = [];
@@ -1863,6 +2040,40 @@ const runFollowupSweep = async () => {
     }
     // A post-order touch speaks of THAT order — its total, pieces and sizes — never the
     // 1-piece price (fifth review, kits).
+    // The Coinzz touches (2026-10-27) read what they speak of on their own, so a missing 0033 column fails only them.
+    // The cart: on her lead (leads_pkey). Gone, an order from 24 h before it on (`cartOrderSince`, the rule `recordCart` armed on —
+    // a returning buyer's older order does not count, grafo §136), or her message after it: nothing to say.
+    // deno-lint-ignore no-explicit-any
+    let checkoutCtx: any = {};
+    if (kind === "cart_recovery") {
+      const cart = (await db(`leads?id=eq.${lead.id}&select=cart`))?.[0]?.cart ?? null;
+      const wrote = typeof row.conversations?.last_inbound_at === "string" && cart?.at && Date.parse(row.conversations.last_inbound_at) > Date.parse(cart.at);
+      if (!cart || wrote || (lead.orders ?? []).some((o: { created_at: string }) => Date.parse(o.created_at) >= cartOrderSince(new Date(cart.at)).getTime())) {
+        await leave("canceled");
+        skipped.push({ followupId: row.id, reason: !cart ? "carrinho sem dados" : wrote ? "ela escreveu depois do carrinho" : "ela já tem pedido" });
+        return;
+      }
+      checkoutCtx = { firstName: cart.firstName ?? null, checkoutSlug: checkoutSlug(cart.checkoutUrl) };
+    }
+    // The Pix: its own order (orders_pkey), still waiting for this Pix — paid, expired or cancelled since, nothing goes.
+    if (kind === "pix_pending") {
+      const pixOrder = row.order_id ? (await db(`orders?id=eq.${row.order_id}&select=status,amount_brl,external_id,details`))?.[0] ?? null : null;
+      const d = pixOrder?.details ?? {};
+      // Any order of hers paid (review of ecea0c3, 1): a buyer never hears "aguardando o Pix".
+      if (!pixStillDue(pixOrder, statuses)) {
+        await leave("canceled");
+        skipped.push({ followupId: row.id, reason: "o Pix não está mais aguardando pagamento" });
+        return;
+      }
+      checkoutCtx = { firstName: d.firstName ?? null, orderNumber: d.orderNumber ?? pixOrder.external_id, amountBrl: Number(pixOrder.amount_brl), prepaid: true, paymentPath: "prepay" };
+    }
+    // Her size out of stock, as the last lookup stored it (review of 481f2d3): no silence touch sells it — armed before the deploy too.
+    // Not where the Logzz dates stored for her say delivery (`logzzSells`, grafo §136).
+    if (inSilenceRuler(kind) && lead.address?.region?.sizeOutOfStock === true && !logzzSells(lead.address.region.zip, lead.address.codDates?.cep, lead.address.codDates?.result?.kind)) {
+      await leave("canceled");
+      skipped.push({ followupId: row.id, reason: "tamanho dela sem estoque: régua encerrada" });
+      return;
+    }
     const order = kind.startsWith("order_")
       ? (
           await db(
@@ -1917,6 +2128,9 @@ const runFollowupSweep = async () => {
           .some((m: { body: string | null }) => forgetsCep(spoken(m.body ?? "")) || refusesCep(spoken(m.body ?? ""))),
       body: row.body ?? undefined,
       marketingOptIn: ASK_OPT_IN && !!lead.marketing_opt_in_at && !lead.marketing_opt_in_declined_at,
+      // The retomada names her size only where her region's last lookup said it sells (review of ecea0c3, 5).
+      sizeSells: sizeSells(lead.address?.region ?? null, lead.size ?? null, logzzSells(lead.address?.region?.zip, lead.address?.codDates?.cep, lead.address?.codDates?.result?.kind)),
+      ...checkoutCtx,
     };
     // The 24-hour window (WA-1): outside it only an approved template leaves, and the text
     // gated and recorded is the one it says — not a variant she never reads (R15.2).
@@ -1933,9 +2147,11 @@ const runFollowupSweep = async () => {
         reason:
           kind === "deferred_reply"
             ? "resposta adiada sem corpo guardado"
-            : CONFIG.coupon.active
+            : kind === "pix_pending"
+              ? "Pix sem número ou valor do pedido"
+              : CONFIG.coupon.active
               ? "cupom ativo sem código (coupon.code) no BUSINESS_CONFIG"
-              : "cupom ainda não existe",
+              : "retomada sem o tamanho dela ou sem frete grátis nos dois caminhos",
       });
       return;
     }
@@ -1945,12 +2161,14 @@ const runFollowupSweep = async () => {
       layer: kind === "payment_check" ? "auto" : "agent",
       optedOut: false,
       now: new Date(),
-      paymentPath: touchPath,
+      paymentPath: kind === "pix_pending" ? "prepay" : touchPath,
       units: touchUnits,
       // Before an order, her stored region; after it, the order's own path is the truth.
       codUnavailable: !order && lead.address?.codAvailable === false,
       ...(order && Number(order.amount_brl) > 0 ? { orderAmountBrl: Number(order.amount_brl) } : {}),
-      stage: kind.startsWith("order_") ? "logistics" : "presale",
+      // The Pix touch says its order's total: the order's own amount, on the logistics stage, like the post-order touches.
+      ...(kind === "pix_pending" ? { orderAmountBrl: checkoutCtx.amountBrl } : {}),
+      stage: kind.startsWith("order_") || kind === "pix_pending" ? "logistics" : "presale",
     });
 
     await recordTraces(row.conversation_id, gates.traces);
@@ -2071,7 +2289,7 @@ const runFollowupSweep = async () => {
     }
     toSend.push(
       delivery.via === "template"
-        ? { to: lead.phone, kind, followupId: row.id, via: "template", body: text, name: delivery.name, language: delivery.language, variables: delivery.variables }
+        ? { to: lead.phone, kind, followupId: row.id, via: "template", body: text, name: delivery.name, language: delivery.language, variables: delivery.variables, ...(delivery.urlButton ? { urlButton: delivery.urlButton } : {}) }
         : { to: lead.phone, kind, followupId: row.id, via: "text", body: text },
     );
     if (kind === "still_there") nudged.add(row.conversation_id);
@@ -2141,6 +2359,8 @@ type TurnPayload = {
   /** A tap on one of our buttons (`InboundMessage.reply`); its `id` is sealed. */
   reply?: { id: string; contextId?: string };
   order?: OrderWebhook;
+  /** `job: "cart"` (2026-10-27): the Coinzz abandoned cart, normalized by n8n. */
+  cart?: CartWebhook;
   /** The sale webhook's secret, forwarded by n8n from the platform's URL (O10). */
   token?: string;
   /** `job: "human_reply"` (L0.3): her phone and what the person typed in the n8n form. */
@@ -2308,13 +2528,25 @@ const handleTurn = async (
       return json(401, { error: "token do webhook de venda inválido" });
     }
     if (!payload.order) return json(400, { error: "order é obrigatório" });
-    const result = await recordOrder(payload.order);
+    const result = await recordOrder(payload.order, saleToken !== "");
     // A status not in the vocabulary goes back raw: n8n e-mails the operator to map it (grafo §57).
     const incoming = payload.order.status ?? "created";
     const reply = isKnownOrderStatus(incoming) ? result : { ...result, unknownStatus: incoming };
     // A refused order must not answer 200. n8n reads the status, and a green webhook over
     // a sale that was never filed is the silent failure this whole route exists to end.
     return json("ok" in result && result.ok === false ? 422 : 200, reply);
+  }
+
+  // The abandoned cart (2026-10-27): the same public-webhook secret as the sale, checked in constant time.
+  if (payload.job === "cart") {
+    // Refused with the secret unset too (review of ecea0c3, 8): this route makes leads and arms a MARKETING touch.
+    const saleToken = Deno.env.get("SALE_WEBHOOK_TOKEN") ?? "";
+    if (saleToken === "" || !sameSecret(String(payload.token ?? ""), saleToken)) {
+      return json(401, { error: "token do webhook de carrinho inválido" });
+    }
+    if (!payload.cart || typeof payload.cart.phone !== "string") return json(400, { error: "cart.phone é obrigatório" });
+    const result = await recordCart(payload.cart);
+    return json("ok" in result && result.ok === false ? 422 : 200, result);
   }
 
   // L0.3: a person answers her from the n8n form "Responder cliente".
@@ -2360,8 +2592,11 @@ const handleTurn = async (
     if (seen?.length) return json(200, { status: "duplicate" });
   }
 
-  // 2. Lead and conversation.
-  const existing = await db(`leads?phone=eq.${encodeURIComponent(inbound.from)}&select=*`);
+  // 2. Lead and conversation. Her number with or without the ninth digit (2026-10-27): a lead the Coinzz checkout made from her cart
+  // or her order (`leadPhoneOf`, with the 9) is hers when she writes from WhatsApp's form (without it). The exact row first.
+  const twins = phoneTwins(inbound.from);
+  const existing = ((await db(`leads?phone=in.(${twins.map(encodeURIComponent).join(",")})&select=*`)) ?? [])
+    .sort((a: { phone: string }, b: { phone: string }) => Number(b.phone === inbound.from) - Number(a.phone === inbound.from));
   const lead =
     existing?.[0] ??
     (
@@ -2376,6 +2611,12 @@ const handleTurn = async (
         }),
       })
     )[0];
+  // Attribution is the first touch, never overwritten — but a lead the checkout made has none, and her first message from an ad is
+  // that first touch (2026-10-27). Only over a null `source`. Index: leads_pkey.
+  if (existing?.[0] && !lead.source && payload.source) {
+    await db(`leads?id=eq.${lead.id}&source=is.null`, { method: "PATCH", body: JSON.stringify({ source: payload.source }) }).catch(() => undefined);
+    lead.source = payload.source;
+  }
   // E2.3: her A/B arm, sorted from the phone and written once — `arm=is.null` never overwrites it.
   // A lead from before 0026 gets hers on her next turn. Index: leads_pkey. Failure costs only the label.
   if (!lead.arm) {
@@ -2405,6 +2646,7 @@ const handleTurn = async (
     ((await db(
       `followups?select=id,conversations!inner(lead_id)&conversations.lead_id=eq.${lead.id}&kind=eq.silence_3&sent_at=not.is.null&limit=1`,
     ).catch(() => [])) ?? []).length > 0;
+  // The touch is the ONLY release (operator, 2026-10-29, grafo §137): her naming the coupon or saying she has it releases nothing.
   const turnConfig = conversationCoupon(CONFIG, couponTouchSent);
   // Her region has no payment at the door (R16.2): as an earlier turn stored it, until this
   // turn's lookup answers (5d-bis). Every gate below reads it — "você paga na entrega" is a lie there.
@@ -2523,6 +2765,12 @@ const handleTurn = async (
       method: "PATCH",
       body: JSON.stringify({ last_inbound_at: inboundAt.toISOString() }),
     }).catch(() => undefined);
+    // She wrote: the cart touch has nothing left to say, the conversation answers her in the window (2026-10-27). Index: the unique
+    // (conversation_id, kind).
+    await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.cart_recovery&status=eq.scheduled`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: "canceled" }),
+    }).catch(() => undefined);
     // A message from an ad (CTWA `referral`) is a new entry: a new free window of 72 h, and the
     // anchor of `silence_3` (4a). Its own write: before 0022 the column does not exist, and the
     // failure must not take `last_inbound_at` with it.
@@ -2548,7 +2796,19 @@ const handleTurn = async (
   // número da calça?". She is past the sale: the receipt goes, and the model answers her (`statesPastPurchase`, `changesAddress`).
   const afterSale = statesPastPurchase(spoken(inbound.body ?? ""), false) ||
     (statesPastPurchase(spoken(inbound.body ?? "")) && reportsOrderTrouble(spoken(inbound.body ?? ""))) || (changesAddress(spoken(inbound.body ?? "")) && /\bmudei\b/i.test(spoken(inbound.body ?? "")));
-  if (isNewLead && !isResume && !skipsOpening(spoken(inbound.body ?? "")) && !afterSale) {
+  // Origin (operator, 2026-10-27): an ad behind her — the CTWA referral on her lead or on this message — or not: the site, or her
+  // own number. Never read from her text. With no ad and no opening sent, she is in site mode: no opening, her message answered
+  // directly, the opening's media only on her request (`requestedMedia`). A failed read keeps the ad's behavior.
+  // Index: messages_conversation_idx (conversation_id, created_at).
+  const fromAd = Boolean(lead.source || payload.source);
+  // Since the review of ecea0c3 (7), site mode is "no opening was ever sent", whatever `source` says now: a site lead who comes back by
+  // an ad has `source` filled and still saw nothing. A new lead from an ad gets the opening below, before anything reads this.
+  const openingSent = !isNewLead && ((await db(
+    `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&body=in.(${[OPENING_FIRST(CONFIG.agentName), LEGACY_OPENING_FIRST(CONFIG.agentName)].map((b) => encodeURIComponent(`"${b}"`)).join(",")})&select=id&limit=1`,
+  ).catch(() => null)) ?? [null]).length > 0;
+  // The first message of a new lead from an ad keeps today's path (opening, or the receipt when it is skipped).
+  const siteMode = !openingSent && !(isNewLead && fromAd);
+  if (isNewLead && fromAd && !isResume && !skipsOpening(spoken(inbound.body ?? "")) && !afterSale) {
     const opening = openingBubbles(CONFIG);
     const sent = await sendFunnel(conversation.id, opening);
     if (sent) {
@@ -2571,7 +2831,8 @@ const handleTurn = async (
     }
   }
   // The receipt stays only where the opening could not be written (a database error): she is never left unanswered.
-  if (isNewLead && !isResume && !(fastOpening && openNow)) {
+  // Site mode inside the send window: no receipt either, the turn answers her now (2026-10-27).
+  if (isNewLead && !isResume && !(fastOpening && openNow) && !(siteMode && openNow)) {
     // At night the reply waits for the opening: the receipt says when, never "já" (E3 review, R2).
     const receiptText = openNow ? WELCOME_AUTO_REPLY : welcomeNightReply(CONFIG.hours.openHour);
     const welcomedAt = new Date().toISOString();
@@ -3211,6 +3472,11 @@ const handleTurn = async (
   // initialization" and the turn died with a 500 (personas of 2026-10-15, grafo §96). Before the history, the last three are
   // read, the way the sweep does, the text just stored excluded.
   let recentOutboundRead: readonly string[] | null = null;
+  // The Logzz dates of her package while the sale on delivery closes here (grafo §135): the only days a line may name. Declared
+  // before `sendFixed`, which reads it (memory: turn-closure-antes-da-declaracao).
+  let gateCodDates: readonly string[] | undefined;
+  // The close is open and no order exists yet: `order_claim` refuses "pedido confirmado" until the import answers (review of 844743b).
+  let gateCloseOpen = false;
   const outboundBefore = async (): Promise<readonly string[]> =>
     recentOutboundRead ??
     ((await db(
@@ -3237,6 +3503,8 @@ const handleTurn = async (
       now: new Date(),
       paymentPath: path,
       codUnavailable,
+      ...(gateCodDates ? { codDates: gateCodDates } : {}),
+      ...(gateCloseOpen ? { closeOpen: true } : {}),
       postponing,
       units: pieces,
     });
@@ -3270,7 +3538,7 @@ const handleTurn = async (
     );
     const once = await notifyOnce();
     await Promise.all([
-      recordOutcome(conversation.id, "send", [reason, extraNotify].filter(Boolean).join(" | "), 0, spent - spentBefore),
+      recordOutcome(conversation.id, "send", [...new Set([reason, extraNotify].filter(Boolean))].join(" | "), 0, spent - spentBefore),
       persistStage(conversation.id, storedStage, linkOut ? furthest(reachedSoFar, "link_enviado") : reachedSoFar),
     ]);
     return json(200, {
@@ -3349,7 +3617,7 @@ const handleTurn = async (
       body: JSON.stringify({ conversation_id: conversation.id, run_at: runAt.toISOString(), status: "scheduled", body: text, kind: "deferred_reply" }),
     });
     const once = await notifyOnce();
-    await recordOutcome(conversation.id, "deferred", [reason, extraNotify].filter(Boolean).join(" | "), 0, spent - spentBefore);
+    await recordOutcome(conversation.id, "deferred", [...new Set([reason, extraNotify].filter(Boolean))].join(" | "), 0, spent - spentBefore);
     return json(200, { status: "deferred", ...once, reason, runAt: runAt.toISOString(), rewrites: 0, costBrl: spent });
   };
 
@@ -3370,8 +3638,9 @@ const handleTurn = async (
   let herIds: string[] | null = null;
   const herLeadIds = async (): Promise<string[]> => {
     if (herIds) return herIds;
-    const m = /^55(\d{2})9?(\d{8})$/.exec(digits(String(lead.phone ?? "")));
-    const twins = m ? ((await db(`leads?phone=in.(55${m[1]}${m[2]},55${m[1]}9${m[2]})&select=id`).catch(() => null)) ?? []) : [];
+    // The same rule as the webhooks' (`phoneTwins`): a mobile with or without the ninth digit, never a landline's "twin".
+    const own = digits(String(lead.phone ?? ""));
+    const twins = phoneTwins(own).length > 1 ? ((await db(`leads?phone=in.(${phoneTwins(own).join(",")})&select=id`).catch(() => null)) ?? []) : [];
     herIds = [...new Set([String(lead.id), ...twins.map((r: { id: string }) => String(r.id))])];
     return herIds;
   };
@@ -3455,6 +3724,21 @@ const handleTurn = async (
         if (payment === "confirmed") await settle("canceled");
         return sent;
       }
+    }
+  }
+
+  // "Reenvia o Pix" (2026-10-27): the Pix touch promises it, and its button says it. After the "paguei" check, which answers a
+  // payment she claims; never beside one (`pixResendFor`). The same chain as that check's lines (`sendFixed`, "auto", any hour):
+  // the code she asked for, from her newest order still waiting for it. Index: orders_lead_idx, her newest rows.
+  if (!isResume && parts.some((p: string) => asksPixCode(spoken(p)))) {
+    const texts = pixResendFor(
+      true,
+      parts.some((p: string) => saysPaid(p) || isPaymentReceipt(p)),
+      ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(",")})&select=status,details&order=created_at.desc&limit=3`).catch(() => null)) ?? []),
+    );
+    if (texts.length > 0) {
+      const sent = await sendFixed(texts.join("\n\n"), "pix reenviado a pedido dela", "prepay", {}, false, 1, "auto");
+      if (sent) return sent;
     }
   }
 
@@ -3719,7 +4003,10 @@ const handleTurn = async (
   // "stated" is decided by the text itself, not by the old intent classifier — it called
   // "tenho 44 anos" a sizing turn, which is fair, and would have made her a G.
   // The newest message that states a size wins over an earlier one in the same burst (grafo §59).
-  const stated = statedSize([...parts].reverse().find((p) => statedSizeOf(p) !== null) ?? spoken(inbound.body ?? ""), interpretation);
+  const statedNow = statedSize([...parts].reverse().find((p) => statedSizeOf(p) !== null) ?? spoken(inbound.body ?? ""), interpretation);
+  // "qual tamanho pra quem veste 42?" with no size of hers yet (real test 2026-10-29, grafo §137): the table answers it.
+  const askedFor = statedNow === null && !lead.size ? [...parts].reverse().map((p: string) => sizeAskedFor(spoken(p))).find((x) => x !== null) ?? null : null;
+  const stated = statedNow ?? (askedFor ? { size: askedFor, forOther: interpretation.size.for_other_person } : null);
   if (stated && stated.size !== lead.size) {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
@@ -3791,12 +4078,16 @@ const handleTurn = async (
     confirmedAt?: string;
     codAvailable?: boolean;
     region?: CachedRegion;
+    codDates?: CachedCodDates;
+    codClose?: CloseState;
   };
   let addressConfirmed = Boolean(storedAddress.confirmedAt);
   let addressDraft: Partial<Address> = { ...storedAddress };
   delete (addressDraft as { confirmedAt?: string }).confirmedAt;
   delete (addressDraft as { codAvailable?: boolean }).codAvailable;
   delete (addressDraft as { region?: CachedRegion }).region;
+  delete (addressDraft as { codDates?: CachedCodDates }).codDates;
+  delete (addressDraft as { codClose?: CloseState }).codClose;
 
   // Message by message, in order: a later correction wins ("Rua das Flores 10" / "não, Rua das Rosas 12").
   const foundAddress = { fields: extractAddressBurst(parts) };
@@ -3870,8 +4161,8 @@ const handleTurn = async (
    * The postcode rides in on the address machinery that was already accumulating it, so
    * there is no new state and no second question. What comes back is about the REGION:
    * whether delivery reaches her, which three days, whether Express exists, and the
-   * carrier quote. It never vetoes a size — the Coinzz mapping is wrong about the M and
-   * the Logzz checkout, where she actually buys, is not.
+   * carrier quote. Since 2026-10-27 the Coinzz is the checkout she buys on, and its 404 for her size while other sizes answer is
+   * that size out of stock (`sizeOutOfStock`, `lookupCoinzz`): the one case where the lookup vetoes a size.
    *
    * A failed lookup is not a blocked sale. `region` stays null, the agent keeps talking,
    * and the only thing it loses is permission to name a size — which is the correct
@@ -3888,6 +4179,9 @@ const handleTurn = async (
   let freshRegion: (CachedRegion & { prepayFreightBrl?: number | null; prepayFreightFor?: string | null }) | null = null;
   // The region is asked for her size when she has one (R28 review): the G in São Paulo is not the GG's stock.
   const regionSize = (SIZES as readonly string[]).includes(stated?.size ?? lead.size ?? "") ? (stated?.size ?? lead.size) as Size : null;
+  // One ViaCEP answer per CEP in this turn (`reuseViaCep`, grafo §136): the region, the kit's sizes and the close's street.
+  const viaCepBodies = new Map<string, Promise<unknown>>();
+  const cepFetcher = (timeoutMs: number): Fetcher => reuseViaCep(viaCepBodies, regionFetcher(timeoutMs));
   const cached = addressDraft.cep ? cachedRegion(storedAddress.region, addressDraft.cep, Date.now(), regionSize) : null;
   if (cached) region = cached;
   else if (addressDraft.cep) {
@@ -3896,14 +4190,14 @@ const handleTurn = async (
       // R26.3 (persona Jussara, 15/10): a lookup that failed ("fetch failed") sent the delivery link with the checkout's
       // caveat, and the next turn's lookup said no delivery. One short second try first; still failing, L2 holds.
       const lookup = await lookupRegion(
-        regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS),
+        cepFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS),
         zip,
         regionSize,
         logzzIdsOf(CONFIG.checkout),
       )
         .catch((): RegionLookup => ({ kind: "failed" }))
         // Not on the sweep's retry nor a revision (review of R26): their short budget is the model's.
-        .then((first) => (first.kind === "failed" && !isRetry && !isRevise ? lookupRegion(regionFetcher(RETRY_REGION_TIMEOUT_MS), zip, regionSize, logzzIdsOf(CONFIG.checkout)).catch((): RegionLookup => first) : first));
+        .then((first) => (first.kind === "failed" && !isRetry && !isRevise ? lookupRegion(cepFetcher(RETRY_REGION_TIMEOUT_MS), zip, regionSize, logzzIdsOf(CONFIG.checkout)).catch((): RegionLookup => first) : first));
       region = lookup.kind === "found" ? lookup.region : null;
       failedPlace = lookup.kind === "failed" ? lookup.place ?? null : null;
       // What the real lookups answer, for the health job (grafo §111). Not the retry or the revision: the same CEP twice is one.
@@ -3919,7 +4213,7 @@ const handleTurn = async (
           }),
         }).catch(() => undefined);
       }
-      if (region) freshRegion = { ...region, checkedAt: new Date().toISOString() };
+      if (region) freshRegion = { ...region, checkedAt: new Date().toISOString(), stockAware: true };
       // Said in the turn the CEP arrives, not on every message after it (review of round 2).
       cepNotFound = lookup.kind === "not_found" && Boolean(foundAddress.fields.cep);
       // Not kept either: a CEP that does not exist never counts for the link, in this turn or the next.
@@ -3932,21 +4226,51 @@ const handleTurn = async (
       region = null; // The checkout being down is not a reason to stop selling.
     }
   }
+  // Grafo §135 (operator, 2026-10-28): with the close configured, the door is the Logzz dates for HER package — a unit holding all
+  // of it and serving the CEP, the rule the import itself uses. Dates: the delivery, closed here, even for a size the Coinzz 404s.
+  // Its own "no": the prepaid. Failed: the lookup above stands, as before — a failure is never "no delivery" (L2).
+  // Asked now, beside the kit's sizes below (grafo §136): neither waits for the other. `lookupCodDates` never throws.
+  const closeSizes = (units > 1 ? unitSizes : regionSize ? [regionSize] : []).filter((x): x is Size => (SIZES as readonly string[]).includes(x));
+  const closePkg = LOGZZ_TOKEN ? codPackage(CONFIG.logzzImport, closeSizes, units > 1 ? units : 1) : null;
+  let codDates: readonly CodDate[] = [];
+  let freshCodDates: CachedCodDates | null = null;
+  const codPlace = region?.place ?? (failedPlace ? { ...failedPlace, district: "Centro" } : null);
+  const cachedDates = closePkg && addressDraft.cep && codPlace ? cachedCodDates(storedAddress.codDates, addressDraft.cep, closePkg.key, Date.now()) : null;
+  const datesLook = closePkg && addressDraft.cep && codPlace
+    ? cachedDates ? Promise.resolve(cachedDates) : lookupCodDates(logzzPoster(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS), addressDraft.cep, closePkg)
+    : null;
   // A kit is delivered only when every size she chose is (operator, 2026-10-20, grafo §117): the Logzz kit checkout with an M where the M
-  // has no stock does not schedule. The other sizes are asked each turn — the cache keeps one size's answer.
-  if (region?.cod && units > 1 && addressDraft.cep) {
+  // has no stock does not schedule. The other sizes are asked each turn — the cache keeps one size's answer. On either path since the
+  // review of 481f2d3: a piece out of stock is read wherever her own size goes (`kitRegion`).
+  if (region && !region.sizeOutOfStock && units > 1 && addressDraft.cep) {
     const cep = addressDraft.cep;
     const others = [...new Set(unitSizes)].filter((x): x is Size => (SIZES as readonly string[]).includes(x) && x !== regionSize);
     // In parallel, inside the region's own timeout: the model's budget is not theirs (review).
     const answers = await Promise.all(others.map((s) =>
-      lookupRegion(regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS), cep, s, logzzIdsOf(CONFIG.checkout))
+      lookupRegion(cepFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS), cep, s, logzzIdsOf(CONFIG.checkout))
         .catch((): RegionLookup => ({ kind: "failed" }))
         .then((r) => ({ s, r }))));
     // A size without delivery, or one the lookup could not answer, makes the kit prepaid: a delivery link with a size the Logzz may
     // not schedule never goes, and a failure never turns a known answer into the two links (review: the offers flip-flopped).
-    const missing = answers.find(({ r }) => !(r.kind === "found" && r.region.cod));
-    // Her own size has it there: the reason said before the prepaid box is the other piece's size, not her region (A4).
-    if (missing) region = { ...region, cod: false, dates: [], sameDay: false, size: missing.s, otherSizesInStock: regionSize ? [regionSize] : [] };
+    region = kitRegion(region, regionSize, answers);
+  }
+  const coinzzSizeOut = region?.sizeOutOfStock === true;
+  if (datesLook && closePkg && addressDraft.cep && codPlace) {
+    const look = await datesLook;
+    if (!cachedDates && look.kind !== "failed") freshCodDates = { cep: addressDraft.cep, key: closePkg.key, checkedAt: new Date().toISOString(), result: look };
+    if (look.kind === "dates") {
+      codDates = look.dates;
+      region = {
+        ...(region ?? { zip: addressDraft.cep, place: codPlace, labelBrl: null }),
+        cod: true,
+        dates: look.dates.map((d) => d.date),
+        sameDay: false,
+        size: regionSize,
+        askedSize: regionSize,
+        otherSizesInStock: [],
+        sizeOutOfStock: false,
+      };
+    } else if (look.kind === "none" && region) region = { ...region, cod: false, dates: [], sameDay: false };
   }
   // Plan 16 §4.7: where the delivery does not reach her, the prepaid box says the freight the checkout charges at her CEP for what she
   // is buying — one piece of her size, or the kit with the size of each piece, asked in one query like the kit checkout does
@@ -3970,6 +4294,21 @@ const handleTurn = async (
   }
   // Only the freight of these pieces on a prepaid region goes on: any other one (a cache written before, a delivery region) is dropped.
   if (region && (region.cod || freightFor === null || region.prepayFreightFor !== freightFor)) region = { ...region, prepayFreightBrl: null, prepayFreightFor: null };
+  // Her size with no stock to sell on either path (operator, 2026-10-27: the M, 404 in every city, the real checkout blocks it): one
+  // honest line, and the operator e-mailed once so somebody can tell her when it is back. No offer (a guide holds the fixed ones), no
+  // link (`linkReady`), never another size to make the sale. Said already (index: turn_outcomes_conversation_idx), not repeated.
+  const sizeOut = region?.sizeOutOfStock === true ? region.size ?? regionSize : null;
+  // Read here, used by the fallback after five vetoes too (review of 481f2d3).
+  let sizeOutSaid = false;
+  if (sizeOut !== null) {
+    sizeOutSaid = ((await db(`turn_outcomes?conversation_id=eq.${conversation.id}&reason=like.${encodeURIComponent(`*${SIZE_OUT_REASON}*`)}&select=id&limit=1`).catch(() => null))?.length ?? 0) > 0;
+    const sizeOutRule = `Não mande link, não ofereça a entrega nem o antecipado, não diga data de volta e nunca sugira outro tamanho pra fechar a venda.`;
+    if (!sizeOutSaid) {
+      guide(`O tamanho dela, o ${sizeOut}, está sem estoque agora nos dois pagamentos: o checkout não vende o ${sizeOut}. Diga isso numa frase curta e ofereça avisar quando ele voltar. ${sizeOutRule}`, sizeOutOfStockLine(sizeOut), SIZE_OUT_REASON, true);
+    } else {
+      guide(`O ${sizeOut} dela continua sem estoque, e você já disse isso e que avisa quando ele voltar: não repita; responda o que ela disse agora. ${sizeOutRule}`, `Assim que o ${sizeOut} voltar eu te aviso aqui 💛`, "sem estoque no tamanho dela, já dito");
+    }
+  }
 
   // A CEP she typed with the wrong number of digits is never read, and the model told her "Recebi seu
   // CEP" and "Anotei" (second real test, grafo §66). Without a CEP read, the model is told so.
@@ -4007,22 +4346,26 @@ const handleTurn = async (
 
   const addressChanged =
     JSON.stringify({ ...addressDraft, confirmedAt: addressConfirmed }) !==
-    JSON.stringify({ ...storedAddress, codAvailable: undefined, region: undefined, confirmedAt: Boolean(storedAddress.confirmedAt) });
+    JSON.stringify({ ...storedAddress, codAvailable: undefined, region: undefined, codDates: undefined, codClose: undefined, confirmedAt: Boolean(storedAddress.confirmedAt) });
   // Whether her region pays at the door, kept for the sweep (D3): the region is looked up per
   // turn and was never stored, so the silence ruler told a woman with no payment at the door
   // "você não paga nada agora". A new CEP whose lookup failed drops the old region's answer.
   const codAvailable = region !== null ? region.cod : addressDraft.cep === storedAddress.cep ? storedAddress.codAvailable : undefined;
   codUnavailable = codAvailable === false;
-  if (addressChanged || codAvailable !== storedAddress.codAvailable || freshRegion) {
+  // The whole address as written: the close (grafo §135) writes its own state over this same object, never over a stale one.
+  const addressRow = {
+    ...addressDraft,
+    ...(addressConfirmed ? { confirmedAt: new Date().toISOString() } : {}),
+    ...(codAvailable !== undefined ? { codAvailable } : {}),
+    ...(freshRegion ?? storedAddress.region ? { region: freshRegion ?? storedAddress.region } : {}),
+    ...(freshCodDates ?? storedAddress.codDates ? { codDates: freshCodDates ?? storedAddress.codDates } : {}),
+    ...(storedAddress.codClose ? { codClose: storedAddress.codClose } : {}),
+  };
+  if (addressChanged || codAvailable !== storedAddress.codAvailable || freshRegion || freshCodDates) {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
       body: JSON.stringify({
-        address: {
-          ...addressDraft,
-          ...(addressConfirmed ? { confirmedAt: new Date().toISOString() } : {}),
-          ...(codAvailable !== undefined ? { codAvailable } : {}),
-          ...(freshRegion ?? storedAddress.region ? { region: freshRegion ?? storedAddress.region } : {}),
-        },
+        address: addressRow,
         updated_at: new Date().toISOString(),
       }),
     }).catch(() => undefined);
@@ -4042,7 +4385,10 @@ const handleTurn = async (
   const rawParts: string[] = unanswered.length > 0 ? unanswered.map((m) => m.body ?? "") : [inbound.body ?? ""];
   const { name: anyName, ...burstRest } = extractIdentityBurst(parts, askedNameNow);
   const typedName = askedNameNow ? anyName : extractIdentityBurst(parts.filter((_, i) => !rawParts[i]?.startsWith(TRANSCRIBED)), false).name;
-  const burstIdentity = { ...burstRest, ...(typedName ? { name: typedName } : {}) };
+  // Never a place of her address, a payment, product, colour or landmark as her name (review of 96b8fc7: "Bela Vista", "Dinheiro
+  // mesmo" were saved on the lead and reached the order) — the same check the close reads with (`isPlausibleName`).
+  const addressPlaces = [addressDraft.street ?? "", addressDraft.neighborhood ?? "", addressDraft.city ?? "", storedAddress.street ?? "", storedAddress.neighborhood ?? ""];
+  const burstIdentity = { ...burstRest, ...(typedName && isPlausibleName(typedName, addressPlaces) ? { name: typedName } : {}) };
   // The name on the first line above her street, only right after the agent asked for the name and
   // with none known (persona round of 2026-10-07, Cleide; review of dad2ae2: never on its own).
   const firstLineName =
@@ -4193,7 +4539,14 @@ const handleTurn = async (
     // `recordOutcome`); the gate's own reader catches a line said before the mark existed.
     stockSaid: storedProfileOf(lead)?.stock_offered === true || recentOutbound.some((m: string) => claimsStock(m)),
   });
-  const turnFacts = { stockLine, prepayFreightBrl };
+  // What the Coinzz told about her checkout (2026-10-27): the cart on her lead and her newest order, as internal facts. Index:
+  // orders_lead_idx, newest one of her few rows.
+  const newestOrder = ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(",")})&select=created_at,status,payment_method,amount_brl,units&order=created_at.desc&limit=1`).catch(() => null)) ?? [])[0] ?? null;
+  // The resume right after the media she asked for (grafo §137): what went since her last message, said as sent here.
+  const mediaJustSent = siteMode && isResume
+    ? mediaNamesOf(recent.slice(recent.findLastIndex((m: { direction: string }) => m.direction === "inbound") + 1).map((m: { body: string }) => (m.body ?? "").trim()))
+    : [];
+  const turnFacts = { stockLine, prepayFreightBrl, site: siteMode, siteOrigin: !fromAd, openingSent, checkoutFacts: checkoutFactLines(lead.cart ?? null, newestOrder), mediaJustSent };
   const factsGate = { ...(stockLeft ? { stockLeft } : {}), ...(prepayFreightBrl !== null ? { prepayFreightBrl } : {}) };
   // What the link carries: the name title-cased for the checkout (code review,
   // 2026-09-24 — "maria jose ferreira", "MARIA DA SILVA"); the stored value is untouched.
@@ -4276,7 +4629,17 @@ const handleTurn = async (
   // conversation, goes again only when she asks for it. Only this path's checkout counts (code
   // review, 2026-09-24): a switch to the prepaid one, or to a kit, is a different link and goes out.
   const pathBase = kitUrl ?? (linkPath === "cod" ? CONFIG.checkout?.codUrl : CONFIG.checkout?.prepayUrl);
-  const linkReady = sendLinkNow({ ...linkData, yesBesideQuestion });
+  // Grafo §135: an M the Logzz delivers at her door has no Coinzz checkout (its 404): on the prepaid path, no link — the delivery.
+  const prepayOut = linkPath === "prepay" && coinzzSizeOut && region?.cod === true;
+  if (prepayOut) {
+    guide(
+      `O tamanho dela só sai no pagamento na entrega agora: o checkout do antecipado não vende esse tamanho. Diga isso numa frase e` +
+        ` ofereça agendar a entrega com pagamento na hora. Não mande link.`,
+      `No antecipado esse tamanho está sem estoque agora, mas pagando na entrega eu consigo agendar pra você 😊 Quer que eu agende?`,
+      "tamanho só no pagamento na entrega",
+    );
+  }
+  const linkReady = sendLinkNow({ ...linkData, yesBesideQuestion }) && sizeOut === null && !prepayOut;
   // Past the twenty-message window, the newest link is read by the checkout hosts: the outbound rows
   // that carry one, newest first. Only when the window has none and the link would go; a failed read
   // falls back to the window, which sends.
@@ -4318,7 +4681,68 @@ const handleTurn = async (
     linkSentBefore: lastLinkBase(linkHistory, CHECKOUT_BASES) !== null,
   }) && !clauses.some((q: string) => asksSomething(q) && !buyerAsk(q));
   const linkUnheld = !linkJustSent && linkReady && !withdrew;
-  const linkNow = linkUnheld && !kitFirst;
+  // Grafo §135: the sale on delivery closes here, with no link, while she has no live order (the Logzz keeps one open main order
+  // per customer). A kit only with its price in the config. Index: orders_lead_idx, her few rows.
+  const herStatuses = closePkg !== null && codDates.length > 0 && linkPath === "cod" && sizeOut === null && (units === 1 || kits.some((k) => k.path === "cod" && k.units === units))
+    ? ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(",")})&select=status,updated_at&limit=20`).catch(() => null)) ?? [])
+    : null;
+  // An import whose `orders` row failed keeps the close shut until a webhook files an order of hers (`importBlocksClose`, grafo §136).
+  const closeOn = herStatuses !== null && !importBlocksClose(storedAddress.codClose, herStatuses) && herStatuses.every((o: { status: string | null }) => ["recusado", "entregue_pago"].includes(stageForOrder(o.status ?? undefined) ?? ""));
+  if (closeOn) {
+    gateCodDates = codDates.map((d) => d.date);
+    gateCloseOpen = true;
+  }
+  const linkNow = linkUnheld && !kitFirst && !closeOn;
+  // The close's next step (grafo §135), pure; its state is kept at once, whatever this turn then sends. What the CEP itself says
+  // of the street (ViaCEP): empty on a town's general CEP, and then her street is asked.
+  let closeDone = false;
+  const cepBody = closeOn
+    ? ((await cepFetcher(REGION_TIMEOUT_MS)(`${VIACEP_ENDPOINT}/${addressDraft.cep!.replace(/\D/g, "")}/json/`).catch(() => null)) as { logradouro?: string; bairro?: string } | null)
+    : null;
+  const closeState: CloseState = storedAddress.codClose ?? {};
+  // The newest of the close's own messages in the window: her answer is read against the list even when the model's answer to her
+  // question beside it went after (review of 9d247f3). The order still needs the summary as the very last message (`closeStep`).
+  const lastList: string = [...recentOutbound].reverse().find(isCloseMessage) ?? lastOutbound;
+  // Her name in her answer to the list, or her "meu nome é…" at any time; never her CEP's street, neighbourhood or town.
+  const closePlaces = [cepBody?.logradouro ?? "", cepBody?.bairro ?? "", region?.place.city ?? "", foundAddress.fields.street ?? "", foundAddress.fields.neighborhood ?? "", ...addressPlaces];
+  const typedCloseName = closeOn
+    ? nameCandidates(parts, lastList, codDates, new Date(), closePlaces)
+      .map((x) => extractName(x, true)).find((n) => (n ?? "").split(/\s+/).length >= 2) ?? null
+    : null;
+  const closeFacts = closeOn && closePkg && region
+    ? {
+      dates: codDates,
+      name: identityDraft.name ? titleCaseName(identityDraft.name) : null,
+      cpf: identityDraft.document ?? null,
+      cpfInvalid: parts.some(sentInvalidCpf),
+      // Her name in her answer to the checklist, beside the day, the CPF and the number ("quinta, Maria Souza, 529…, 45").
+      typedName: typedCloseName ? titleCaseName(typedCloseName) : null,
+      places: closePlaces,
+      cep: addressDraft.cep!,
+      cepStreet: typeof cepBody?.logradouro === "string" ? cepBody.logradouro : "",
+      cepNeighborhood: typeof cepBody?.bairro === "string" ? cepBody.bairro : "",
+      city: region.place.city,
+      state: region.place.state,
+      typed: foundAddress.fields,
+      stored: storedAddress,
+      phone: nationalPhone(String(lead.phone ?? "")),
+      what: units > 1 ? `Kit com ${units} peças (${closePkg.sizes.join(" e ")})` : `Colete ${closePkg.sizes[0]}`,
+      priceBrl: units > 1 ? kits.find((k) => k.path === "cod" && k.units === units)!.priceBrl : CONFIG.prices.codBrl,
+      freeShipping: CONFIG.delivery.freeShipping === true || CONFIG.delivery.codFreeShipping !== false,
+    }
+    : null;
+  const close = closeFacts
+    ? closeStep({ facts: closeFacts, state: closeState, parts, lastOutbound, lastList, datesAsked: isCloseMessage(lastList) || lastOutbound === NAME_ASK, now: new Date() })
+    : null;
+  const saveAddress = (extra: Record<string, unknown>) =>
+    db(`leads?id=eq.${lead.id}`, { method: "PATCH", body: JSON.stringify({ address: { ...addressRow, ...extra }, updated_at: new Date().toISOString() }) }).catch(() => undefined);
+  if (close && JSON.stringify(close.state) !== JSON.stringify(closeState)) await saveAddress({ codClose: close.state });
+  // Every close line through the turn's chain, with the dates of the lookup; vetoed, the model answers under the directive.
+  const closeGated = async (text: string): Promise<boolean> => {
+    const gated = runGates(text, { config: turnConfig, layer: "agent", optedOut: false, now: new Date(), paymentPath: "cod", codUnavailable, units, ...(gateCodDates ? { codDates: gateCodDates } : {}), ...(gateCloseOpen ? { closeOpen: true } : {}) });
+    await recordTraces(conversation.id, gated.traces);
+    return passed(gated);
+  };
   // She wants the link and something comes first: that one thing, asked naturally. The payment
   // choice is the region directive's; name, e-mail and CPF are the identity directive's.
   const linkDue = interpretation.wants_to_buy || parts.some(asksForLink);
@@ -4490,7 +4914,7 @@ const handleTurn = async (
     let thinkLink: string | null = null;
     try {
       // Arm B: the "vou pensar" gets the link, not the kit offer (review of 2695b80, 1).
-      thinkLink = linkUnheld && !(linkInChat && closesConversation(spoken(inbound.body ?? "")))
+      thinkLink = linkUnheld && !(linkInChat && closesConversation(spoken(inbound.body ?? ""))) && !closeOn
         ? buildPrefilledCheckoutLink(linkCustomer, linkPath, linkCheckout)
         : null;
     } catch {
@@ -4525,6 +4949,17 @@ const handleTurn = async (
     if (sent) return sent;
   }
 
+  // Site mode (operator, 2026-10-27): the opening's media only when she asks for it or for what it shows, chosen by code and sent by
+  // the system, never by the model (R11.1); then n8n's resume lets the model answer the rest. Not on the resume, not twice in a row.
+  const mediaAsked = siteMode && guides.length === 0 && !isResume && openNow && !farewell
+    ? parts.flatMap((p: string) => requestedMedia(spoken(p), CONFIG))
+      .filter((b: FunnelBubble, i: number, all: FunnelBubble[]) => all.findIndex((x) => x.text === b.text) === i && !recentOutbound.slice(-6).includes(b.text))
+    : [];
+  if (mediaAsked.length > 0) {
+    const sent = await sendFunnelTurn(mediaAsked, "mídia a pedido dela (site)", {}, true);
+    if (sent) return sent;
+  }
+
   // The size table on request (operator, 2026-10-20): the image goes, then n8n's resume lets the model answer the rest. Not on the
   // resume itself, and not twice in a row.
   const tableBubbles = sizeTableBubbles(CONFIG);
@@ -4548,7 +4983,7 @@ const handleTurn = async (
     offerNow === null
       ? []
       : ((await db(
-          `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&or=(${["⭐ DE R$ ", "⭐*DE ", "⭐*~R$ ", PREPAY_HEADLINE(CONFIG).slice(0, 30), LEGACY_PREPAY_HEADLINE.slice(0, 40), BOTH_HEADLINE].map((h) => `body.like.${encodeURIComponent(`${h}*`)}`).join(",")})&select=body&order=created_at.asc`,
+          `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&or=(${["⭐ DE R$ ", "⭐*DE ", "⭐*~R$ ", PREPAY_HEADLINE(CONFIG).slice(0, 30), LEGACY_PREPAY_HEADLINE.slice(0, 40), BOTH_HEADLINE, KIT_HEADLINE_HEAD].map((h) => `body.like.${encodeURIComponent(`${h}*`)}`).join(",")})&select=body&order=created_at.asc`,
         ).catch(() => null)) ?? []).map((m: { body: string | null }) => m.body ?? "");
   const offerBefore = lastOfferKind([...offerHistory, ...recentOutbound], CONFIG);
   // A link anywhere in the history ends the offers: past the window too (index: messages_conversation_idx).
@@ -4575,7 +5010,9 @@ const handleTurn = async (
     );
   }
   // Copy v4, section 4: after the delivery link of the two checkouts, her "não apareceu" gets the prepaid one, once.
+  // One checkout with both payments (2026-10-27): the link she has already takes the Pix, so no second link goes (`oneCheckout`).
   if (guides.length === 0 && offerBefore === "both" && openNow && !farewell && !withdrew && parts.some((p: string) => saysNoDeliveryDay(spoken(p))) &&
+    !oneCheckout(CONFIG.checkout?.codUrl, CONFIG.checkout?.prepayUrl) &&
     !recentOutbound.some((m: string) => m.startsWith(BOTH_PREPAY_HEADLINE) || m.startsWith("🔵 2) PAGAR AGORA"))) {
     const pieces = units > 1 ? units : 1;
     const prepayBase = pieces > 1 ? kits.find((k) => k.path === "prepay" && k.units === pieces)?.checkoutUrl : CONFIG.checkout?.prepayUrl;
@@ -4659,9 +5096,11 @@ const handleTurn = async (
       const cod = offerNow === "cod";
       // A4 (personas of 2026-10-24): why the prepaid, before its box — her size where another one has the delivery in her city.
       const noCodReason = cod ? null : noCodReasonLine(region.size ?? null, (region.otherSizesInStock?.length ?? 0) > 0);
+      // Grafo §135: closed here, the box sends her to no checkout and its ask is the close's (dates and what is missing), gated.
+      const closeAsk = cod && close?.kind === "send" && (await closeGated(close.text)) ? close.text : null;
       const sent = await sendFunnelTurn(
         await withHook([
-          ...offerBubbles(CONFIG, { cod, dates: region.dates, prepayFreightBrl: units === 1 ? prepayFreightBrl : null }, new Date(), checkoutUrl ? null : offerAsk(cod, sizeKnown), noCodReason),
+          ...offerBubbles(CONFIG, { cod, dates: region.dates, prepayFreightBrl: units === 1 ? prepayFreightBrl : null, closesHere: cod && close !== null }, new Date(), checkoutUrl ? null : closeAsk ?? (units > 1 && !sizeKnown ? kitSizeAsk(units, unitSizes) : offerAsk(cod, sizeKnown)), noCodReason, units),
           ...(checkoutUrl ? [{ text: v3Link(checkoutUrl) }] : []),
         ]),
         checkoutUrl ? `roteiro v3: oferta e link — ${linkFact ?? ""}` : "roteiro v3: oferta",
@@ -4669,6 +5108,138 @@ const handleTurn = async (
         answerAfterOffer,
       );
       if (sent) return sent;
+    }
+  }
+
+  // Grafo §135: the sale on delivery, closed here — the next ask or the summary, fixed and gated, her question beside it answered
+  // after (n8n's resume); the order only on `confirm`: her bare yes to the summary that is the agent's last message.
+  // The checklist goes when she wants to buy on delivery or asks how it works (operator, 2026-10-28).
+  const closeReady = close !== null && !withdrew && !declined &&
+    (isCloseMessage(lastList) || lastOutbound === NAME_ASK || linkReady || linkDue || pressed || interpretation.payment_choice === "cod" || asksHowItWorks(parts));
+  if (closeReady && guides.length === 0 && openNow && !farewell) {
+    if (close?.kind === "send" && (await closeGated(close.text))) {
+      const sent = await sendFunnelTurn([{ text: opening(close.text) }], close.reason, {}, (askedBeside || saidBeside) && !isResume && !close.text.includes(SUMMARY_HEAD));
+      if (sent) return sent;
+    }
+    // Only the turn that holds the conversation imports (`replying_since`, grafo §61): a revision runs inside its hold; the sweep's
+    // retry and a turn whose claim failed hold nothing, and two "sim" turns racing would both reach the import (review of 844743b).
+    const holdsConversation = isRevise || (internal.claimed?.id === conversation.id && !claimFailed);
+    // Her plain yes in a turn that cannot import: the summary again, fixed, so it stays her last message and her next "sim" imports
+    // (review of c72b56e: a model reply here made the summary not the last message, and the yes after it had nothing to confirm).
+    if (close?.kind === "confirm" && closePkg && LOGZZ_TOKEN && !holdsConversation) {
+      // The second resend in a row (the lock failing turn after turn): the operator is told once, and the summary still goes.
+      const resends = recentOutbound.length - 1 - recentOutbound.findLastIndex((m: string) => !m.endsWith(close.summary));
+      if (resends >= 2) extraNotify = extraNotify ?? "pedido na entrega: o sim chegou sem a trava da conversa duas vezes seguidas";
+      const sent = await sendFixed(close.summary, "pedido na entrega: sim sem a trava da conversa, o resumo de novo", "cod", {}, false, closePkg.units);
+      if (sent) return sent;
+    }
+    if (close?.kind === "confirm" && closePkg && LOGZZ_TOKEN && holdsConversation) {
+      const chosen = close.order.date.date;
+      // The day re-checked right before the import: it may have filled since the summary.
+      const recheck = await lookupCodDates(logzzPoster(REGION_TIMEOUT_MS), addressDraft.cep!, closePkg);
+      const reask = async (dates: readonly CodDate[], reason: string): Promise<Response | null> => {
+        const again = closeStep({ facts: { ...closeFacts!, dates }, state: close.state, parts: [], lastOutbound: "", datesAsked: false, now: new Date() });
+        gateCodDates = dates.map((d) => d.date);
+        await saveAddress({ codClose: again.state, codDates: { cep: addressDraft.cep, key: closePkg.key, checkedAt: new Date().toISOString(), result: { kind: "dates", dates } } });
+        return again.kind === "send" ? await sendFixed(again.text, reason, "cod", {}, false, closePkg.units) : null;
+      };
+      const noCod = async (why: string): Promise<Response | null> => {
+        // No door for the package any more: said, with the prepaid link where the Coinzz sells her size.
+        codUnavailable = true;
+        await saveAddress({ codClose: {}, codAvailable: false, codDates: { cep: addressDraft.cep, key: closePkg.key, checkedAt: new Date().toISOString(), result: { kind: "none", reason: why } } });
+        const prepayBase = units > 1 ? kits.find((k) => k.path === "prepay" && k.units === units)?.checkoutUrl : CONFIG.checkout?.prepayUrl;
+        let link: string | null = null;
+        try {
+          link = prepayBase && !coinzzSizeOut ? buildPrefilledCheckoutLink({ ...linkCustomer, ...(chatEmail ? { email: chatEmail } : {}) }, "prepay", { prepayUrl: prepayBase }) : null;
+        } catch {
+          link = null;
+        }
+        return await sendFixed(closeNoCodLine(link), `pedido na entrega sem estoque/cobertura na hora: ${why.slice(0, 80)}`, "prepay", link ? { checkoutUrl: link } : {}, false, closePkg.units);
+      };
+      if (recheck.kind === "dates" && !recheck.dates.some((d) => d.date === chosen)) {
+        const sent = await reask(recheck.dates, "pedido na entrega: o dia lotou antes do sim");
+        if (sent) return sent;
+      } else if (recheck.kind === "none") {
+        const sent = await noCod(recheck.reason);
+        if (sent) return sent;
+      } else {
+        const importId = await closeOrderId(conversation.id, close.summary);
+        const source = (lead.source ?? {}) as Record<string, unknown>;
+        const result = await placeOrder(logzzPoster(IMPORT_TIMEOUT_MS), CONFIG.logzzImport!.importUrl!, LOGZZ_TOKEN, importPayload({
+          externalId: importId,
+          order: close.order,
+          email: leadEmail,
+          cep: addressDraft.cep!,
+          city: closeFacts!.city,
+          state: closeFacts!.state,
+          pkg: closePkg,
+          utm: { source: "whatsapp", medium: fromAd ? "ctwa" : "site", campaign: "", content: "", term: "", id: typeof source.source_id === "string" ? source.source_id.slice(0, 64) : "" },
+        }));
+        if (result.kind === "created") {
+          // Filed like the webhook files a sale, so the post-order ruler runs; the webhook of the same order finds this row. Checked and
+          // tried once more (grafo §136): a swallowed failure told her "Pedido confirmado" with no row, and her next message restarted the
+          // checklist into the Logzz's open order.
+          // Her lead by id, never by phone again (grafo §137): a number `leadPhoneOf` refuses ended "Pedido confirmado" with no row.
+          const fileImport = async () => (await recordOrder({
+            externalId: importId,
+            importId,
+            phone: String(lead.phone ?? ""),
+            paymentMethod: "cod",
+            size: closePkg.sizes.join(","),
+            units: closePkg.units,
+            amountBrl: closeFacts!.priceBrl,
+            status: "Agendado",
+            scheduledFor: result.deliveryDate,
+            orderNumber: result.orderCode,
+            customerName: close.order.name,
+          }, false, { id: lead.id, phone: String(lead.phone ?? ""), opted_out_at: lead.opted_out_at ?? null }).catch(() => null))?.status === "recorded";
+          const filedOk = (await fileImport()) || (await fileImport());
+          await saveAddress({ codClose: filedOk ? {} : { orderCode: result.orderCode, importedAt: new Date().toISOString() } });
+          closeDone = true;
+          gateCloseOpen = false;
+          gateCodDates = [result.deliveryDate];
+          // Moved by the Logzz: she is told the new day and that she may ask another; the operator, the order (operator's call pending).
+          if (result.rescheduled) extraNotify = `pedido ${result.orderCode} reagendado pela Logzz de ${chosen} para ${result.deliveryDate}`;
+          if (!filedOk) extraNotify = [extraNotify, `pedido ${result.orderCode} criado na Logzz e não gravado em orders: a régua pós-pedido não arma, grave o pedido`].filter(Boolean).join("; ");
+          const text = closeConfirmed(result.orderCode, result.deliveryDate, result.rescheduled, closeFacts!.priceBrl);
+          const sent = await sendFixed(text, `pedido na entrega criado pela importação: ${result.orderCode}`, "cod", {}, false, closePkg.units, "auto");
+          // Said here, the ruler's own confirmation five minutes later would be the second one. Index: messages_conversation_idx.
+          const said = ((await db(`messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&body=eq.${encodeURIComponent(text)}&select=id&limit=1`).catch(() => null))?.length ?? 0) > 0;
+          if (said) {
+            await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.order_confirmed&status=eq.scheduled`, {
+              method: "PATCH",
+              body: JSON.stringify({ status: "canceled" }),
+            }).catch(() => undefined);
+          }
+          if (sent) return sent;
+          guide("O pedido dela foi criado agora, com o número e o dia abaixo.", text, "pedido na entrega criado: resposta do modelo");
+        } else if (result.kind === "date_gone") {
+          const fresh = recheck.kind === "dates" ? recheck.dates.filter((d) => d.date !== chosen) : [];
+          const sent = fresh.length > 0 ? await reask(fresh, "pedido na entrega: o dia lotou na importação") : await noCod(result.message);
+          if (sent) return sent;
+        } else if (result.kind === "no_cod") {
+          const sent = await noCod(result.message);
+          if (sent) return sent;
+        } else if (result.kind === "cpf") {
+          await saveAddress({ codClose: { ...close.state, badCpf: close.order.cpf } });
+          const sent = await sendFixed(CLOSE_CPF_REFUSED, "pedido na entrega: a Logzz recusou o CPF", "cod");
+          if (sent) return sent;
+        } else if (result.kind === "phone") {
+          await saveAddress({ codClose: { ...close.state, badPhone: close.order.phone } });
+          const sent = await sendFixed(PHONE_REFUSED, "pedido na entrega: a Logzz recusou o telefone", "cod");
+          if (sent) return sent;
+        } else if (result.kind === "processing") {
+          // The Logzz is still making it (409 twice): no "não consegui" — the same summary, her SIM asks the same id again.
+          const sent = await sendFixed(closeProcessing(close.summary), "pedido na entrega: a Logzz ainda processa o pedido", "cod", {}, false, closePkg.units);
+          if (sent) return sent;
+        } else {
+          // Already open there, or nothing created (409/429/5xx twice, the token, an answer not understood): said truthfully, the
+          // operator e-mailed, and the same summary under it — her "SIM" again sends the same order id.
+          extraNotify = `pedido na entrega não criado (${result.kind}): ${result.message.slice(0, 120)}`;
+          const sent = await sendFixed(result.kind === "open_order" ? CLOSE_OPEN_ORDER : closeRetryLater(close.summary), extraNotify, "cod", {}, false, closePkg.units);
+          if (sent) return sent;
+        }
+      }
     }
   }
 
@@ -4720,7 +5291,11 @@ const handleTurn = async (
   const identityDirective = farewell
     ? `Ela está se despedindo ou vai pensar, e você já respondeu isso com a mensagem de "vou pensar". ` +
       `Responda curto e gentil, sem pedir dado nenhum, sem oferta e sem link.`
-    : linkNow || linkAlreadySent || kitOfferNow || !(missing === "name" || missing === "email" || missing === "document")
+    // Grafo §135: closed here — only the lookup's dates, no link, nothing "confirmado" before her yes to the summary.
+    : close !== null && !closeDone
+    ? close.directive
+    // Her size out of stock (review of 481f2d3): no name nor CPF for a sale that cannot close.
+    : sizeOut !== null || linkNow || linkAlreadySent || kitOfferNow || !(missing === "name" || missing === "email" || missing === "document")
       ? null
       : missing === "document" && parts.some(sentInvalidCpf)
       ? // Persona Vera (2026-10-14): the invalid number was thanked as if it were hers, and the link never came.
@@ -4801,6 +5376,7 @@ const handleTurn = async (
               ? payload.source.headline
               : typeof lead.source?.headline === "string" && conversation.entry_at ? lead.source.headline : null,
             onlyGreets(parts),
+            siteMode && !fromAd,
           )
         : null,
       // E3.2 (H2): her size and register, over her last three messages.
@@ -4836,7 +5412,7 @@ const handleTurn = async (
           ` cancelar, diga isso e que ${logzzPhone ? `o atendimento ao cliente` : `o e-mail acima`} resolve; não oriente recusar na porta nem devolver por conta própria.`
         : null,
       units > 1 ? null : sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null, cepForgotten),
-      regionDirectiveFor(knownRegion, paymentChoice, agreedOnly, offerBefore === "both", offerNow !== null && offerNow !== offerBefore && !pastLink && (!sizeKnown || !openNow)),
+      regionDirectiveFor(knownRegion, paymentChoice, agreedOnly, offerBefore === "both", offerNow !== null && offerNow !== offerBefore && !pastLink && (!sizeKnown || !openNow), CONFIG.prices, sizeOut, oneCheckout(CONFIG.checkout?.codUrl, CONFIG.checkout?.prepayUrl)),
       failedPlace !== null && region === null && isLikelyCodCity(failedPlace, CONFIG.cod.likelyCities) && recentOutbound.some((m: string) => m.includes("🟢 1) PAGAR SÓ NA ENTREGA"))
         ? `A consulta do CEP dela falhou, e o sistema já mandou os dois links (🟢 1, pagar na entrega; 🔵 2, pagar agora). Se ela` +
           ` perguntar, peça pra ela abrir o link 🟢 e ver se aparece o dia da entrega; se não aparecer, o link 🔵 leva o colete do` +
@@ -5001,6 +5577,9 @@ const handleTurn = async (
       // Only the size the lookup answered for (R28 review): any size's delivery never vouches for hers.
       ...(region?.size ? { sizeChecked: region.size } : {}),
       sameDayWindow: region?.sameDay ?? false,
+      // Grafo §135: the Logzz dates of her package, the only days the close lets her hear.
+      ...(gateCodDates ? { codDates: gateCodDates } : {}),
+      ...(gateCloseOpen ? { closeOpen: true } : {}),
       regionKnown: region !== null,
       // Plan 16 §4.6–4.7: the stock and the freight the prompt taught this turn, the same values (`turnFacts`).
       ...factsGate,
@@ -5169,6 +5748,8 @@ const handleTurn = async (
   const fixedOrDraft =
     fallbackReason === null
       ? attempt.text
+      // Her size out of stock (review of 481f2d3): the safe reply is the out-of-stock line itself, never an offer of a path.
+      : sizeOut !== null ? sizeOutFallback(sizeOut, sizeOutSaid)
       : asksWhen
         ? deadlineFallbackMessage(CONFIG, codUnavailable || paymentChoice === "prepay", knownRegion !== null)
         : asksOffer ? offerFallbackMessage(CONFIG)
@@ -5177,6 +5758,7 @@ const handleTurn = async (
         ? paymentFallbackMessage(CONFIG, codUnavailable ? "no_cod" : paymentChoice === "prepay" ? "prepay" : knownRegion?.cod ? "cod" : offerBefore === "both" ? "both" : null)
         : fallbackIsGeneric ? SAFE_FALLBACK_REPLY
         : codUnavailable ? noCodMessage(CONFIG) : priceBeforeCepMessage(CONFIG);
+
   // Her other question beside the fixed deadline ("quando chega? e se eu pedir reembolso?", operator, 2026-10-13):
   // one more call, told the deadline is answered, answers only the other one — gated, under the ceiling, no
   // rewrite. Vetoed or failed, the fixed deadline goes alone, as before.
@@ -5224,6 +5806,7 @@ const handleTurn = async (
     new Date(),
     undefined,
     endsWithQuestion(replyText),
+    sizeOut !== null,
   );
 
   // O pedido, montado aqui e postado pelo n8n. Regra de negócio é código versionado;
@@ -5289,7 +5872,8 @@ const handleTurn = async (
       // A fallback stays a fallback in the record (the evaluation views and Hermes count it); the e-mail rides on the status.
       fallbackReason !== null ? "fallback" : notifyOrder || extraNotify ? "handoff" : "send",
       // The order's mark leads (the once-per-conversation read is a prefix match), and what else happened stays beside it (H-2).
-      [notifyOrder ? ORDER_UNREADABLE_REASON : null, ...guideReasons, fallbackReason ?? (checkoutUrl && linkFact && replyText.includes(checkoutUrl) ? `link — ${linkFact}` : null)]
+      // The out-of-stock mark only where the line went (review of 481f2d3): read by the next turn as "already said".
+      [notifyOrder ? ORDER_UNREADABLE_REASON : null, ...guideReasons.filter((r) => r !== SIZE_OUT_REASON || sizeOutLineSent(replyText, sizeOut)), fallbackReason ?? (checkoutUrl && linkFact && replyText.includes(checkoutUrl) ? `link — ${linkFact}` : null)]
         .filter((r): r is string => r !== null).join(" | ") || null,
       rewritesUsed,
       spent - spentBefore,

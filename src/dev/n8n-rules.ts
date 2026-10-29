@@ -82,8 +82,8 @@ export function checkWorkflow(wf: N8nWorkflow): string[] {
     // execution, a reply paid for and never sent, nobody told. The error output is what tells.
     if (isConversationTurn && node.retryOnFail === true)
       problems.push(`${where}: retryOnFail on the conversation turn — the retry answers "duplicate" and the reply is lost`);
-    // O10: the order call forwards the platform's secret, or every real sale is refused 401.
-    if (String(node.parameters?.jsonBody ?? "").includes('job: "order"') && !String(node.parameters?.jsonBody).includes("token"))
+    // O10: the order call forwards the platform's secret, or every real sale is refused 401. The abandoned cart too (2026-10-27).
+    if (/job: "(?:order|cart)"/.test(String(node.parameters?.jsonBody ?? "")) && !String(node.parameters?.jsonBody).includes("token"))
       problems.push(`${where}: the order call does not forward the webhook token (O10)`);
   }
   // The Hermes decision form (2026-09-25): a public URL. It may only flip a row whose token

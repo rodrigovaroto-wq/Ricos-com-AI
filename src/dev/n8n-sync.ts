@@ -21,6 +21,8 @@ const WORKFLOWS: Record<string, string> = {
   "3Q18SjoW0UUXrTPI": "responder-cliente",
   // E1.2 (grafo §70): the coverage alarm, active since 2026-10-13 (turn v17 has job "health").
   QQI8CX25LK7TsoKg: "alarme-de-cobertura",
+  // 2026-10-28 (grafo §134): the Coinzz abandoned-cart postback.
+  xqaepviTcGHDI5YK: "carrinho-abandonado",
 };
 
 interface ApiWorkflow {

@@ -50,7 +50,8 @@ describe("R28: as avaliações do config", () => {
 
 describe("R28: a fiação do roteiro v3 na turn (index.ts lido como fonte)", () => {
   it("toda lead nova recebe a abertura no lugar do recibo, e o modelo só responde se ela perguntou algo", () => {
-    expect(turn).toContain("if (isNewLead && !isResume && !skipsOpening(spoken(inbound.body ?? \"\")) && !afterSale) {\n    const opening = openingBubbles(CONFIG);");
+    // Since 2026-10-27 only a lead from an ad (CTWA referral): the site lead gets no opening (grafo §134).
+    expect(turn).toContain("if (isNewLead && fromAd && !isResume && !skipsOpening(spoken(inbound.body ?? \"\")) && !afterSale) {\n    const opening = openingBubbles(CONFIG);");
     expect(turn).toContain("const answer = firstMessageNeedsAnswer(spoken(inbound.body ?? \"\"));");
     expect(turn.indexOf("const opening = openingBubbles(CONFIG);")).toBeLessThan(turn.indexOf("const receiptText = openNow ? WELCOME_AUTO_REPLY"));
   });

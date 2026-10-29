@@ -268,7 +268,35 @@ export interface GateContext {
    * Absent: no freight number, as before.
    */
   prepayFreightBrl?: number;
+  /**
+   * The delivery days the Logzz offered for her package this turn (ISO), when the sale on delivery is closed in the conversation
+   * (grafo §135): she picks one of them here, so naming one is the fact of her order, not a promise. Any other day is still vetoed
+   * by `delivery_promise`. Absent (every other turn, the sweep): no day at all, as before.
+   */
+  codDates?: readonly string[];
+  /**
+   * The sale on delivery is being closed in the conversation and no order exists yet (grafo §135): `order_claim` refuses any
+   * sentence that says the order is confirmed, placed, scheduled or registered — only the import makes it so. Absent: idle.
+   */
+  closeOpen?: boolean;
 }
+
+/**
+ * The day named in a `delivery_promise` span ("entrega pra quinta (29/10)") is one of `codDates`: every weekday, "dd/mm" and
+ * "dia dd" in it resolves to the same offered date. Never true without dates.
+ */
+const offeredDay = (span: string, dates: readonly string[] | undefined): boolean => {
+  if (!dates?.length) return false;
+  const WEEK = ["domingo", "segunda", "terca", "quarta", "quinta", "sexta", "sabado"];
+  const tokens = [...span.matchAll(/\b(segunda|terca|quarta|quinta|sexta|sabado|domingo)|\b(\d{1,2})\/(\d{1,2})\b|\bdia\s+(\d{1,2})\b/g)];
+  return tokens.length > 0 && dates.some((iso) => {
+    const d = new Date(`${iso}T12:00:00Z`);
+    return tokens.every((t) =>
+      t[1] ? WEEK[d.getUTCDay()] === t[1]
+      : t[2] ? Number(t[2]) === d.getUTCDate() && Number(t[3]) === d.getUTCMonth() + 1
+      : Number(t[4]) === d.getUTCDate());
+  });
+};
 
 /** The stock the agent may cite this turn (`GateContext.stockLeft` under `scarcity.lowStock`), or null. */
 const realStock = (ctx: GateContext): { size: string; qty: number } | null => {
@@ -1172,8 +1200,13 @@ const gates: readonly Gate[] = [
             .map((k) => `${k.units} peças ${k.path === "cod" ? "na entrega" : "no antecipado"} ${money(k.priceBrl)} (${k.discountPercent}%)`)
             .join(", ")}`
         : ``) +
+      // The coupon's price, only once released (grafo §137): the gate allows the same two numbers.
+      (c.coupon.active
+        ? `, e com o cupom de ${c.coupon.percent}%: ${[...new Set([c.prices.codBrl, c.prices.prepayBrl].map((p) => money(Math.round(p * (1 - c.coupon.percent / 100) * 100) / 100)))].join(" e ")} por peça`
+        : ``) +
       `. ` +
       `Nenhum outro número em reais. ` +
+      (c.prices.prepayDiscountPercent > 0 ? `` : `O antecipado não tem desconto: o preço é o mesmo da entrega. `) +
       (savingOf(c) > 0
         ? `Nunca diga a economia em reais — a diferença entre os dois preços, nem a de um kit, em ` +
           `nenhuma formulação. Diga o percentual e o preço ("${c.prices.prepayDiscountPercent}% ` +
@@ -1181,7 +1214,7 @@ const gates: readonly Gate[] = [
           `da quantidade de que você está falando: não junte o desconto de um kit com o preço de outro. `
         : ``) +
       `Os únicos descontos são ` +
-      `${c.prices.prepayDiscountPercent}% no antecipado e 40% (o já publicado no site)` +
+      `${c.prices.prepayDiscountPercent > 0 ? `${c.prices.prepayDiscountPercent}% no antecipado e ` : ``}40% (o já publicado no site)` +
       (c.kits?.length ? `, mais os percentuais dos kits acima` : ``) +
       `${c.coupon.active ? `, mais ${c.coupon.percent}% do cupom` : ``}. E não prometa desconto ` +
       `sem número: "eu tiro um pouquinho", "faço um precinho", "dou um jeito no valor" ` +
@@ -1192,9 +1225,41 @@ const gates: readonly Gate[] = [
       const kits = ctx.config.kits ?? [];
       // The price of each piece in a kit is the link message's own (operator, 2026-10-21, grafo §121): said back, never vetoed.
       const allowedPrices = new Set([codBrl, prepayBrl, anchorBrl, ...kits.flatMap((k) => [k.priceBrl, Math.round((k.priceBrl / k.units) * 100) / 100])]);
+      // The coupon's own price, one piece on each path, only once it is released to her (the touch went, `conversationCoupon`):
+      // "Com o cupom fica R$ 87,92" is the truth then, and held it stays vetoed (re-review of 5adb420, grafo §137).
+      const { coupon } = ctx.config;
+      const withCoupon = coupon.active ? [codBrl, prepayBrl].map((p) => Math.round(p * (1 - coupon.percent / 100) * 100) / 100) : [];
+      for (const p of withCoupon) allowedPrices.add(p);
       const orderAmount = ctx.stage === "logistics" ? ctx.orderAmountBrl : undefined;
       if (orderAmount !== undefined) allowedPrices.add(orderAmount);
       const t = norm(text);
+
+      // No prepaid discount in the config (operator, 2026-10-27: one price on both paths): "Pagando no Pix antecipado tem desconto"
+      // is a discount the checkout does not give — the old prompt taught it (review of 481f2d3, R21.6). Only a sentence that names
+      // the prepaid path alone, no kit, no coupon (`coupon_exists` reads it) and no count of pieces, and no denial before the word ("não tem desconto", "sem desconto").
+      if (prepayDiscountPercent <= 0) {
+        for (const sentence of sentencesIn(t)) {
+          // A question claims nothing ("Quer saber se tem desconto no Pix?"): the answer after it is what is read.
+          if (/\?\s*$/.test(sentence)) continue;
+          if (!/\b(?:antecipa\w*|adianta\w*|pix|pag\w*\s+(?:antes|agora)|a\s+vista)\b/.test(sentence)) continue;
+          if (/\bna\s+entrega\b|\bna\s+porta\b|\bentregador\b|\bkits?\b|\bcupom\b|\b(?:[2-9]|duas|dois|tres)\s+(?:pecas?|unidades?|coletes?)\b/.test(sentence)) continue;
+          // The anchor's discount is true on every path ("No Pix sai por R$ 109,90, já com desconto", "de R$ 216,50 por R$ 109,90, com
+          // desconto"): only THAT occurrence of the bare word is exempt — "mais barato", "mais em conta", "mais desconto", "desconto extra"
+          // beside it are still read (review of 2474091; Lição 1: an exemption is a loosening).
+          const anchored = moneyMatches(sentence).some((mm) => mm.value === anchorBrl);
+          for (const claim of sentence.matchAll(/\b(?:desconto|mais\s+barat\w*|mais\s+em\s+conta|sai\s+menos|abatimento)\b/g)) {
+            const at = claim.index ?? 0;
+            if (negatedAt(sentence, at)) continue;
+            if (claim[0] === "desconto") {
+              const before = sentence.slice(Math.max(0, at - 24), at);
+              const after = sentence.slice(at + claim[0].length, at + claim[0].length + 16);
+              const more = /\b(?:mais|ainda|outro|extra|adiciona\w*)\s+(?:um\s+)?$/.test(before) || /^\s+(?:extra|adiciona\w*|a\s+mais|especial)\b/.test(after);
+              if (!more && (/\bja\s+com\s+(?:o\s+)?$/.test(before) || anchored)) continue;
+            }
+            return "claims a prepaid discount; there is none — the prepaid price is the same";
+          }
+        }
+      }
 
       // Exit A (operator decision 2026-09-22, Frente 4 item 6): the saving in reais — the
       // difference between the two offers — is never said, in any wording, on either path
@@ -1351,8 +1416,18 @@ const gates: readonly Gate[] = [
       // agent had already got right.
       // The prepaid freight the checkout read at her CEP this turn (§4.7): that amount, in a sentence about the freight.
       const freight = realFreight(ctx);
+      // A kit's piece price alone is no price of one piece (Opus review of cfa04fe, grafo §137: "Fica R$ 87,92 pra você" passed, the
+      // 3-piece price that equals one piece with the coupon held): only in a sentence that names its count, its kit or "cada".
+      const whole = new Set([codBrl, prepayBrl, anchorBrl, ...withCoupon, ...kits.map((k) => k.priceBrl), ...(orderAmount !== undefined ? [orderAmount] : [])]);
+      const pieceOf = (v: number) => kits.filter((k) => !whole.has(v) && Math.round((k.priceBrl / k.units) * 100) / 100 === v).map((k) => k.units);
+      const namesKit = (at: number, units: number[]) => {
+        const sentence = `${t.slice(0, at).split(/[!?\n]|\.(?!\d)/).pop() ?? ""}${t.slice(at).split(/[!?\n]|\.(?!\d)/)[0] ?? ""}`;
+        const n = units.flatMap((u) => [String(u), ...(u === 2 ? ["duas", "dois"] : u === 3 ? ["tres"] : [])]).join("|");
+        return new RegExp(String.raw`\b(?:${n})\s+(?:pecas?|unidades?|coletes?)\b|\bkits?\s+(?:de\s+|com\s+)?(?:${n})\b|\bcada\b|\b(?:por|a)\s+(?:peca|unidade)\b`).test(sentence);
+      };
       for (const m of moneyMatches(t)) {
-        if (allowedPrices.has(m.value) || negatedAt(t, m.at)) continue;
+        if (negatedAt(t, m.at)) continue;
+        if (allowedPrices.has(m.value) && (pieceOf(m.value).length === 0 || namesKit(m.at, pieceOf(m.value)))) continue;
         if (freight !== null && m.value === freight && (/\bfrete\b(?:[^.!?\n]|\.(?=\d))*$/.test(t.slice(0, m.at)) || /^(?:[^.!?\n]|\.(?=\d))*\bfrete\b/.test(t.slice(m.at)))) continue;
         return `price ${m.value} is not one of the configured values`;
       }
@@ -1426,12 +1501,13 @@ const gates: readonly Gate[] = [
     remedy: "rewrite",
     briefing: (c) =>
       c.coupon.active
-        ? `O cupom de ${c.coupon.percent}% está ativo e você pode citá-lo` +
+        ? `O cupom de ${c.coupon.percent}% já chegou a ela pelo lembrete e você pode ajudá-la a usá-lo` +
           (c.coupon.code?.trim() ? `: o código é ${c.coupon.code.trim()}, digitado por ela no checkout. Nenhum outro código existe.` : `.`)
         // Personas of 2026-10-24: "não temos cupom no momento" with SUPER20 active, held for the ruler's `silence_3` (R17.4,
         // `conversationCoupon`), and the coupon arrived after — a contradiction. Never denied, never announced: today's best price.
-        : `Nesta conversa você não cita cupom nem código: o checkout não aplicaria. Se ela perguntar de cupom, não diga que ` +
-          `não existe nem que não temos: diga o melhor valor de hoje, que está na oferta.`,
+        // Operator, 2026-10-29 (grafo §137): the coupon is the follow-up's only, never the conversation's offer.
+        : `Nesta conversa você não anuncia, não oferece e não puxa assunto de cupom nem de código de desconto: o cupom é só ` +
+          `do lembrete. Se ela perguntar de cupom, não diga que não existe nem que não temos: diga o melhor valor de hoje, que está na oferta.`,
     // The gate exists so the agent never announces a coupon with no destination in
     // Coinzz. Saying "não temos cupom no momento" announces nothing — it is the honest
     // answer to a question customers ask constantly, and vetoing it left the agent
@@ -1439,8 +1515,11 @@ const gates: readonly Gate[] = [
     check: (text, ctx) => {
       if (ctx.config.coupon.active) return null;
       const t = norm(text);
-      for (const m of t.matchAll(/cupom/g)) {
-        if (!negatedAt(t, m.index ?? 0)) return "mentions a coupon that is not active in Coinzz yet";
+      // Its code is the coupon itself, said or denied (grafo §137): only the follow-up gives it.
+      const code = ctx.config.coupon.code?.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (code && t.replace(/[^a-z0-9]/g, " ").split(/\s+/).includes(code)) return "names the coupon code, which only the follow-up gives";
+      for (const m of t.matchAll(/cupo(?:m|ns)|codigos?\s+(?:de\s+desconto|promocion\w*)/g)) {
+        if (!negatedAt(t, m.index ?? 0)) return "mentions a coupon that is not this conversation's";
       }
       return null;
     },
@@ -1586,6 +1665,77 @@ const gates: readonly Gate[] = [
         if (NEGATION.test(sentence) || /\b(?:antecip\w*|rastre\w*|transportadora|envio|postad\w*)\b/.test(sentence)) continue;
         const atTheDoor = m[0].startsWith("carteir") || /\b(?:na\s+entrega|ao\s+entregador|pro\s+entregador|para\s+o\s+entregador|na\s+porta|no\s+ato|ao\s+receber)\b/.test(sentence);
         if (atTheDoor && !askedAt(t, at + m[0].length)) return "says the mail carries a pay-at-the-door order";
+      }
+      return null;
+    },
+  },
+  {
+    /**
+     * The order on delivery exists only after the import answered (grafo §135, review of 844743b): "Prontinho, seu pedido está
+     * confirmado pra quinta (29/10)! 🎉", "Seu pedido foi agendado", "Seu pedido está registrado" passed the whole chain while it
+     * waited for her SIM. Idle unless `closeOpen`. Only her order already done is read (review of 9d247f3); a denial, a condition
+     * glued to it, or a question is the truth ("ainda não está confirmado", "assim que você disser SIM eu confirmo").
+     */
+    name: "order_claim",
+    remedy: "rewrite",
+    briefing: () =>
+      `Quando o pedido na entrega é fechado aqui na conversa, ele só existe depois que ela responde SIM ao resumo e o sistema ` +
+      `devolve o número: antes disso, nunca diga que o pedido está confirmado, feito, agendado, registrado ou criado.`,
+    check: (text, ctx) => {
+      if (ctx.closeOpen !== true) return null;
+      const t = norm(text);
+      // Only HER order ALREADY done is the lie (review of 9d247f3): "a entrega é feita pelo entregador", "quando a entrega for
+      // realizada", "o pedido é confirmado depois do seu SIM", "seu pedido fica agendado se você responder SIM" are the truth.
+      const DONE = String.raw`(?:confirmad|agendad|registrad|feit|criad|finalizad|fechad|realizad|garantid|reservad|marcad|efetuad|gerad|lancad|cadastrad|concluid)(?:[oa]s?|inh[oa]s?)`;
+      const THING = String.raw`(?:pedido|entrega|colete|compra|encomenda)`;
+      const DAY = String.raw`(?:(?:segunda|terca|quarta|quinta|sexta)(?:[\s-]*feira)?|sabado|domingo|dia\s+\d{1,2}|\d{1,2}\/\d{1,2})`;
+      const claims: Array<[RegExp, boolean, boolean?]> = [
+        // "seu pedido está/foi/já está confirmado", "o pedido ficou agendado", "seu colete já está garantido"
+        [new RegExp(String.raw`\b(?:seu|sua|o|a)\s+${THING}\b[^.!?;\n]{0,40}?\b(?:esta|ta|foi|ficou)\s+(?:(?:ja|todo|toda|bem)\s+)?${DONE}\b`, "g"), false],
+        // "já agendei sua entrega", "confirmei seu pedido", "agendei pra quinta", "lancei seu pedido"
+        [new RegExp(String.raw`\b(?:confirmei|agendei|registrei|criei|finalizei|fechei|fiz|reservei|marquei|garanti|lancei|cadastrei|gerei|efetuei)\b(?:\s+(?:o\s+|a\s+)?(?:(?:seu|sua)\s+)?${THING}\b|\s+(?:\w+\s+){0,3}?(?:pra|para|na|no)\s+${DAY})`, "g"), false],
+        // "Pedido confirmado!", "Confirmado pra quinta (29/10)!", "Tá agendado pra quinta!", "Tudo agendado!", "Pedido gerado!" — a bare
+        // "Feito!" or "Confirmado!" names no order nor day
+        [new RegExp(String.raw`(?:^|[.!?\n])\s*(?:(?:prontinho|pronto|tudo\s+certo|combinado|fechado|perfeito|otimo)\s*[!,.]*\s*)?(?:(?:ja\s+)?(?:esta|ta)\s+)?(?:(?:(?:seu\s+)?pedido|tudo)\s+${DONE}\b(?:\s+(?:pra|para|na|no)\s+${DAY})?|${DONE}\s+(?:pra|para|na|no)\s+${DAY})(?=\s*(?:$|com\s+sucesso|[^\w\s?]))`, "g"), false],
+        // "Sua entrega é/fica pra quinta (29/10)", "seu pedido fica agendado pra quinta": only with no condition in the sentence
+        [new RegExp(String.raw`\b(?:seu|sua|o|a)\s+${THING}\s+(?:e|fica|ficou|vai\s+ser|vai\s+ficar|sera)\s+(?:${DONE}\s+)?(?:(?:pra|para|na|no|em)\s+(?:a\s+|o\s+)?)?${DAY}`, "g"), true],
+        // "Já está tudo agendado", "tudo já está confirmado"
+        [new RegExp(String.raw`\b(?:esta|ta|ficou|foi)\s+tudo\s+${DONE}\b|\btudo\s+(?:ja\s+)?(?:esta|ta|ficou|foi)\s+${DONE}\b`, "g"), false],
+        // "Já está agendado!", "Tá agendado!", "Ficou agendado pra quinta (29/10)" standing alone (review of 96b8fc7) — "Respondendo
+        // SIM, tá agendado pra quinta" is a condition
+        [new RegExp(String.raw`(?:^|[.!?\n,])\s*(?:(?:prontinho|pronto|tudo\s+certo|combinado|fechado|perfeito|otimo|feito|sim)\s*[!,.]*\s*)?(?:ja\s+)?(?:esta|ta|ficou)\s+${DONE}\b(?:\s+(?:pra|para|na|no)\s+${DAY})?(?=\s*(?:$|com\s+sucesso|[^\w\s?]))`, "g"), true, true],
+        // "Pronto, agendei!", "Já agendei.", "Feito! Agendei pra você."
+        [new RegExp(String.raw`\b(?:ja\s+)?(?:confirmei|agendei|registrei|marquei|lancei|cadastrei|reservei|garanti|finalizei)(?:\s+(?:tudo|aqui|pra\s+voce|para\s+voce))?(?=\s*(?:$|[^\w\s?,:;]))`, "g"), false, true],
+        // "Deixei agendado pra quinta", "deixei tudo confirmado"
+        [new RegExp(String.raw`\bdeixei\s+(?:tudo\s+|seu\s+pedido\s+|sua\s+entrega\s+)?${DONE}\b`, "g"), false],
+      ];
+      const WHEN_SHE = String.raw`(?:assim\s+que|quando|depois\s+que|se)\s+(?:voce|vc)\s+(?:me\s+)?(?:responder|disser|confirmar|mandar|falar|respond\w*)`;
+      // A leading "Sim," is her yes echoed, never a condition (review of 96b8fc7); "seu SIM", "me fala SIM" are.
+      const CONDITION = /\b(?:se|quando|assim\s+que|depois\s+(?:que|do|da|de)|caso|respond\w*|confirm(?:ar|ando|e|ou)|escolh\w*|(?:seu|teu|o|um)\s+sim|(?:fal|diz|diss|mand|digit)\w*\s+(?:o\s+)?sim)\b/;
+      // A standalone "tá confirmado", "confirmei aqui" about her region, size, CEP or data is the truth, not her order (review of
+      // 360625b: "Já confirmei aqui: tem entrega na sua região!", "o G é o seu tamanho, tá confirmado!").
+      const OTHER = /\b(?:tamanho|regiao|cep|endereco|cpf|dados|estoque|medida|preco|frete)\b/;
+      for (const [re, conditional, standalone] of claims) {
+        for (const m of t.matchAll(re)) {
+          const at = (m.index ?? 0) + (/^[.!?\n,]/.test(m[0]) ? 1 : 0);
+          const end = (m.index ?? 0) + m[0].length;
+          const from = Math.max(t.lastIndexOf(".", at - 1), t.lastIndexOf("!", at - 1), t.lastIndexOf("?", at - 1), t.lastIndexOf(";", at - 1), t.lastIndexOf("\n", at - 1)) + 1;
+          const head = t.slice(from, at);
+          const rest = t.slice(end);
+          const sentence = head + t.slice(at, end) + (rest.split(/[.!?;\n]/)[0] ?? "");
+          // Denied right before the participle ("pedido ainda não está confirmado") or before the claim ("ainda não confirmei seu
+          // pedido", "nunca diga que o pedido está confirmado"); a "não" further away is another clause.
+          if (/\b(?:nao|nunca|nem)\s+(?:\w+\s+){0,2}\S+$/.test(m[0]) || /\b(?:nao|nunca|ainda\s+nao)\s+(?:\w+\s+){0,2}$/.test(head)) continue;
+          // "Sua entrega fica pra quinta se você confirmar", "Me responde SIM e seu pedido fica agendado pra quinta": a condition.
+          if (conditional && CONDITION.test(sentence)) continue;
+          if (standalone && OTHER.test(sentence)) continue;
+          // Her answer as the condition glued to it: "Se você responder SIM, seu pedido…", "…confirmado assim que você responder".
+          if (new RegExp(String.raw`^\s*${WHEN_SHE}\b[^,:;]*(?:,\s*)?(?:\w+\s+){0,2}$`).test(head)) continue;
+          if (new RegExp(String.raw`^\s*,?\s*${WHEN_SHE}`).test(rest)) continue;
+          // Asked, not claimed: "o pedido ficou confirmado?" — in the claim's own clause.
+          if (/^[^,.!\n]*\?/.test(rest)) continue;
+          return "claims the order is confirmed before the import made it";
+        }
       }
       return null;
     },
@@ -2225,6 +2375,8 @@ const gates: readonly Gate[] = [
           ),
         )) {
           const at = m.index ?? 0;
+          // A day of the dates the Logzz offered for her package (grafo §135), with the "(dd/mm)" right after it read too.
+          if (offeredDay(m[0] + (/^\s*\(\s*\d{1,2}\/\d{1,2}\s*\)/.exec(td.slice(at + m[0].length))?.[0] ?? ""), ctx.codDates)) continue;
           const phrase = td
             .slice(Math.max(0, at - 60), at)
             .split(/[:;.!?\n]/)

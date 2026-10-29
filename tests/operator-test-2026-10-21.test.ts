@@ -173,6 +173,11 @@ describe("code review do §121", async () => {
   it("o preço de cada peça do kit, que o link diz, passa o gate de preço", () => {
     const price = (text: string) => runGates(text, ctx({ config: prod })).traces.find((t) => t.gate === "price_promise")?.verdict;
     expect(price("Isso, 3 peças saem por R$ 103,92 cada.")).toBe("pass");
+    // With the coupon held, as the conversation has it before the touch (grafo §137): 103,92 is also 129,90 − 20%, and only the kit's
+    // own per-piece price lets it through then.
+    const held = (text: string) =>
+      runGates(text, ctx({ config: { ...prod, coupon: { ...prod.coupon, active: false } } })).traces.find((t) => t.gate === "price_promise")?.verdict;
+    expect(held("Isso, 3 peças saem por R$ 103,92 cada.")).toBe("pass");
     // Negation: a per-piece price nobody configured is still a promise.
     expect(price("Isso, 3 peças saem por R$ 99,90 cada.")).toBe("block");
   });
