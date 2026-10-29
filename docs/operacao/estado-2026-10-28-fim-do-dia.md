@@ -152,3 +152,20 @@ Grafo §132a (calça 56/colete masculino, da v45), §133, §134, §135. Configs:
 `docs/agente-ia/06-script/03-templates-meta.md`. Commits-chave (Ricos-com-AI, branch `claude/site-whatsapp-test`): `481f2d3` oferta
 nova, `ecea0c3`/`2474091`/`ab050f4` origem+carrinho+Pix e correções, `844743b`…`d67e83e` fechamento pela Logzz, `329cb31` o que foi
 publicado como v47, `3f4d6d0` HANDOFF. Site: `1525764`.
+
+## 9. Conferência de 2026-10-29 (manhã), sem ação de produção
+
+- **Saúde:** desde a publicação da v47 (28/10 20:07 UTC) até 29/10 10:56 UTC, todas as execuções do n8n deram `success`
+  (régua 94, alarme de cobertura 31, portal 93, Hermes 32). Nenhum lead novo, nenhum pedido novo, nenhum turno na v47 (a campanha
+  está pausada): o fechamento pela Logzz continua sem uso real.
+- **Teste do botão "Testar" da Coinzz (28/10 13:53–13:55 UTC):** o webhook de carrinho abandonado foi exercitado 3 vezes. A primeira
+  foi com a senha escrita `XXXX` (recusada, e-mail "carrinho não mapeado" ao operador: comportamento certo); as outras duas com a senha
+  real: carrinho gravado e `cart_recovery` armado. **O lead de teste ficou no banco** (telefone terminado em 4554, nome do exemplo da
+  Coinzz, sem `source`, 1 carrinho de 2 peças): o toque foi cancelado sem envio. **Ele conta como lead "do site": exclua-o das
+  métricas do teste A/B** (ou apague-o; o `delete` pelo conector trava, usar a API de gerência, ver a memória `mcp-sql-trava-com-delete`).
+- **Risco achado no payload de exemplo:** o `checkout_url` do exemplo da Coinzz foi `https://checkout.coinzz.com.br/cart/abc123`,
+  que `checkoutSlug` (padrão `…coinzz.com.br/checkout/<slug>`) não reconhece. Para um carrinho real com URL nesse formato o botão do
+  template ficaria sem variável e o toque seria **bloqueado** (`empty_variable`): seguro, mas a recuperação não sairia. Não dá para
+  saber o formato real sem um carrinho abandonado de verdade. **Ao ver o primeiro carrinho real**, conferir `leads.cart->>'checkoutUrl'`;
+  se vier nulo, o conserto pequeno é derivar o slug da quantidade (1 → `encorpa-0`, 2 → `encorpa-site-0`, 3 → `oferta-site2-0`) quando a
+  URL não for reconhecida. Sem urgência: os templates ainda nem foram aprovados.
