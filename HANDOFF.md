@@ -13,6 +13,10 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-29 14:37 UTC — NO AR: `turn` v48 (função v177, commit `1e4609c`) + `business-config-2026-10-29b`.** Cupom só depois do
+> follow-up, "Menos de 24 Horas", furos do kit corrigidos (grafo §137–§138). Estado e o que falta: seção 14 de
+> [`docs/operacao/estado-2026-10-28-fim-do-dia.md`](docs/operacao/estado-2026-10-28-fim-do-dia.md).
+
 > **2026-10-29 ~12:30 UTC — PAUSA pedida pelo operador. Estado exato e ordem do que falta: seção 13 de
 > [`docs/operacao/estado-2026-10-28-fim-do-dia.md`](docs/operacao/estado-2026-10-28-fim-do-dia.md).** No ar: `turn` v47 +
 > `business-config-2026-10-29b` (Coinzz no WhatsApp, cupom ativo, âncora R$ 179,90). Em andamento, salvo e não revisado: branch

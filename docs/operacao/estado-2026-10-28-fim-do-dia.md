@@ -247,3 +247,20 @@ publicado como v47, `3f4d6d0` HANDOFF. Site: `1525764`.
 7. Teste A/B de 5 dias (sócio liga os conjuntos), leitura diária; critério anúncio por venda ≤ R$ 27 (sem cupom; com cupom no follow-up o empate de 1 peça sobe).
 8. Merge do PR #83 com o OK do operador.
 
+
+## 14. NO AR: `turn` v48 (2026-10-29 14:37 UTC)
+
+- **Publicada:** `agent_version` 48, função `turn` v177, commit `1e4609c` (branch `claude/site-whatsapp-test`, PR #83), config
+  `business-config-2026-10-29b` sem mudança. Substitui a v47: o risco do cupom citado na conversa (§13) acabou.
+- **O que a v48 traz:** o cupom SUPER20 só é liberado depois que o toque de follow-up com ele foi enviado (`couponTouchSent`), nunca na
+  oferta da conversa (grafo §137); "Menos de 24 Horas" de volta para a primeira data de amanhã; os defeitos D1–D8 do teste prático; e os
+  dois furos do kit achados no reteste curto (grafo §138: "as duas G" não vira nome; a caixa do kit pergunta o tamanho da peça que falta).
+- **Reteste curto com o modelo real** (R$ 0,12, leads sintéticos apagados): 7 de 7 cenários como esperado; cupom nunca citado nem negado
+  com a palavra; âncora 179,90 em toda resposta de preço, 216,50 em nenhuma.
+- **Fato de estoque para o operador:** na Coinzz o G em São Paulo não tem pagamento na entrega (estoque do G em Belo Horizonte); GG e XGG têm.
+- **Validação antes da subida:** 9.545 testes, lint, typecheck, `typecheck:function`, `dev:conversas` 1655/1655, `dev:gates --fail-on-loosen` ok.
+
+**Falta (operador):** decidir se a Malu cita os preços dos kits com cupom depois do follow-up (2 peças R$ 158,26); pedido de teste pela
+Malu → link Coinzz (cancelar depois); aprovação dos templates → `channel.templates`; estoque Coinzz × Logzz com o fornecedor; tirar o lead
+de teste da Coinzz (final 4554) das métricas; teste A/B de 5 dias; merge do PR #83 com o OK dele; apagar as branches
+`wip/checklist-close-2026-10-28` e `wip/practical-fixes-coupon-2026-10-29` (superadas).
