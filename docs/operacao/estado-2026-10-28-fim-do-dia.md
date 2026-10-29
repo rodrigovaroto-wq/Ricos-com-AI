@@ -198,3 +198,14 @@ publicado como v47, `3f4d6d0` HANDOFF. Site: `1525764`.
   "em algumas regiões" e manda conferir no checkout. Com o cupom, 1 peça rende ~R$ 16,80 por pedido (empate em ~8,4 vendas a cada
   100 leads a CPL R$ 1), contra R$ 32,10 sem cupom.
 
+## 12. Âncora de R$ 179,90 e a imagem de preço (29/10)
+
+- Operador: âncora **R$ 179,90 por unidade**, e o selo continua "40% OFF" (a conta exata é 38,9%).
+- **A imagem de preço que a Malu manda estava errada em produção** ("DE R$ 216,50 POR R$ 129,90" desde a troca de preço de 27/10).
+  Nova imagem "DE R$ 179,90 POR R$ 109,90" gerada sobre a mesma foto e publicada no mesmo endereço
+  (`storage/v1/object/public/funil/preco.png`); a antiga ficou em `funil/preco-129-backup.png`; cópia no repositório em
+  `docs/agente-ia/06-script/midia/preco_109.png`.
+- Site: `ANCHOR_PRICE = 179.9`, selo fixo "40% OFF" (Encorpa-Website `3c8659f`, publicado na `main`).
+- Config: [`business-config-2026-10-29b.min.json`](business-config-2026-10-29b.min.json) = 29/10 com `anchorBrl: 179.9`
+  (sha `76ca1786…`); as frases de preço com a âncora nova passam a cadeia de gates.
+
