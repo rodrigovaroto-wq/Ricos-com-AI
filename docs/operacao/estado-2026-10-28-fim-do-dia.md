@@ -169,3 +169,17 @@ publicado como v47, `3f4d6d0` HANDOFF. Site: `1525764`.
   saber o formato real sem um carrinho abandonado de verdade. **Ao ver o primeiro carrinho real**, conferir `leads.cart->>'checkoutUrl'`;
   se vier nulo, o conserto pequeno é derivar o slug da quantidade (1 → `encorpa-0`, 2 → `encorpa-site-0`, 3 → `oferta-site2-0`) quando a
   URL não for reconhecida. Sem urgência: os templates ainda nem foram aprovados.
+
+## 10. Atualização de 2026-10-29
+
+- **Pixel nas 3 ofertas da Coinzz: feito pelo operador**, com ID e token da API de Conversões cadastrados na própria Coinzz.
+  Conferido com Playwright: `encorpa-0`, `encorpa-site-0` e `oferta-site2-0` carregam `4466808633585371`. Itens 3 e 4 de §4 e o item
+  2 de §5 estão feitos.
+- **Evento de compra pelo servidor (nosso):** não construir enquanto a Coinzz envia a API de Conversões. Os dois juntos mandariam a
+  mesma compra duas vezes (sem um `event_id` comum, a Meta não deduplica). Só volta à mesa se a Coinzz não enviar a compra da entrega
+  (pagamento na porta) — conferir no Gerenciador de Eventos depois das primeiras vendas.
+- **Templates: submetidos pelo sócio, aguardando aprovação da Meta.** Aprovados → declarar em `channel.templates` (JSON em
+  `03-templates-meta.md`) e gravar o config.
+- **PR #83** aberto para a `main` (CI verde: `check` e as 8 partes de mutações). Correções do `/code-review` de 29/10 (grafo §136) estão
+  na branch, **não publicadas** (no ar segue a v47).
+
