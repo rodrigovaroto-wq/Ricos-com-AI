@@ -741,7 +741,7 @@ export const honestyBriefing = (config: PromptConfig): string[] => {
  * value-building — product, price, reviews, video — so she is answered directly and taken to the close; the media go only on her
  * request, sent by the system (`requestedMedia`), never promised by the model.
  */
-export const siteBriefing = (fromSite = true): string[] => [
+export const siteBriefing = (fromSite = true, mediaJustSent: readonly string[] = []): string[] => [
   ...(fromSite
     ? [
         `ELA VEIO DO SITE, não de um anúncio: lá ela já viu o colete, as fotos, o preço, as avaliações e o vídeo, e tocou no botão do`,
@@ -757,6 +757,13 @@ export const siteBriefing = (fromSite = true): string[] => [
   `NENHUMA ABERTURA FOI MANDADA AQUI. Vídeo, avaliações, os seus áudios gravados e a tabela de tamanhos o sistema manda sozinho`,
   `quando ela pede, e eles aparecem no histórico: nunca diga que vai mandar nem que mandou o que não está lá. Se o histórico já`,
   `tiver um áudio seu gravado, não diga que não consegue mandar áudio.`,
+  // The resume right after `requestedMedia` sent them (real test 2026-10-29, grafo §137): the reply sent her to the site to watch it.
+  ...(mediaJustSent.length > 0
+    ? [
+        `AGORA MESMO, a pedido dela, o sistema mandou aqui na conversa: ${mediaJustSent.join(", ")}. Ela está vendo aqui: não mande ela`,
+        `ao site pra ver, não ofereça mandar de novo nem diga que vai mandar; responda o resto do que ela disse e siga a conversa.`,
+      ]
+    : []),
 ];
 
 /**
@@ -945,6 +952,8 @@ export const systemPrompt = (
     openingSent?: boolean;
     /** What the Coinzz told about her checkout (`checkoutFactLines`): internal facts, never recited. */
     checkoutFacts?: readonly string[];
+    /** With `site`: the media `requestedMedia` sent since her last message ("o vídeo…"), said as sent here (grafo §137). */
+    mediaJustSent?: readonly string[];
   } = {},
 ): string => {
   const options = twoOptionsMessage(config);
@@ -970,7 +979,7 @@ export const systemPrompt = (
     `não o valor dela.`,
     `O colete serve para homem também, e o tamanho se acha do mesmo jeito, pela cintura: se perguntarem, diga que sim.`,
     ...(turnFacts.site
-      ? siteBriefing(turnFacts.siteOrigin !== false)
+      ? siteBriefing(turnFacts.siteOrigin !== false, turnFacts.mediaJustSent)
       : [
           `Quase sempre ela vem do anúncio, e AINDA NÃO ESTÁ CONVENCIDA. Primeiro ela precisa ouvir que funciona no`,
           `corpo e na roupa dela, que é confortável e não marca, que ninguém vai enganá-la e que o`,
@@ -1024,8 +1033,8 @@ export const systemPrompt = (
     `— Fale do que ela ganha, não do produto: o corpo *Fininho em Segundos*, a roupa parada no armário de volta, a autoestima`,
     `  lá em cima. Convide pra fechar com entusiasmo: "Vamos agendar seu pedido e aproveitar essa mega oferta?! 😊",`,
     `  "Vamos agendar sua transformação e recuperar essa autoestima hoje?!".`,
-    `— A urgência e o desconto vêm dos fatos do sistema, que já são fortes: a primeira data de entrega (amanhã é "Seu Pedido`,
-    `  Chegará em *Menos de 24 Horas!!*"), ${config.prices.prepayDiscountPercent > 0 ? `o desconto do antecipado e dos kits` : `o desconto dos kits`}, o pagamento só na entrega e a garantia.`,
+    `— A urgência e o desconto vêm dos fatos do sistema, que já são fortes: a primeira data de entrega, dita como o dia`,
+    `  que a consulta deu, ${config.prices.prepayDiscountPercent > 0 ? `o desconto do antecipado e dos kits` : `o desconto dos kits`}, o pagamento só na entrega e a garantia.`,
     `Estas frases do operador são o seu modelo de tom (não copie palavra por palavra; escreva no mesmo estilo):`,
     `  "Você pode usar embaixo de qualquer roupa, ela é super confortável, não enrola, não dobra e não machuca."`,
     `  "*Não Paga Nada Agora*, só quando chegar aí, no dinheiro, Pix ou cartão!"`,

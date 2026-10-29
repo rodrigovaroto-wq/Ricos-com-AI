@@ -129,12 +129,15 @@ export const requestedMedia = (message: string, config: FunnelConfig): FunnelBub
   // Refused, or she cannot play it: nothing goes.
   // Postposed too (review of 2474091): "tem vídeo? não precisa".
   const off = (word: string): boolean =>
-    new RegExp(`\\b(?:nao|sem|nem|nunca)\\s+(?:\\S+\\s+){0,3}${word}|${word}\\w*\\s+(?:nao|nem)\\b|${word}[\\s\\S]*\\b(?:nao\\s+precisa|nao\\s+quer\\w*|deixa\\s+pra\\s+la|esquece)\\b`).test(t);
+    // "não vi o vídeo ainda" is her past, not a refusal (real test 2026-10-29, grafo §137): the ask beside it decides.
+    new RegExp(`\\b(?:nao|sem|nem|nunca)\\s+(?!(?:vi|assisti|olhei)\\b)(?:\\S+\\s+){0,3}${word}|${word}\\w*\\s+(?:nao|nem)\\b|${word}[\\s\\S]*\\b(?:nao\\s+precisa|nao\\s+quer\\w*|deixa\\s+pra\\s+la|esquece)\\b`).test(t);
   // An explicit ask, in the present, right before the thing (review of ecea0c3, 3): "tem vídeo?", "manda um áudio", "pode me mostrar
   // as avaliações?", "quero ver o vídeo". Never her past ("vi o vídeo no site", "assisti o vídeo", "li as avaliações") nor a mention
   // of it ("a moça do vídeo", "no vídeo ela tá com a bege", "desculpa o áudio").
   const ASK = String.raw`\b(?:tem|teria|tens|manda|mande|me\s+manda|envia|envie|me\s+envia|mostra|mostre|me\s+mostra|me\s+passa|(?:pode|poderia|consegue|da\s+pra)\s+(?:me\s+)?(?:mandar|enviar|mostrar|passar)|(?:quero|queria|gostaria\s+de|posso|da\s+pra)\s+ver)\s+(?:(?:um|uma|o|a|os|as|algum|alguma|mais|outro|outra|de\s+novo)\s+){0,2}`;
-  const asked = (word: string): boolean => new RegExp(ASK + word).test(t) && !off(word);
+  // The ask after the thing, closing her sentence: "não vi o vídeo ainda, manda?" (grafo §137); never "vi o vídeo, manda o link".
+  const ASK_AFTER = String.raw`\w*\b[^.!?\n]{0,30}(?<!\b(?:nao|nem)\s)\b(?:manda|mande|me\s+manda|envia|envie|me\s+envia|mostra|me\s+mostra|(?:pode|poderia|consegue)\s+(?:me\s+)?(?:mandar|enviar|mostrar))(?:\s+(?:aqui|pra\s+mim|de\s+novo|por\s+favor|ai))*\s*(?:[?!.\n]|$)`;
+  const asked = (word: string): boolean => (new RegExp(ASK + word).test(t) || new RegExp(word + ASK_AFTER).test(t)) && !off(word);
   // A photo of the product, never of her payment or her documents; "foto da etiqueta" is no photo we have.
   const photo = asked(String.raw`(?:fotos?|fotinha)\b(?!\s+d[aoe]s?\s+(?!colete|cinta|produto|corpo)\w)`) &&
     !/\b(?:comprovante|pix|documento|rg|cpf|boleto|endereco|fachada)\b/.test(t);
@@ -149,6 +152,13 @@ export const requestedMedia = (message: string, config: FunnelConfig): FunnelBub
     ...(audio ? [...media(m.audio1, "audio", FUNNEL_LABELS.audio1), ...media(m.audio2, "audio", FUNNEL_LABELS.audio2)] : []),
   ];
 };
+
+/** What `requestedMedia` sent, read back from the history rows, for the resume's prompt (grafo §137): "o vídeo…", never a URL. */
+export const mediaNamesOf = (rows: readonly string[]): string[] => [
+  ...(rows.includes(FUNNEL_LABELS.video) ? ["o vídeo de uma cliente vestindo o colete"] : []),
+  ...(rows.includes(FUNNEL_LABELS.reviews) ? ["a imagem com as avaliações das clientes"] : []),
+  ...(rows.includes(FUNNEL_LABELS.audio1) || rows.includes(FUNNEL_LABELS.audio2) ? ["os seus áudios gravados sobre o colete"] : []),
+];
 
 /** The history's media rows ("[imagem da Malu: …]", "[áudio da Malu] …", "[vídeo da Malu: …]") out of a model reply (replay of 2026-10-20). */
 export const stripMediaLabels = (text: string): string =>
@@ -217,26 +227,40 @@ export const LEGACY_OFFER_HEADLINE = (config: FunnelConfig): string =>
   `⭐ DE ${money(config.prices.anchorBrl)} POR ${money(config.prices.codBrl)} ⭐`;
 export const LEGACY_PREPAY_HEADLINE = "Pra sua cidade o colete vai pelos Correios, com código de rastreio 📦";
 
-/** Etapa 3, where cash on delivery reaches her CEP. "Menos de 24 horas" only when the checkout's first day is tomorrow. */
+/**
+ * A kit's box opens with the kit, never the one piece's price (real test 2026-10-29, grafo §137: "POR R$ 109,90" above a link of
+ * R$ 197,82). Its price is the config's for that path and count; none there, no price at all. `offerKindOf` reads it as an offer.
+ */
+export const KIT_HEADLINE_HEAD = "⭐*Kit com ";
+const kitHeadline = (config: FunnelConfig, path: "cod" | "prepay", pieces: number): string => {
+  const price = config.kits?.find((k) => k.path === path && k.units === pieces)?.priceBrl;
+  return `${KIT_HEADLINE_HEAD}${pieces} peças${price ? ` POR ${money(price)}` : ""}*⭐`;
+};
+
+/**
+ * Etapa 3, where cash on delivery reaches her CEP. "Menos de 24 horas" only when it is literally true, the first day being today
+ * (grafo §137: it was said with the first day tomorrow); tomorrow is said as the day, "amanhã, sexta (30/10)".
+ */
 export const codOfferText = (
   config: FunnelConfig,
   firstDate: string | undefined,
   now: Date,
   /** The sale is closed in the conversation (grafo §135): she picks the day here, there is no checkout. */
   closesHere = false,
+  pieces = 1,
 ): string => {
   const day = firstDayLine(firstDate, now);
   const other = closesHere ? "Ou se preferir outro dia, é só me falar." : "Ou se preferir outro dia, é só escolher lá no checkout.";
   const free = config.delivery.freeShipping === true || config.delivery.codFreeShipping !== false;
   // Operator, 2026-10-21 (grafo §121): the truck on its own line, the day on the next, the check before "Não Paga Nada Agora".
   const freeLead = free ? "🚚 *FRETE GRÁTIS*\n" : "🚚 ";
-  const when = day?.startsWith("amanhã")
+  const when = firstDate === brtDay(now)
     ? `${freeLead}Seu Pedido Chegará em *Menos de 24 Horas!!*\n\n${other}`
     : day
       ? `${freeLead}Seu Pedido Chegará já *${day}!!*\n\n${other}`
       : `${freeLead}Seu Pedido Chegará em *${config.delivery.codDaysMin} a ${config.delivery.codDaysMax} dias!!*\n\n${closesHere ? "Você escolhe o dia aqui comigo." : "Você escolhe o dia lá no checkout."}`;
   return [
-    OFFER_HEADLINE(config),
+    pieces > 1 ? kitHeadline(config, "cod", pieces) : OFFER_HEADLINE(config),
     when,
     `✅*Não Paga Nada Agora*, só quando chegar aí, no dinheiro, Pix ou cartão!`,
     `🔁 *${config.delivery.warrantyDays} Dias de Garantia* pra trocar ou devolver se não gostar.`,
@@ -248,7 +272,7 @@ export const codOfferText = (
  * freight the checkout read at her CEP (`prepayFreight`, plan 16 §4.7): said under the Correios line; absent or not a
  * positive amount, or free shipping on both paths, the box of today.
  */
-export const prepayOfferText = (config: FunnelConfig, freightBrl: number | null = null): string => {
+export const prepayOfferText = (config: FunnelConfig, freightBrl: number | null = null, pieces = 1): string => {
   const n = config.prices.prepayMaxInstallments;
   const free = config.delivery.freeShipping === true;
   const freight = !free && freightBrl !== null && Number.isFinite(freightBrl) && freightBrl > 0 ? [`Frete pra sua região: *${money(freightBrl)}*`] : [];
@@ -257,7 +281,7 @@ export const prepayOfferText = (config: FunnelConfig, freightBrl: number | null 
   const ship = [...(config.prices.prepayDiscountPercent > 0 ? ["Seu colete vai pelos Correios, com código de rastreio."] : []), ...(free ? ["*FRETE GRÁTIS!!*"] : freight)];
   return [
     PREPAY_HEADLINE(config),
-    `⭐*~${money(config.prices.anchorBrl)}~ POR ${money(config.prices.prepayBrl)}*⭐`,
+    pieces > 1 ? kitHeadline(config, "prepay", pieces) : `⭐*~${money(config.prices.anchorBrl)}~ POR ${money(config.prices.prepayBrl)}*⭐`,
     ...(ship.length > 0 ? [`🚚 ${ship.join("\n")}`] : []),
     `✅ Você pode pagar agora no Pix${n && n > 1 ? ` ou em até *${n}x no cartão!*` : " ou no cartão!"}`,
     `🔁 *${config.delivery.warrantyDays} Dias de Garantia* pra trocar ou devolver se não gostar`,
@@ -299,12 +323,14 @@ export const offerBubbles = (
   ask: string | null,
   /** `noCodReasonLine`, before the prepaid box (A4). Ignored on the delivery path. */
   noCodReason: string | null = null,
+  /** A kit: its box says the kit, and the price image (one piece's price) does not go (grafo §137). */
+  pieces = 1,
 ): FunnelBubble[] => {
   const m = config.funnel?.media ?? {};
   return [
     ...(!region.cod && noCodReason ? [{ text: noCodReason }] : []),
-    ...media(m.price, "image", priceLabel(config)),
-    { text: region.cod ? codOfferText(config, region.dates[0], now, region.closesHere === true) : prepayOfferText(config, region.prepayFreightBrl ?? null) },
+    ...(pieces > 1 ? [] : media(m.price, "image", priceLabel(config))),
+    { text: region.cod ? codOfferText(config, region.dates[0], now, region.closesHere === true, pieces) : prepayOfferText(config, region.prepayFreightBrl ?? null, pieces) },
     ...(region.cod && firstDayLine(region.dates[0], now)?.startsWith("amanhã") ? media(m.audio4, "audio", FUNNEL_LABELS.audio4) : []),
     ...(ask ? [{ text: ask }] : []),
   ];
@@ -318,7 +344,7 @@ export const BOTH_HEADLINE = "Infelizmente não consegui confirmar a entrega no 
 export const offerKindOf = (m: string, config: FunnelConfig): OfferKind | null =>
   m.startsWith(PREPAY_HEADLINE(config)) || m.startsWith(LEGACY_PREPAY_HEADLINE) ? "prepay"
   : m.startsWith(BOTH_HEADLINE) ? "both"
-  : m.startsWith(OFFER_HEADLINE(config)) || m.startsWith(V4_OFFER_HEADLINE(config)) || m.startsWith(LEGACY_OFFER_HEADLINE(config))
+  : m.startsWith(OFFER_HEADLINE(config)) || m.startsWith(KIT_HEADLINE_HEAD) || m.startsWith(V4_OFFER_HEADLINE(config)) || m.startsWith(LEGACY_OFFER_HEADLINE(config))
   ? (m.includes(BOTH_MARKER) ? "both" : "cod")
   : null;
 

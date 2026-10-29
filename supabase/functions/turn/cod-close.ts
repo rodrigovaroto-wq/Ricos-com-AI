@@ -188,8 +188,19 @@ export const STREET_ITEM = "📍 Rua e bairro";
 export const NUMBER_ITEM = "🏠 Número da casa (e complemento, se tiver)";
 export const SUMMARY_HEAD = "📝 Confere se está tudo certo:";
 export const SUMMARY_ASK = "Responda *SIM* pra eu confirmar o pedido.";
-export const PHONE_ASK =
-  "📞 O sistema da entrega não aceitou o número deste WhatsApp pro entregador. Me manda um celular com DDD pra ele falar com você?";
+// Asked when this WhatsApp's number is no Brazilian cell we can send (our own check) or the Logzz refused it (`PHONE_REFUSED`): the
+// ask alone blames no system (real test 2026-10-29, grafo §137: "o sistema da entrega não aceitou" was said for our own check).
+export const PHONE_ASK = "📞 Me manda um celular com DDD pro entregador falar com você?";
+export const PHONE_REFUSED = `O sistema da entrega não aceitou o número que eu tinha.\n${PHONE_ASK}`;
+/**
+ * Her check of the summary itself, the whole burst ("tá certo?", "está tudo certo?", "certinho?", "confere?", "é isso?"): the summary
+ * again, fixed, opened by `SUMMARY_CHECKED`, so it stays her last message and her next "sim" imports (real test 2026-10-29, grafo
+ * §137: the model answered "me responde SIM" and her "sim" got the summary again). Allow-list of the whole message (Lição 3).
+ */
+const SUMMARY_CHECK = /^(?:(?:e\s+)?(?:ta|esta|ficou)\s+)?(?:tudo\s+)?(?:cert[oa]|certinh[oa]|confere|e\s+isso|isso\s+mesmo|ok)(?:\s+(?:assim|ne))?\s*\?+$/;
+export const SUMMARY_CHECKED = "Tá sim, é o que você me mandou 😊";
+export const checksSummary = (parts: readonly string[]): boolean =>
+  parts.length > 0 && parts.every((p) => SUMMARY_CHECK.test(norm(p).replace(/[^a-z?\s]/g, " ").replace(/\s+/g, " ").replace(/\s+\?/g, "?").trim()));
 const isChecklist = (m: string): boolean => m.includes(CHECKLIST_HEAD) || m.includes(MISSING_HEAD);
 export const isCloseMessage = (m: string): boolean => isChecklist(m) || m.includes(SUMMARY_HEAD) || m.includes(PHONE_ASK);
 
@@ -595,6 +606,8 @@ export const closeStep = (input: {
     if (lastOutbound.endsWith(summary)) {
       return confirmsOrder(parts)
         ? { kind: "confirm", state, summary, order, directive: closeDirective(f.dates, [], true) }
+        : checksSummary(parts)
+        ? { kind: "send", text: `${SUMMARY_CHECKED}\n\n${summary}`, state, reason: "pedido na entrega: ela conferiu, o resumo de novo", directive: closeDirective(f.dates, [], true) }
         : { kind: "model", state, directive: closeDirective(f.dates, [], true) };
     }
     return { kind: "send", text: summary, state, reason: "pedido na entrega: resumo para ela confirmar", directive: closeDirective(f.dates, [], false) };

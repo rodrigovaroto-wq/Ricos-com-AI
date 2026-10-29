@@ -117,7 +117,7 @@ describe("2. o cupom guardado pra régua nunca é negado", () => {
   it("sem desconto no antecipado, nenhum exemplo com número; o cupom ligado continua citável", () => {
     const flatNoDiscount = honestyBriefing({ ...held, prices: { ...held.prices, prepayDiscountPercent: 0 } }).join(" ");
     expect(flatNoDiscount).not.toMatch(/R\$/);
-    expect(gateBriefing(prod).join(" ")).toContain("20% está ativo");
+    expect(gateBriefing(prod).join(" ")).toContain("20% já chegou a ela");
   });
 });
 

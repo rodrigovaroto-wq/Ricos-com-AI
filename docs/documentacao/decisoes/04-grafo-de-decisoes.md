@@ -4994,6 +4994,73 @@ texto); mutações `O38-*` (17), 17/17 pegas, e as quatro antigas com o texto no
 - A importação sem linha local não arma a régua pós-pedido: o operador recebe o e-mail para gravar o pedido; o webhook da Logzz, quando
   chega, grava e libera o fechamento.
 
+## 137. O teste prático com o modelo real no config de 29/10, e o cupom só no follow-up (operador, 2026-10-29)
+
+**Contexto.** O config de produção passa a `docs/operacao/business-config-2026-10-29.min.json` (checkouts da Coinzz também no WhatsApp,
+sem `logzzImport`, cupom SUPER20 ativo, `expressActive` true, teto 0,30). Um teste prático com o modelo real achou os defeitos abaixo.
+
+**Sintoma.**
+- D1 (frase real, R21.6): "Oi! Vim pelo site, qual tamanho pra quem veste 42?" não ganhou o tamanho: `statedSizeOf` deixa a pergunta de
+  fora (`QUESTION_CLAUSE`), a tabela não respondeu e o `size_claim` vetou o certo "Com 42 de calça o seu é o G…".
+- D3: no modo site, depois de `requestedMedia` mandar o vídeo, a retomada do modelo disse "no site … tem o vídeo vestindo".
+- D4: `requestedMedia("não vi o vídeo ainda, manda?")` dava nada.
+- D8: kit de 2 sem a entrega — a caixa dizia "POR R$ 109,90" (e a imagem do preço de uma peça) acima do link de R$ 197,82; e "Chegará em
+  *Menos de 24 Horas!!*" saía com o primeiro dia amanhã.
+- Fechamento da Logzz (desligado, consertado para voltar pronto): D6 `fileImport` → `recordOrder` → `leadForPhone(lead.phone)`: um número
+  que `leadPhoneOf` recusa terminava "Pedido confirmado" sem linha em `orders`; `turn_outcomes.reason` gravava "X | X". D5 `PHONE_ASK`
+  culpava "o sistema da entrega" quando a recusa era a nossa checagem. D2 depois do resumo, "tá certo?" ia ao modelo ("me responde com SIM
+  que eu confirmo") e o "sim" seguinte recebia o resumo de novo (`lastOutbound.endsWith(summary)` falso).
+- Cupom (decisão do operador, 29/10): o SUPER20 é só do follow-up (`silence_3`), nunca da oferta da conversa.
+
+**Causa.** D1: a regra de 2026-09-24 (pergunta não sobrescreve o tamanho guardado) também calava a tabela de quem não tinha tamanho
+nenhum. D3: o `siteBriefing` só dizia que o site mostra o vídeo. D4: a negação lia "não vi" como recusa, e o pedido só era lido antes da
+coisa. D8: `offerBubbles` não sabia da quantidade; "Menos de 24 Horas" era a cópia v4 para "amanhã". D6: o lead lido de novo pelo telefone
+quando o turno já tinha o id; `sendFixed` gravava `[reason, extraNotify]` com os dois iguais. D2: estado lido da última mensagem, e a
+conferência do resumo deixada ao modelo. Cupom: o R17.4 (`conversationCoupon`) já calava o cupom antes do toque; faltavam a saída de ela
+citar o cupom, o código e "código de desconto" no gate, e o briefing dizia "o checkout não aplicaria" (falso desde que o cupom está ativo).
+
+**Correção.**
+- D1: `sizeAskedFor` (`sizing.ts`, espelhado): "qual … tamanho/serve/fica" e "pra (quem veste/usa) N" na mesma frase → a tabela; nunca
+  unidade depois do número, nem "pra quem não veste". `handleTurn` usa só sem `statedSizeOf` e sem `lead.size` (a regra de 2026-09-24
+  continua para quem já tem tamanho); o tamanho vai ao `knownSize` do `size_claim` e à diretiva.
+- D3: `mediaNamesOf` (`funnel.ts`) lê as linhas de mídia depois da última mensagem dela; na retomada do modo site, `turnFacts.mediaJustSent`
+  → `siteBriefing` diz "AGORA MESMO … mandou aqui na conversa … não mande ela ao site pra ver, não ofereça mandar de novo".
+- D4: em `requestedMedia`, "não vi/assisti/olhei" não é recusa; o pedido depois da coisa ("o vídeo, manda?") vale só fechando a frase
+  ("vi o vídeo, manda o link" não).
+- D8: `offerBubbles(…, pieces)`: kit → `⭐*Kit com N peças POR R$ …*⭐` (o preço do kit no config para o caminho; sem ele, sem preço) nas
+  duas caixas (`codOfferText`, `prepayOfferText`), sem a imagem do preço de uma peça; `offerKindOf` lê `KIT_HEADLINE_HEAD` como a oferta da
+  entrega. "Menos de 24 Horas" só com o primeiro dia hoje; amanhã é "Chegará já *amanhã, sexta (30/10)!!*". O prompt deixou de ensinar a
+  frase das 24 horas. O áudio 4 ("amanhã mesmo") continua só com o primeiro dia amanhã.
+- D6: `recordOrder(order, mayCreateLead, known)`: a importação passa o lead do turno; o motivo é deduplicado (`new Set`) nos dois
+  `recordOutcome` do envio fixo.
+- D5: `PHONE_ASK` só pede o celular; a recusa da Logzz manda `PHONE_REFUSED` ("O sistema da entrega não aceitou o número que eu tinha." +
+  o pedido). `isCloseMessage` segue lendo os dois.
+- D2: `checksSummary` (lista de permissão da mensagem inteira: "tá certo?", "está tudo certo?", "certinho?", "confere?", "é isso?") sobre o
+  resumo → linha fixa `SUMMARY_CHECKED` + o resumo, por último (o modelo não responde depois: `close.text.includes(SUMMARY_HEAD)`); o "sim"
+  seguinte importa. Uma pergunta de outra coisa segue com o modelo (resíduo do §135).
+- Cupom: `namesCoupon` (`followups.ts`): o código, ou "cupom" com o percentual na frase; `handleTurn` libera o cupom na conversa
+  (`couponHers`) com o `silence_3` enviado OU ela citando (esta mensagem, ou uma dela na conversa: `messages` por `conversation_id`,
+  índice `messages_conversation_idx`, filtrado por `ilike` cupo/código, 20 linhas). `coupon_exists` sem o cupom liberado veta também o
+  código e "código de desconto/promocional" e "cupons"; o briefing diz "não anuncia, não oferece e não puxa assunto de cupom… é só do
+  lembrete"; liberado, "já chegou a ela … pode confirmá-lo: o código é SUPER20, digitado por ela no checkout". A negação ("não temos cupom")
+  segue passando no gate, como decidido em 2026-09 (o briefing já ensina não negar); a caixa da oferta e as linhas fixas não levam cupom.
+
+**Caminhos descartados.** Ler a pergunta em `statedSizeOf` (sobrescreveria o tamanho guardado — o teste de 2026-09-24 segue); aceitar o
+"sim" com o resumo entre as mensagens recentes depois de uma resposta do modelo (Lição 10: o modelo pode ter perguntado outra coisa); trocar
+o título da caixa da entrega sem o `offerKindOf` (a oferta seria mandada de novo); "tem cupom?" liberar o código (o cupom é do follow-up).
+
+**Índices.** Uma query nova: o cupom citado por ela, em `messages` por `conversation_id` (messages_conversation_idx), só com o cupom
+ativo, sem o toque enviado e sem o cupom nesta mensagem.
+
+**Guarda.** `tests/real-test-2026-10-29.test.ts` (as frases do teste real e as negações de cada leitura; fiação na `turn` por texto);
+mutações `O39-*` (25); `G131-cupom-negado` com o texto novo do briefing. `pnpm dev:gates --fail-on-loosen`: 0 afrouxados; endurecidos do
+`coupon_exists` (o código e "código de desconto" sem o cupom liberado).
+
+**Resíduos.** "qual tamanho pra quem calça 38?" (o verbo calçar) já era lido como M por `statedSizeOf` (`SIZE_CUE` "calça"), antes deste
+conserto. "meu marido veste 42" grava o G na lead, como decidido (o tamanho dito é o atual, de quem for). Com tamanho guardado, a pergunta
+por outro número segue sem a tabela e o `size_claim` veta a resposta certa. O kit de 2 na entrega com o fechamento da Logzz não foi
+exercitado (desligado).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

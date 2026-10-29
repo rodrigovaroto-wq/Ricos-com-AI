@@ -182,8 +182,8 @@ describe("o briefing que vai no prompt", () => {
 
   it("muda quando a loja muda: o cupom ligado aparece no briefing", () => {
     const ligado = gateBriefing({ ...config, coupon: { ...config.coupon, active: true } }).join(" ");
-    expect(ligado).toContain("20% está ativo");
-    expect(gateBriefing(config).join(" ")).toContain("Nesta conversa você não cita cupom nem código");
+    expect(ligado).toContain("20% já chegou a ela");
+    expect(gateBriefing(config).join(" ")).toContain("Nesta conversa você não anuncia, não oferece e não puxa assunto de cupom");
   });
 });
 
