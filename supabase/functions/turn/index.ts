@@ -33,6 +33,7 @@ import {
   windowIsOpen,
   checkHumanReply,
   conversationCoupon,
+  namesCoupon,
   HUMAN_REPLY_REFUSAL,
   onOrderConfirmed,
   orderTakeOver,
@@ -88,7 +89,7 @@ import {
   type RulerAnchors,
   type StopPoint,
 } from "./followups.ts";
-import { asksForSize, type Size, SIZES, sizeBeyondTable, sizeFromDressSize, statedSizeOf, TABLE_TOP_DRESS, TABLE_TOP_WAIST } from "./sizing.ts";
+import { asksForSize, type Size, SIZES, sizeAskedFor, sizeBeyondTable, sizeFromDressSize, statedSizeOf, TABLE_TOP_DRESS, TABLE_TOP_WAIST } from "./sizing.ts";
 import { acceptsOffers, mayAskOptIn, optInAnswer, optInMessage, suspendsMarketingOptIn } from "./opt-in.ts";
 import { furthest, overwritableBy, reachedStage, type Stage } from "./state-machine.ts";
 import { cachedRegion, type CachedRegion, kitRegion, cepsByStreet, checkCoverage, type Fetcher, healthOf, logzzIdsOf, lookupRegion, lookupsDegraded, prepayFreight, type Region, type RegionLookup, reuseViaCep, VIACEP_ENDPOINT } from "./availability.ts";
@@ -116,7 +117,7 @@ import {
   lookupCodDates,
   nameCandidates,
   nationalPhone,
-  PHONE_ASK,
+  PHONE_REFUSED,
   placeOrder,
   type Poster,
   SUMMARY_HEAD,
@@ -239,9 +240,11 @@ import {
   PREPAY_HEADLINE,
   LEGACY_PREPAY_HEADLINE,
   BOTH_HEADLINE,
+  KIT_HEADLINE_HEAD,
   BOTH_PREPAY_HEADLINE,
   bothPrepayBubbles,
   oneCheckout,
+  mediaNamesOf,
   requestedMedia,
   saysNoDeliveryDay,
   sizeNoCodAsk,
@@ -1446,7 +1449,7 @@ const digits = (v: string): string => v.replace(/\D/g, "");
 
 const MAX_EXTERNAL_ID = 128;
 
-const recordOrder = async (order: OrderWebhook, mayCreateLead = false) => {
+const recordOrder = async (order: OrderWebhook, mayCreateLead = false, known: { id: string; phone: string; opted_out_at?: string | null } | null = null) => {
   // Without an id every retry inserts a fresh row: `external_id` is unique but nullable,
   // and NULL never conflicts with NULL. Refusing loudly beats duplicating silently.
   if (!order.externalId?.trim()) return { status: "missing_external_id", ok: false };
@@ -1460,7 +1463,7 @@ const recordOrder = async (order: OrderWebhook, mayCreateLead = false) => {
   // The webhook writes the phone the way its platform stores it — +55, spaces, dashes,
   // sometimes without the 9. The lead row holds whatever the channel delivered. An exact
   // match is the happy path; the suffix is what stops a sale from silently not existing.
-  const match = await leadForPhone(order.phone);
+  const match = known ?? await leadForPhone(order.phone);
   // A sale from the site, by a woman who never wrote to us (2026-10-27): her lead is made here, with its conversation, so the
   // Pix touch and the post-order ruler have somewhere to live. A phone that is no Brazilian number stays refused, out loud.
   // Only with the webhook's secret set (review of ecea0c3, 8): an unauthenticated call never makes a lead.
@@ -2643,7 +2646,13 @@ const handleTurn = async (
     ((await db(
       `followups?select=id,conversations!inner(lead_id)&conversations.lead_id=eq.${lead.id}&kind=eq.silence_3&sent_at=not.is.null&limit=1`,
     ).catch(() => [])) ?? []).length > 0;
-  const turnConfig = conversationCoupon(CONFIG, couponTouchSent);
+  // Or she named it herself (operator, 2026-10-29, grafo §137): this message, or an earlier one of hers in this conversation.
+  // Index: messages_conversation_idx (conversation_id), her few rows with the word filtered after it.
+  const couponHers = couponTouchSent || (CONFIG.coupon.active && (namesCoupon(spoken(inbound.body ?? ""), CONFIG.coupon) ||
+    ((await db(
+      `messages?conversation_id=eq.${conversation.id}&direction=eq.inbound&or=${encodeURIComponent(`(body.ilike.*cupo*,body.ilike.*${(CONFIG.coupon.code ?? "").trim().replace(/[^A-Za-z0-9]/g, "") || "cupo"}*)`)}&select=body&order=created_at.desc&limit=20`,
+    ).catch(() => [])) ?? []).some((m: { body?: string }) => namesCoupon(m.body ?? "", CONFIG.coupon))));
+  const turnConfig = conversationCoupon(CONFIG, couponHers);
   // Her region has no payment at the door (R16.2): as an earlier turn stored it, until this
   // turn's lookup answers (5d-bis). Every gate below reads it — "você paga na entrega" is a lie there.
   let codUnavailable = (lead.address as { codAvailable?: boolean } | null)?.codAvailable === false;
@@ -3534,7 +3543,7 @@ const handleTurn = async (
     );
     const once = await notifyOnce();
     await Promise.all([
-      recordOutcome(conversation.id, "send", [reason, extraNotify].filter(Boolean).join(" | "), 0, spent - spentBefore),
+      recordOutcome(conversation.id, "send", [...new Set([reason, extraNotify].filter(Boolean))].join(" | "), 0, spent - spentBefore),
       persistStage(conversation.id, storedStage, linkOut ? furthest(reachedSoFar, "link_enviado") : reachedSoFar),
     ]);
     return json(200, {
@@ -3613,7 +3622,7 @@ const handleTurn = async (
       body: JSON.stringify({ conversation_id: conversation.id, run_at: runAt.toISOString(), status: "scheduled", body: text, kind: "deferred_reply" }),
     });
     const once = await notifyOnce();
-    await recordOutcome(conversation.id, "deferred", [reason, extraNotify].filter(Boolean).join(" | "), 0, spent - spentBefore);
+    await recordOutcome(conversation.id, "deferred", [...new Set([reason, extraNotify].filter(Boolean))].join(" | "), 0, spent - spentBefore);
     return json(200, { status: "deferred", ...once, reason, runAt: runAt.toISOString(), rewrites: 0, costBrl: spent });
   };
 
@@ -3999,7 +4008,10 @@ const handleTurn = async (
   // "stated" is decided by the text itself, not by the old intent classifier — it called
   // "tenho 44 anos" a sizing turn, which is fair, and would have made her a G.
   // The newest message that states a size wins over an earlier one in the same burst (grafo §59).
-  const stated = statedSize([...parts].reverse().find((p) => statedSizeOf(p) !== null) ?? spoken(inbound.body ?? ""), interpretation);
+  const statedNow = statedSize([...parts].reverse().find((p) => statedSizeOf(p) !== null) ?? spoken(inbound.body ?? ""), interpretation);
+  // "qual tamanho pra quem veste 42?" with no size of hers yet (real test 2026-10-29, grafo §137): the table answers it.
+  const askedFor = statedNow === null && !lead.size ? [...parts].reverse().map((p: string) => sizeAskedFor(spoken(p))).find((x) => x !== null) ?? null : null;
+  const stated = statedNow ?? (askedFor ? { size: askedFor, forOther: interpretation.size.for_other_person } : null);
   if (stated && stated.size !== lead.size) {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
@@ -4535,7 +4547,11 @@ const handleTurn = async (
   // What the Coinzz told about her checkout (2026-10-27): the cart on her lead and her newest order, as internal facts. Index:
   // orders_lead_idx, newest one of her few rows.
   const newestOrder = ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(",")})&select=created_at,status,payment_method,amount_brl,units&order=created_at.desc&limit=1`).catch(() => null)) ?? [])[0] ?? null;
-  const turnFacts = { stockLine, prepayFreightBrl, site: siteMode, siteOrigin: !fromAd, openingSent, checkoutFacts: checkoutFactLines(lead.cart ?? null, newestOrder) };
+  // The resume right after the media she asked for (grafo §137): what went since her last message, said as sent here.
+  const mediaJustSent = siteMode && isResume
+    ? mediaNamesOf(recent.slice(recent.findLastIndex((m: { direction: string }) => m.direction === "inbound") + 1).map((m: { body: string }) => (m.body ?? "").trim()))
+    : [];
+  const turnFacts = { stockLine, prepayFreightBrl, site: siteMode, siteOrigin: !fromAd, openingSent, checkoutFacts: checkoutFactLines(lead.cart ?? null, newestOrder), mediaJustSent };
   const factsGate = { ...(stockLeft ? { stockLeft } : {}), ...(prepayFreightBrl !== null ? { prepayFreightBrl } : {}) };
   // What the link carries: the name title-cased for the checkout (code review,
   // 2026-09-24 — "maria jose ferreira", "MARIA DA SILVA"); the stored value is untouched.
@@ -4972,7 +4988,7 @@ const handleTurn = async (
     offerNow === null
       ? []
       : ((await db(
-          `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&or=(${["⭐ DE R$ ", "⭐*DE ", "⭐*~R$ ", PREPAY_HEADLINE(CONFIG).slice(0, 30), LEGACY_PREPAY_HEADLINE.slice(0, 40), BOTH_HEADLINE].map((h) => `body.like.${encodeURIComponent(`${h}*`)}`).join(",")})&select=body&order=created_at.asc`,
+          `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&or=(${["⭐ DE R$ ", "⭐*DE ", "⭐*~R$ ", PREPAY_HEADLINE(CONFIG).slice(0, 30), LEGACY_PREPAY_HEADLINE.slice(0, 40), BOTH_HEADLINE, KIT_HEADLINE_HEAD].map((h) => `body.like.${encodeURIComponent(`${h}*`)}`).join(",")})&select=body&order=created_at.asc`,
         ).catch(() => null)) ?? []).map((m: { body: string | null }) => m.body ?? "");
   const offerBefore = lastOfferKind([...offerHistory, ...recentOutbound], CONFIG);
   // A link anywhere in the history ends the offers: past the window too (index: messages_conversation_idx).
@@ -5089,7 +5105,7 @@ const handleTurn = async (
       const closeAsk = cod && close?.kind === "send" && (await closeGated(close.text)) ? close.text : null;
       const sent = await sendFunnelTurn(
         await withHook([
-          ...offerBubbles(CONFIG, { cod, dates: region.dates, prepayFreightBrl: units === 1 ? prepayFreightBrl : null, closesHere: cod && close !== null }, new Date(), checkoutUrl ? null : closeAsk ?? offerAsk(cod, sizeKnown), noCodReason),
+          ...offerBubbles(CONFIG, { cod, dates: region.dates, prepayFreightBrl: units === 1 ? prepayFreightBrl : null, closesHere: cod && close !== null }, new Date(), checkoutUrl ? null : closeAsk ?? offerAsk(cod, sizeKnown), noCodReason, units),
           ...(checkoutUrl ? [{ text: v3Link(checkoutUrl) }] : []),
         ]),
         checkoutUrl ? `roteiro v3: oferta e link — ${linkFact ?? ""}` : "roteiro v3: oferta",
@@ -5107,7 +5123,7 @@ const handleTurn = async (
     (isCloseMessage(lastList) || lastOutbound === NAME_ASK || linkReady || linkDue || pressed || interpretation.payment_choice === "cod" || asksHowItWorks(parts));
   if (closeReady && guides.length === 0 && openNow && !farewell) {
     if (close?.kind === "send" && (await closeGated(close.text))) {
-      const sent = await sendFunnelTurn([{ text: opening(close.text) }], close.reason, {}, (askedBeside || saidBeside) && !isResume && !close.text.startsWith(SUMMARY_HEAD));
+      const sent = await sendFunnelTurn([{ text: opening(close.text) }], close.reason, {}, (askedBeside || saidBeside) && !isResume && !close.text.includes(SUMMARY_HEAD));
       if (sent) return sent;
     }
     // Only the turn that holds the conversation imports (`replying_since`, grafo §61): a revision runs inside its hold; the sweep's
@@ -5168,6 +5184,7 @@ const handleTurn = async (
           // Filed like the webhook files a sale, so the post-order ruler runs; the webhook of the same order finds this row. Checked and
           // tried once more (grafo §136): a swallowed failure told her "Pedido confirmado" with no row, and her next message restarted the
           // checklist into the Logzz's open order.
+          // Her lead by id, never by phone again (grafo §137): a number `leadPhoneOf` refuses ended "Pedido confirmado" with no row.
           const fileImport = async () => (await recordOrder({
             externalId: importId,
             importId,
@@ -5180,7 +5197,7 @@ const handleTurn = async (
             scheduledFor: result.deliveryDate,
             orderNumber: result.orderCode,
             customerName: close.order.name,
-          }).catch(() => null))?.status === "recorded";
+          }, false, { id: lead.id, phone: String(lead.phone ?? ""), opted_out_at: lead.opted_out_at ?? null }).catch(() => null))?.status === "recorded";
           const filedOk = (await fileImport()) || (await fileImport());
           await saveAddress({ codClose: filedOk ? {} : { orderCode: result.orderCode, importedAt: new Date().toISOString() } });
           closeDone = true;
@@ -5214,7 +5231,7 @@ const handleTurn = async (
           if (sent) return sent;
         } else if (result.kind === "phone") {
           await saveAddress({ codClose: { ...close.state, badPhone: close.order.phone } });
-          const sent = await sendFixed(PHONE_ASK, "pedido na entrega: a Logzz recusou o telefone", "cod");
+          const sent = await sendFixed(PHONE_REFUSED, "pedido na entrega: a Logzz recusou o telefone", "cod");
           if (sent) return sent;
         } else if (result.kind === "processing") {
           // The Logzz is still making it (409 twice): no "não consegui" — the same summary, her SIM asks the same id again.

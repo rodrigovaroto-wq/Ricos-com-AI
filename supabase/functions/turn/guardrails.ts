@@ -1482,12 +1482,13 @@ const gates: readonly Gate[] = [
     remedy: "rewrite",
     briefing: (c) =>
       c.coupon.active
-        ? `O cupom de ${c.coupon.percent}% está ativo e você pode citá-lo` +
+        ? `O cupom de ${c.coupon.percent}% já chegou a ela (pelo lembrete, ou ela mesma falou dele) e você pode confirmá-lo` +
           (c.coupon.code?.trim() ? `: o código é ${c.coupon.code.trim()}, digitado por ela no checkout. Nenhum outro código existe.` : `.`)
         // Personas of 2026-10-24: "não temos cupom no momento" with SUPER20 active, held for the ruler's `silence_3` (R17.4,
         // `conversationCoupon`), and the coupon arrived after — a contradiction. Never denied, never announced: today's best price.
-        : `Nesta conversa você não cita cupom nem código: o checkout não aplicaria. Se ela perguntar de cupom, não diga que ` +
-          `não existe nem que não temos: diga o melhor valor de hoje, que está na oferta.`,
+        // Operator, 2026-10-29 (grafo §137): the coupon is the follow-up's only, never the conversation's offer.
+        : `Nesta conversa você não anuncia, não oferece e não puxa assunto de cupom nem de código de desconto: o cupom é só ` +
+          `do lembrete. Se ela perguntar de cupom, não diga que não existe nem que não temos: diga o melhor valor de hoje, que está na oferta.`,
     // The gate exists so the agent never announces a coupon with no destination in
     // Coinzz. Saying "não temos cupom no momento" announces nothing — it is the honest
     // answer to a question customers ask constantly, and vetoing it left the agent
@@ -1495,8 +1496,11 @@ const gates: readonly Gate[] = [
     check: (text, ctx) => {
       if (ctx.config.coupon.active) return null;
       const t = norm(text);
-      for (const m of t.matchAll(/cupom/g)) {
-        if (!negatedAt(t, m.index ?? 0)) return "mentions a coupon that is not active in Coinzz yet";
+      // Its code is the coupon itself, said or denied (grafo §137): only the follow-up gives it.
+      const code = ctx.config.coupon.code?.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+      if (code && t.replace(/[^a-z0-9]/g, " ").split(/\s+/).includes(code)) return "names the coupon code, which only the follow-up gives";
+      for (const m of t.matchAll(/cupo(?:m|ns)|codigos?\s+(?:de\s+desconto|promocion\w*)/g)) {
+        if (!negatedAt(t, m.index ?? 0)) return "mentions a coupon that is not this conversation's";
       }
       return null;
     },
