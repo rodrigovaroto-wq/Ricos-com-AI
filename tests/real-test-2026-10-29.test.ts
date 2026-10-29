@@ -206,7 +206,6 @@ describe("O cupom é só do follow-up (operador, 2026-10-29)", () => {
   it("ela nomeia o cupom: o código, ou cupom com o percentual", () => {
     expect(namesCoupon("tenho o SUPER20, vale?", prod.coupon)).toBe(true);
     expect(namesCoupon("recebi um cupom de 20%", prod.coupon)).toBe(true);
-    expect(namesCoupon("20% de cupom ainda vale?", prod.coupon)).toBe(true);
   });
   it.each(["tem cupom?", "tem desconto?", "o kit de 3 tem 20%?", "super 2000", "cupom de 10%"])("negação: %s não nomeia o cupom", (m) =>
     expect(namesCoupon(m, prod.coupon)).toBe(false));
@@ -245,4 +244,56 @@ describe("O cupom é só do follow-up (operador, 2026-10-29)", () => {
     expect(turn).toContain("const couponHers = couponTouchSent || (CONFIG.coupon.active && (namesCoupon(spoken(inbound.body ?? \"\"), CONFIG.coupon) ||");
     expect(turn).toContain("const turnConfig = conversationCoupon(CONFIG, couponHers);");
   });
+});
+
+// Opus review of cfa04fe (reprovado, 2026-10-29, grafo §137): two numbers, the coupon asked for, and a kit's piece price said alone.
+describe("revisão do cfa04fe: dois números, o cupom pedido e o preço da peça do kit", () => {
+  const prod29b = loadBusinessConfig("docs/operacao/business-config-2026-10-29b.min.json");
+  const held = conversationCoupon(prod29b, false);
+
+  it.each([
+    ["qual tamanho pra quem veste 40/42?", "G"],
+    ["qual tamanho pra quem veste 40 ou 42?", "G"],
+    ["qual tamanho pra 44 ou 46?", "GG"],
+    ["qual tamanho pra quem veste entre 40 e 42?", "G"],
+    ["qual tamanho pra quem veste 42 a 44?", "G"],
+    ["qual tamanho fica pra 40 ou 42?", "G"],
+  ])("entre dois, o maior (como statedSizeOf): %s → %s", (msg, size) => expect(sizeAskedFor(msg)).toBe(size));
+
+  it.each([
+    ["qual tamanho pra quem veste 40 ou 42 anos?", null],
+    ["qual tamanho pra 40 e 50 reais?", null],
+    ["qual tamanho pra quem não veste 40/42?", null],
+  ])("negação: o segundo número só conta como tamanho: %s → %s", (msg, size) => expect(sizeAskedFor(msg)).toBe(size));
+
+  it.each(["tenho o SUPER20", "o SUPER20 vale?", "recebi um cupom de 20%", "tenho um cupom de 20% de vocês", "ganhei um cupom de 20%, vale?", "tenho 20% de cupom, ainda vale?"])(
+    "ela nomeia o código ou diz que tem o cupom: %s",
+    (m) => expect(namesCoupon(m, prod29b.coupon)).toBe(true),
+  );
+  it.each([
+    "vi 20% de desconto no site, tem cupom?",
+    "consegue um cupom de 20 por cento?",
+    "tem cupom de 20%?",
+    "quero 20% de desconto, tem cupom?",
+    "tem algum cupom tipo 10 ou 20%?",
+    "nao tenho cupom de 20%",
+    "não tenho nenhum cupom de 20%",
+    "20% de cupom ainda vale?",
+    "tenho interesse, tem cupom de 20%?",
+  ])("negação: pergunta, pedido ou negação nunca liberam o cupom: %s", (m) => expect(namesCoupon(m, prod29b.coupon)).toBe(false));
+
+  const priceGate = (text: string, config = held) =>
+    runGates(text, ctx({ config })).traces.filter((t) => t.verdict === "block").map((t) => t.gate);
+
+  it.each(["Fica R$ 87,92 pra você.", "Consigo fazer por R$ 87,92.", "Hoje sai por R$ 87,92 no pagamento na entrega!", "O seu colete fica R$ 98,91."])(
+    "a peça do kit dita como o preço de uma peça é vetada: %s",
+    (s) => expect(priceGate(s)).toContain("price_promise"),
+  );
+  it.each([
+    "No kit de 3 cada peça sai por R$ 87,92.",
+    "3 peças saem por apenas R$ 87,92 cada!",
+    "Levando 2 peças, sai R$ 98,91 cada.",
+    "No kit de 3 fica R$ 263,76, ou R$ 87,92 por peça.",
+    "Uma peça é R$ 109,90.",
+  ])("negação: a peça do kit com o kit dito, e os preços de sempre, passam: %s", (s) => expect(priceGate(s)).not.toContain("price_promise"));
 });

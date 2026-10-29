@@ -1407,8 +1407,18 @@ const gates: readonly Gate[] = [
       // agent had already got right.
       // The prepaid freight the checkout read at her CEP this turn (§4.7): that amount, in a sentence about the freight.
       const freight = realFreight(ctx);
+      // A kit's piece price alone is no price of one piece (Opus review of cfa04fe, grafo §137: "Fica R$ 87,92 pra você" passed, the
+      // 3-piece price that equals one piece with the coupon held): only in a sentence that names its count, its kit or "cada".
+      const whole = new Set([codBrl, prepayBrl, anchorBrl, ...kits.map((k) => k.priceBrl), ...(orderAmount !== undefined ? [orderAmount] : [])]);
+      const pieceOf = (v: number) => kits.filter((k) => !whole.has(v) && Math.round((k.priceBrl / k.units) * 100) / 100 === v).map((k) => k.units);
+      const namesKit = (at: number, units: number[]) => {
+        const sentence = `${t.slice(0, at).split(/[!?\n]|\.(?!\d)/).pop() ?? ""}${t.slice(at).split(/[!?\n]|\.(?!\d)/)[0] ?? ""}`;
+        const n = units.flatMap((u) => [String(u), ...(u === 2 ? ["duas", "dois"] : u === 3 ? ["tres"] : [])]).join("|");
+        return new RegExp(String.raw`\b(?:${n})\s+(?:pecas?|unidades?|coletes?)\b|\bkits?\s+(?:de\s+|com\s+)?(?:${n})\b|\bcada\b|\b(?:por|a)\s+(?:peca|unidade)\b`).test(sentence);
+      };
       for (const m of moneyMatches(t)) {
-        if (allowedPrices.has(m.value) || negatedAt(t, m.at)) continue;
+        if (negatedAt(t, m.at)) continue;
+        if (allowedPrices.has(m.value) && (pieceOf(m.value).length === 0 || namesKit(m.at, pieceOf(m.value)))) continue;
         if (freight !== null && m.value === freight && (/\bfrete\b(?:[^.!?\n]|\.(?=\d))*$/.test(t.slice(0, m.at)) || /^(?:[^.!?\n]|\.(?=\d))*\bfrete\b/.test(t.slice(m.at)))) continue;
         return `price ${m.value} is not one of the configured values`;
       }

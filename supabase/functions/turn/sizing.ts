@@ -274,12 +274,18 @@ const OWN_NUMBER_IN_QUESTION = /\bcal[cç]a\s+(\d{2})\b(?!\s*(?:anos?|kg|reais?|
  * shoe ("pra quem calça 38" names no "veste/usa"), and a denied "pra quem não veste 42" never matches.
  */
 const WHICH_SIZE = String.raw`\bqual\s+(?:(?:o|e|é)\s+){0,2}(?:tamanho|numera[cç][aã]o|serve|fica)\b`;
-const FOR_NUMBER = String.raw`\b(?:pra|para|p\/)\s+(?:quem\s+(?:veste|usa|visto|vesto)\s+)?(\d{2})\b(?!\s*(?:anos?|kg|quilos?|kilos?|reais?|cm|%|pe[cç]as?|unidades?|de\s+(?:sapato|t[eê]nis|p[eé])))`;
+const UNIT = String.raw`anos?|kg|quilos?|kilos?|reais?|cm|%|pe[cç]as?|unidades?|de\s+(?:sapato|t[eê]nis|p[eé])`;
+const NOT_UNIT = String.raw`(?!\s*(?:${UNIT}))`;
+const RANGE = String.raw`\s*(?:\/|-|\b(?:ou|a|e)\b)\s*`;
+// "40/42", "40 ou 42", "entre 40 e 42", "42 a 44": one answer between two sizes, the larger wins, as `extractDressSize` reads "uso 40 ou 42"
+// (Opus review of cfa04fe, grafo §137).
+const FOR_NUMBER = String.raw`\b(?:pra|para|p\/)\s+(?:quem\s+(?:veste|usa|visto|vesto)\s+)?(?:entre\s+)?(\d{2})\b${NOT_UNIT}(?!${RANGE}\d{2}\s*(?:${UNIT}))(?:${RANGE}(\d{2})\b)?`;
 const SIZE_FOR_NUMBER = new RegExp(`${WHICH_SIZE}[^.!?\\n]*?${FOR_NUMBER}|${FOR_NUMBER}[^.!?\\n]*?${WHICH_SIZE}`, "i");
 export const sizeAskedFor = (message: string): Size | null => {
   const m = SIZE_FOR_NUMBER.exec(message);
-  const n = m ? Number(m[1] ?? m[2]) : NaN;
-  return n >= 34 && n <= 56 ? sizeFromDressSize(n) : null;
+  const n = m ? Number(m[1] ?? m[3]) : NaN;
+  const upper = m ? Number(m[2] ?? m[4]) : NaN;
+  return n >= 34 && n <= 56 ? sizeFromDressSize(upper >= n && upper <= 56 ? upper : n) : null;
 };
 
 /**

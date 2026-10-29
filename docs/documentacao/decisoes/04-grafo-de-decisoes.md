@@ -5075,6 +5075,43 @@ modelo real de D1/D3/D4/D8 e do cupom antes da v48.
 
 - **Decisão do operador (29/10, depois da revisão):** o "Menos de 24 Horas" volta para o primeiro dia **amanhã** (copy v4, §119), e vale também para hoje; a partir do segundo dia, o dia é dito. Guarda: `O39-24-horas-amanha` (agora reinstala a retirada) e `tests/funnel.test.ts`.
 
+### Revisão Opus do cfa04fe (reprovada, 2026-10-29)
+
+**Sintoma.**
+1. `sizeAskedFor` pegava o primeiro número: "qual tamanho pra quem veste 40/42?" e "…40 ou 42?" davam M, "pra 44 ou 46?" dava G. O tamanho
+   errado ia para a lead, e o `size_claim` só deixava passar a resposta errada.
+2. `namesCoupon` liberava o cupom (`couponHers` em `handleTurn`) com "cupom" + percentual numa pergunta ou num pedido: "tem cupom de 20%?",
+   "consegue um cupom de 20 por cento?", "vi 20% de desconto no site, tem cupom?", e até na negação "nao tenho cupom de 20%".
+3. Já existia antes: "Fica R$ 87,92 pra você." passava o `price_promise` com o cupom guardado. R$ 87,92 é o preço por peça do kit de 3, que
+   estava em `allowedPrices` para qualquer quantidade, e coincide com R$ 109,90 menos 20%: o cupom dito como preço.
+
+**Causa.**
+1. `FOR_NUMBER` capturava um número só. A regra de "ficou entre dois, pegue o maior", que `extractDressSize` já aplica a "uso 40 ou 42",
+   não era usada aqui.
+2. "cupom" com o percentual na mesma frase era tomado como prova de que ela tinha o cupom.
+3. O preço da peça do kit (grafo §121, a linha do link) valia como preço de qualquer frase.
+
+**Correção.**
+1. `sizeAskedFor`: o segundo número da faixa ("/", "-", "ou", "a", "e", "entre … e") é lido, e o maior vale. Se o segundo número vem com
+   unidade ("40 ou 42 anos"), a frase toda não é tamanho.
+2. `namesCoupon`: só o código, ou ela dizendo que TEM o cupom. O verbo de posse (tenho/recebi/ganhei/chegou/veio/me mandaram) vem antes,
+   não pode ser negado, e entre ele e o cupom só cabem artigos e "já/aqui/também". "20% de cupom ainda vale?", sem o verbo, não libera mais.
+3. `price_promise`: o preço por peça de um kit (que não é preço inteiro de nenhuma oferta) só passa numa frase que nomeia a quantidade
+   ("3 peças", "duas peças"), o kit ("kit de 3") ou a peça ("cada", "por peça"). A conta da economia continua usando `allowedPrices` como
+   antes.
+
+**Guarda.** `tests/real-test-2026-10-29.test.ts`, describe "revisão do cfa04fe" (os casos do revisor e as negações: unidade depois da
+faixa, pergunta, pedido, "não tenho", "tenho interesse, tem cupom…?", e as linhas verdadeiras do kit passando). Mutações `O40-*` (7);
+`O39-tamanho-perguntado`, `O39-tamanho-perguntado-negado` e `O39-cupom-dela-sem-percentual` atualizadas para o texto novo. As 1.044
+mutações acham o texto de origem. `pnpm verificar:guardas` numa cópia commitada (411562e + este conserto), sobre `O39-*`, `O40-*` e toda
+mutação do `price_promise`: 57/57 pegas.
+
+**Resíduos.**
+- "qual tamanho pra 42 e pra 46?" (duas perguntas) segue dando o tamanho do primeiro número.
+- "20% de cupom ainda vale?" sem o verbo de posse não libera o cupom: a Malu diz o melhor valor de hoje, e o lembrete continua.
+- `pnpm dev:gates --fail-on-loosen`: 0 afrouxados. Endureceram só frases do `coupon_exists`; nenhuma frase do corpus mudou no `price_promise`
+  por causa do preço da peça do kit.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
