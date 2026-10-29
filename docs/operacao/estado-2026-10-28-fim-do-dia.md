@@ -211,6 +211,8 @@ publicado como v47, `3f4d6d0` HANDOFF. Site: `1525764`.
 
 ## 13. PAUSA de 2026-10-29 ~12:30 UTC — estado exato para retomar
 
+> **Superada pela seção 14** (v48 no ar, PR #83 mesclado). Fica como histórico.
+
 ### No ar agora
 | Peça | Estado |
 |---|---|
@@ -248,19 +250,52 @@ publicado como v47, `3f4d6d0` HANDOFF. Site: `1525764`.
 8. Merge do PR #83 com o OK do operador.
 
 
-## 14. NO AR: `turn` v48 (2026-10-29 14:37 UTC)
+## 14. FIM DA SESSÃO de 2026-10-29 (~15:00 UTC) — `turn` v48 no ar, PR #83 mesclado. COMECE AQUI
 
-- **Publicada:** `agent_version` 48, função `turn` v177, commit `1e4609c` (branch `claude/site-whatsapp-test`, PR #83), config
-  `business-config-2026-10-29b` sem mudança. Substitui a v47: o risco do cupom citado na conversa (§13) acabou.
-- **O que a v48 traz:** o cupom SUPER20 só é liberado depois que o toque de follow-up com ele foi enviado (`couponTouchSent`), nunca na
-  oferta da conversa (grafo §137); "Menos de 24 Horas" de volta para a primeira data de amanhã; os defeitos D1–D8 do teste prático; e os
-  dois furos do kit achados no reteste curto (grafo §138: "as duas G" não vira nome; a caixa do kit pergunta o tamanho da peça que falta).
-- **Reteste curto com o modelo real** (R$ 0,12, leads sintéticos apagados): 7 de 7 cenários como esperado; cupom nunca citado nem negado
-  com a palavra; âncora 179,90 em toda resposta de preço, 216,50 em nenhuma.
-- **Fato de estoque para o operador:** na Coinzz o G em São Paulo não tem pagamento na entrega (estoque do G em Belo Horizonte); GG e XGG têm.
-- **Validação antes da subida:** 9.545 testes, lint, typecheck, `typecheck:function`, `dev:conversas` 1655/1655, `dev:gates --fail-on-loosen` ok.
+### No ar agora
+| Peça | Estado |
+|---|---|
+| `turn` | **v48** (`agent_version` 48, função v177), publicada 14:37 UTC do commit `1e4609c`. Alarme de cobertura 14:41 UTC: `healthy` |
+| `BUSINESS_CONFIG` | **`docs/operacao/business-config-2026-10-29b.min.json`** (sha do arquivo com a quebra de linha final `5499fc25…`): checkouts da Coinzz no WhatsApp e no site, sem `logzzImport`, cupom SUPER20 20% ativo, `expressActive: true`, teto R$ 0,30, âncora R$ 179,90 |
+| Imagem de preço | `funil/preco.png` = "DE R$ 179,90 POR R$ 109,90" (antiga em `funil/preco-129-backup.png`) |
+| Site | Encorpa-Website `main` `3c8659f` (Netlify): R$ 109,90, kits 2 = R$ 197,82 e 3 = R$ 263,76, âncora R$ 179,90, "40% OFF", pixel `4466808633585371`, WhatsApp 5511913179168 |
+| Coinzz | frete grátis, pixel + API de Conversões nos 3 checkouts (`encorpa-0`, `encorpa-site-0`, `oferta-site2-0`) |
+| Templates | `encorpa_carrinho_site`, `encorpa_pix_pendente`, `encorpa_retomada` submetidos pelo sócio, aguardando a Meta |
+| Código | PR #83 (`claude/site-whatsapp-test`) mesclado em `main`; CI verde no último commit (`88a4f35`) |
 
-**Falta (operador):** decidir se a Malu cita os preços dos kits com cupom depois do follow-up (2 peças R$ 158,26); pedido de teste pela
-Malu → link Coinzz (cancelar depois); aprovação dos templates → `channel.templates`; estoque Coinzz × Logzz com o fornecedor; tirar o lead
-de teste da Coinzz (final 4554) das métricas; teste A/B de 5 dias; merge do PR #83 com o OK dele; apagar as branches
-`wip/checklist-close-2026-10-28` e `wip/practical-fixes-coupon-2026-10-29` (superadas).
+### O que a v48 faz (sobre a v47)
+- **Cupom só no follow-up** (operador, 29/10; grafo §137): a Malu não oferece, não cita e não nega o cupom na conversa. Ele só é liberado
+  depois que o toque de follow-up com o cupom foi enviado à cliente (`couponTouchSent` → `conversationCoupon`); aí o preço de 1 peça com
+  cupom (R$ 87,92) passa. Os preços dos kits com cupom **não** passam (decisão do operador pendente, abaixo).
+- **"Menos de 24 Horas"** volta na caixa quando a primeira data é amanhã (`codOfferText`).
+- **Teste prático D1–D8** corrigidos: tamanho respondido direto ("qual tamanho pra quem veste 42?"), vídeo a pedido no modo site e "não vi
+  ainda, manda?", caixa do kit com o preço do kit; os do fechamento pela Logzz (desligado no config) também.
+- **Reteste curto com o modelo real** (R$ 0,12; leads sintéticos `5500099…` apagados): 7/7 cenários ok. Achou dois furos do kit, corrigidos
+  (grafo §138): "as duas G" virava o nome no link (`extractName`, `NOT_A_FIRST_NAME`); a caixa do kit com um tamanho aberto perguntava de
+  novo a calça (`kitSizeAsk`). Guardas `O41-*` em `src/dev/verify-guards.ts`.
+- Validação: 9.545 testes, lint, typecheck, `typecheck:function`, `dev:conversas` 1655/1655, `dev:gates --fail-on-loosen`, CI com as 8
+  partes de mutação verdes.
+
+### Fatos que a próxima sessão precisa saber
+- Coinzz e Logzz têm catálogo e estoque separados (memória `logzz-e-coinzz-catalogos-separados`). Na Coinzz o **G em São Paulo não tem
+  pagamento na entrega** (estoque do G em BH); GG/XGG têm; M volta 404 em SP. Quem veste G em SP só tem o antecipado hoje.
+- O fechamento pela importação da Logzz (`cod-close.ts`, checklist + resumo + SIM) está pronto e **desligado** (config sem `logzzImport`).
+- Publicar a `turn` e gravar segredo exigem o "pode publicar" explícito do operador; o `BUSINESS_CONFIG` o operador cola (memória
+  `classificador-barra-deploy-e-segredo`). Conferir o segredo pelo sha do valor cru com a quebra de linha final.
+- `pnpm verificar:guardas` recusa árvore suja: rodar numa cópia commitada (`git clone` + link do `node_modules`), passando os ids.
+
+### O que falta, em ordem
+1. **Operador decide:** depois do follow-up com cupom, a Malu cita os preços dos kits com cupom (2 peças R$ 158,26; 3 peças com 20% sobre
+   R$ 263,76)? Hoje não. Se sim: liberar os kits no `price_promise` quando `couponTouchSent`, com teste e mutação.
+2. **Operador:** pedido de teste pela Malu → link da Coinzz → pagar na entrega (ou Pix) e cancelar, para provar o webhook de venda e a
+   régua pós-pedido com a Coinzz.
+3. **Sócio:** templates aprovados → declarar `cart_recovery`, `pix_pending`, `silence_3_retomada` em `channel.templates` (JSON em
+   `docs/agente-ia/06-script/03-templates-meta.md` §5–§7), operador cola o config.
+4. **Fornecedor:** alinhar o estoque Coinzz × Logzz (G em SP, M em BH).
+5. Lead de teste da Coinzz (telefone final 4554): excluir das métricas ou apagar.
+6. **Teste A/B de 5 dias** (anúncio → site × anúncio → WhatsApp, R$ 25/dia cada), leitura diária; critério anúncio por venda ≤ R$ 27.
+7. Apagar as branches superadas `wip/checklist-close-2026-10-28` e `wip/practical-fixes-coupon-2026-10-29` (com o OK do operador).
+8. Resíduo aceito: a negação "Não temos cupom" só é segurada pelo briefing, sem gate próprio (R21.6: gate só muda por frase real).
+
+### Como retomar
+`git checkout main && git pull`, `pnpm install`, leia `HANDOFF.md` (topo) e esta seção; grafo §136–§138 para o porquê.
