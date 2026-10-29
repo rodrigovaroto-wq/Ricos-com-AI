@@ -33,7 +33,6 @@ import {
   windowIsOpen,
   checkHumanReply,
   conversationCoupon,
-  namesCoupon,
   HUMAN_REPLY_REFUSAL,
   onOrderConfirmed,
   orderTakeOver,
@@ -2646,13 +2645,8 @@ const handleTurn = async (
     ((await db(
       `followups?select=id,conversations!inner(lead_id)&conversations.lead_id=eq.${lead.id}&kind=eq.silence_3&sent_at=not.is.null&limit=1`,
     ).catch(() => [])) ?? []).length > 0;
-  // Or she named it herself (operator, 2026-10-29, grafo §137): this message, or an earlier one of hers in this conversation.
-  // Index: messages_conversation_idx (conversation_id), her few rows with the word filtered after it.
-  const couponHers = couponTouchSent || (CONFIG.coupon.active && (namesCoupon(spoken(inbound.body ?? ""), CONFIG.coupon) ||
-    ((await db(
-      `messages?conversation_id=eq.${conversation.id}&direction=eq.inbound&or=${encodeURIComponent(`(body.ilike.*cupo*,body.ilike.*${(CONFIG.coupon.code ?? "").trim().replace(/[^A-Za-z0-9]/g, "") || "cupo"}*)`)}&select=body&order=created_at.desc&limit=20`,
-    ).catch(() => [])) ?? []).some((m: { body?: string }) => namesCoupon(m.body ?? "", CONFIG.coupon))));
-  const turnConfig = conversationCoupon(CONFIG, couponHers);
+  // The touch is the ONLY release (operator, 2026-10-29, grafo §137): her naming the coupon or saying she has it releases nothing.
+  const turnConfig = conversationCoupon(CONFIG, couponTouchSent);
   // Her region has no payment at the door (R16.2): as an earlier turn stored it, until this
   // turn's lookup answers (5d-bis). Every gate below reads it — "você paga na entrega" is a lie there.
   let codUnavailable = (lead.address as { codAvailable?: boolean } | null)?.codAvailable === false;

@@ -1200,6 +1200,10 @@ const gates: readonly Gate[] = [
             .map((k) => `${k.units} peças ${k.path === "cod" ? "na entrega" : "no antecipado"} ${money(k.priceBrl)} (${k.discountPercent}%)`)
             .join(", ")}`
         : ``) +
+      // The coupon's price, only once released (grafo §137): the gate allows the same two numbers.
+      (c.coupon.active
+        ? `, e com o cupom de ${c.coupon.percent}%: ${[...new Set([c.prices.codBrl, c.prices.prepayBrl].map((p) => money(Math.round(p * (1 - c.coupon.percent / 100) * 100) / 100)))].join(" e ")} por peça`
+        : ``) +
       `. ` +
       `Nenhum outro número em reais. ` +
       (c.prices.prepayDiscountPercent > 0 ? `` : `O antecipado não tem desconto: o preço é o mesmo da entrega. `) +
@@ -1221,6 +1225,11 @@ const gates: readonly Gate[] = [
       const kits = ctx.config.kits ?? [];
       // The price of each piece in a kit is the link message's own (operator, 2026-10-21, grafo §121): said back, never vetoed.
       const allowedPrices = new Set([codBrl, prepayBrl, anchorBrl, ...kits.flatMap((k) => [k.priceBrl, Math.round((k.priceBrl / k.units) * 100) / 100])]);
+      // The coupon's own price, one piece on each path, only once it is released to her (the touch went, `conversationCoupon`):
+      // "Com o cupom fica R$ 87,92" is the truth then, and held it stays vetoed (re-review of 5adb420, grafo §137).
+      const { coupon } = ctx.config;
+      const withCoupon = coupon.active ? [codBrl, prepayBrl].map((p) => Math.round(p * (1 - coupon.percent / 100) * 100) / 100) : [];
+      for (const p of withCoupon) allowedPrices.add(p);
       const orderAmount = ctx.stage === "logistics" ? ctx.orderAmountBrl : undefined;
       if (orderAmount !== undefined) allowedPrices.add(orderAmount);
       const t = norm(text);
@@ -1409,7 +1418,7 @@ const gates: readonly Gate[] = [
       const freight = realFreight(ctx);
       // A kit's piece price alone is no price of one piece (Opus review of cfa04fe, grafo §137: "Fica R$ 87,92 pra você" passed, the
       // 3-piece price that equals one piece with the coupon held): only in a sentence that names its count, its kit or "cada".
-      const whole = new Set([codBrl, prepayBrl, anchorBrl, ...kits.map((k) => k.priceBrl), ...(orderAmount !== undefined ? [orderAmount] : [])]);
+      const whole = new Set([codBrl, prepayBrl, anchorBrl, ...withCoupon, ...kits.map((k) => k.priceBrl), ...(orderAmount !== undefined ? [orderAmount] : [])]);
       const pieceOf = (v: number) => kits.filter((k) => !whole.has(v) && Math.round((k.priceBrl / k.units) * 100) / 100 === v).map((k) => k.units);
       const namesKit = (at: number, units: number[]) => {
         const sentence = `${t.slice(0, at).split(/[!?\n]|\.(?!\d)/).pop() ?? ""}${t.slice(at).split(/[!?\n]|\.(?!\d)/)[0] ?? ""}`;
@@ -1492,7 +1501,7 @@ const gates: readonly Gate[] = [
     remedy: "rewrite",
     briefing: (c) =>
       c.coupon.active
-        ? `O cupom de ${c.coupon.percent}% já chegou a ela (pelo lembrete, ou ela mesma falou dele) e você pode confirmá-lo` +
+        ? `O cupom de ${c.coupon.percent}% já chegou a ela pelo lembrete e você pode ajudá-la a usá-lo` +
           (c.coupon.code?.trim() ? `: o código é ${c.coupon.code.trim()}, digitado por ela no checkout. Nenhum outro código existe.` : `.`)
         // Personas of 2026-10-24: "não temos cupom no momento" with SUPER20 active, held for the ruler's `silence_3` (R17.4,
         // `conversationCoupon`), and the coupon arrived after — a contradiction. Never denied, never announced: today's best price.

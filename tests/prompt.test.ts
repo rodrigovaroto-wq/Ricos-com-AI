@@ -58,9 +58,9 @@ const corners = [
   // The offer of 2026-10-27: one price, free shipping on both paths, kits the same on both, as the secret carries it — without the
   // store plan, whose answer is not the one the store tests below read (the corners have none).
   { name: "produção 27/10: preço único e frete grátis", config: withoutStore(JSON.parse(readFileSync(new URL("../docs/operacao/business-config-2026-10-27.min.json", import.meta.url), "utf8")) as PromptConfig) },
-  // The config of 29/10b (grafo §137): the coupon on, as the turn feeds prompt and gates — held for the follow-up, then released.
+  // The config of 29/10b (grafo §137): the coupon on, as the turn feeds prompt and gates — held, then released by the follow-up touch only.
   { name: "produção 29/10: cupom guardado pro lembrete", config: conversationCoupon(withoutStore(JSON.parse(readFileSync(new URL("../docs/operacao/business-config-2026-10-29b.min.json", import.meta.url), "utf8")) as PromptConfig), false) },
-  { name: "produção 29/10: cupom liberado", config: conversationCoupon(withoutStore(JSON.parse(readFileSync(new URL("../docs/operacao/business-config-2026-10-29b.min.json", import.meta.url), "utf8")) as PromptConfig), true) },
+  { name: "produção 29/10: cupom liberado pelo lembrete", config: conversationCoupon(withoutStore(JSON.parse(readFileSync(new URL("../docs/operacao/business-config-2026-10-29b.min.json", import.meta.url), "utf8")) as PromptConfig), true) },
 ] as const;
 
 /** Free on neither path: the only corner where the prompt may not say "frete é grátis" at all. */
@@ -1435,8 +1435,12 @@ describe("o cupom só do lembrete: o prompt e o coupon_exists dizem o mesmo (gra
     expect(gatesOn(held!)).toContain("coupon_exists");
   });
 
-  it("liberado (o lembrete foi, ou ela citou): o prompt dá o código e o gate deixa confirmá-lo", () => {
+  it("liberado só pelo lembrete enviado: o prompt dá o código e o gate deixa confirmá-lo", () => {
     expect(build(released!)).toContain("o código é SUPER20");
+    // The price with the coupon, taught and allowed together (re-review of 5adb420); held, neither.
+    expect(build(released!)).toContain("com o cupom de 20%: R$ 87,92 por peça");
+    expect(build(held!)).not.toContain("R$ 87,92 por peça");
+    expect(runGates("Com o cupom de 20% fica R$ 87,92.", ctx({ config: released! })).allowed).toBe(true);
     expect(gatesOn(released!)).not.toContain("coupon_exists");
   });
 });

@@ -11,7 +11,7 @@ import { gateBriefing } from "@/agent/guardrails.js";
 import { sizeAskedFor, statedSizeOf } from "@/agent/sizing.js";
 import { codOfferText, FUNNEL_LABELS, mediaNamesOf, offerBubbles, offerKindOf, requestedMedia } from "@/agent/funnel.js";
 import { siteBriefing, systemPrompt } from "@/agent/prompt.js";
-import { conversationCoupon, namesCoupon } from "@/agent/followups.js";
+import { conversationCoupon } from "@/agent/followups.js";
 import {
   checksSummary,
   closeStep,
@@ -203,14 +203,7 @@ describe("O cupom é só do follow-up (operador, 2026-10-29)", () => {
   const reserved = conversationCoupon(prod, false);
   const hers = conversationCoupon(prod, true);
 
-  it("ela nomeia o cupom: o código, ou cupom com o percentual", () => {
-    expect(namesCoupon("tenho o SUPER20, vale?", prod.coupon)).toBe(true);
-    expect(namesCoupon("recebi um cupom de 20%", prod.coupon)).toBe(true);
-  });
-  it.each(["tem cupom?", "tem desconto?", "o kit de 3 tem 20%?", "super 2000", "cupom de 10%"])("negação: %s não nomeia o cupom", (m) =>
-    expect(namesCoupon(m, prod.coupon)).toBe(false));
-
-  it("na conversa sem o lembrete e sem ela citar: anunciar o cupom, o código ou um código de desconto é vetado", () => {
+  it("na conversa sem o lembrete: anunciar o cupom, o código ou um código de desconto é vetado", () => {
     for (const s of [
       "Separei um cupom de 20% de desconto pra você!",
       "Usa o SUPER20 no checkout que sai mais em conta.",
@@ -224,7 +217,7 @@ describe("O cupom é só do follow-up (operador, 2026-10-29)", () => {
     expect(blocked("Não temos cupom de desconto no momento.", { config: reserved })).not.toContain("coupon_exists");
   });
 
-  it("depois do lembrete ou com ela citando: confirmar o código e onde digitar passa", () => {
+  it("só depois do lembrete: ajudar a usar o código e dizer onde digitar passa", () => {
     expect(blocked("Vale sim! É só digitar o cupom SUPER20 no checkout 😊", { config: hers })).toEqual([]);
   });
 
@@ -240,9 +233,11 @@ describe("O cupom é só do follow-up (operador, 2026-10-29)", () => {
     expect(`${PHONE_REFUSED}${SUMMARY_CHECKED}`).not.toMatch(/cupom/i);
   });
 
-  it("o turno libera o cupom pelo lembrete enviado ou pela palavra dela", () => {
-    expect(turn).toContain("const couponHers = couponTouchSent || (CONFIG.coupon.active && (namesCoupon(spoken(inbound.body ?? \"\"), CONFIG.coupon) ||");
-    expect(turn).toContain("const turnConfig = conversationCoupon(CONFIG, couponHers);");
+  // Operator, 2026-10-29 (grafo §137): the touch is the only release; her words never release it.
+  it("o turno libera o cupom só pelo lembrete enviado", () => {
+    expect(turn).toContain("const turnConfig = conversationCoupon(CONFIG, couponTouchSent);");
+    expect(turn).not.toContain("couponHers");
+    expect(turn).not.toContain("namesCoupon");
   });
 });
 
@@ -266,24 +261,37 @@ describe("revisão do cfa04fe: dois números, o cupom pedido e o preço da peça
     ["qual tamanho pra quem não veste 40/42?", null],
   ])("negação: o segundo número só conta como tamanho: %s → %s", (msg, size) => expect(sizeAskedFor(msg)).toBe(size));
 
-  it.each(["tenho o SUPER20", "o SUPER20 vale?", "recebi um cupom de 20%", "tenho um cupom de 20% de vocês", "ganhei um cupom de 20%, vale?", "tenho 20% de cupom, ainda vale?"])(
-    "ela nomeia o código ou diz que tem o cupom: %s",
-    (m) => expect(namesCoupon(m, prod29b.coupon)).toBe(true),
-  );
+  // Operator, 2026-10-29: the coupon goes on one occasion only, the follow-up. Her naming it, saying she has it, asking or denying it
+  // releases nothing: before the touch, confirming or giving the code is vetoed whatever she said.
   it.each([
+    "tenho o SUPER20",
+    "o SUPER20 vale?",
+    "recebi um cupom de 20%",
+    "tenho um cupom de 20% de vocês",
     "vi 20% de desconto no site, tem cupom?",
-    "consegue um cupom de 20 por cento?",
     "tem cupom de 20%?",
-    "quero 20% de desconto, tem cupom?",
-    "tem algum cupom tipo 10 ou 20%?",
     "nao tenho cupom de 20%",
-    "não tenho nenhum cupom de 20%",
-    "20% de cupom ainda vale?",
-    "tenho interesse, tem cupom de 20%?",
-  ])("negação: pergunta, pedido ou negação nunca liberam o cupom: %s", (m) => expect(namesCoupon(m, prod29b.coupon)).toBe(false));
+  ])("guardado mesmo com ela dizendo: %s", (m) => {
+    expect(blocked("Vale sim! É só digitar o SUPER20 no checkout 😊", { config: held, herWords: m })).toContain("coupon_exists");
+    expect(gateBriefing(held).join(" ")).not.toContain("SUPER20");
+  });
 
   const priceGate = (text: string, config = held) =>
     runGates(text, ctx({ config })).traces.filter((t) => t.verdict === "block").map((t) => t.gate);
+
+  // Re-review of 5adb420 (grafo §137): after the touch, the coupon's own price is the truth; held, it is still vetoed.
+  it.each([
+    "Com o cupom SUPER20 o colete sai R$ 87,92.",
+    "Com o cupom de 20% fica R$ 87,92.",
+    "Com o SUPER20 fica R$ 87,92 na entrega.",
+    "Fica R$ 87,92 com o cupom.",
+  ])("o preço com o cupom passa depois do lembrete, e é vetado com o cupom guardado: %s", (s) => {
+    expect(priceGate(s, conversationCoupon(prod29b, true))).toEqual([]);
+    expect(priceGate(s)).toContain("price_promise");
+  });
+  it("negação: com o cupom liberado, um preço que não é o com cupom segue vetado", () => {
+    expect(priceGate("Com o cupom fica R$ 80,00.", conversationCoupon(prod29b, true))).toContain("price_promise");
+  });
 
   it.each(["Fica R$ 87,92 pra você.", "Consigo fazer por R$ 87,92.", "Hoje sai por R$ 87,92 no pagamento na entrega!", "O seu colete fica R$ 98,91."])(
     "a peça do kit dita como o preço de uma peça é vetada: %s",

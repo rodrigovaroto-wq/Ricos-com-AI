@@ -5043,7 +5043,7 @@ citar o cupom, o código e "código de desconto" no gate, e o briefing dizia "o 
 - D2: `checksSummary` (lista de permissão da mensagem inteira: "tá certo?", "está tudo certo?", "certinho?", "confere?", "é isso?") sobre o
   resumo → linha fixa `SUMMARY_CHECKED` + o resumo, por último (o modelo não responde depois: `close.text.includes(SUMMARY_HEAD)`); o "sim"
   seguinte importa. Uma pergunta de outra coisa segue com o modelo (resíduo do §135).
-- Cupom: `namesCoupon` (`followups.ts`): o código, ou "cupom" com o percentual na frase; `handleTurn` libera o cupom na conversa
+- Cupom (**superado pela regra do operador de 29/10, abaixo**): `namesCoupon` (`followups.ts`): o código, ou "cupom" com o percentual na frase; `handleTurn` libera o cupom na conversa
   (`couponHers`) com o `silence_3` enviado OU ela citando (esta mensagem, ou uma dela na conversa: `messages` por `conversation_id`,
   índice `messages_conversation_idx`, filtrado por `ilike` cupo/código, 20 linhas). `coupon_exists` sem o cupom liberado veta também o
   código e "código de desconto/promocional" e "cupons"; o briefing diz "não anuncia, não oferece e não puxa assunto de cupom… é só do
@@ -5094,7 +5094,7 @@ modelo real de D1/D3/D4/D8 e do cupom antes da v48.
 **Correção.**
 1. `sizeAskedFor`: o segundo número da faixa ("/", "-", "ou", "a", "e", "entre … e") é lido, e o maior vale. Se o segundo número vem com
    unidade ("40 ou 42 anos"), a frase toda não é tamanho.
-2. `namesCoupon`: só o código, ou ela dizendo que TEM o cupom. O verbo de posse (tenho/recebi/ganhei/chegou/veio/me mandaram) vem antes,
+2. (**Superado pela regra do operador de 29/10, abaixo.**) `namesCoupon`: só o código, ou ela dizendo que TEM o cupom. O verbo de posse (tenho/recebi/ganhei/chegou/veio/me mandaram) vem antes,
    não pode ser negado, e entre ele e o cupom só cabem artigos e "já/aqui/também". "20% de cupom ainda vale?", sem o verbo, não libera mais.
 3. `price_promise`: o preço por peça de um kit (que não é preço inteiro de nenhuma oferta) só passa numa frase que nomeia a quantidade
    ("3 peças", "duas peças"), o kit ("kit de 3") ou a peça ("cada", "por peça"). A conta da economia continua usando `allowedPrices` como
@@ -5111,6 +5111,41 @@ mutação do `price_promise`: 57/57 pegas.
 - "20% de cupom ainda vale?" sem o verbo de posse não libera o cupom: a Malu diz o melhor valor de hoje, e o lembrete continua.
 - `pnpm dev:gates --fail-on-loosen`: 0 afrouxados. Endureceram só frases do `coupon_exists`; nenhuma frase do corpus mudou no `price_promise`
   por causa do preço da peça do kit.
+
+### Regra do operador (2026-10-29, depois do 5adb420): o cupom vai numa ocasião só, o follow-up
+
+**Decisão do operador.** O cupom é mandado numa ocasião só: o toque do cupom no follow-up (`silence_3`). Na conversa a Malu nunca manda,
+oferece ou confirma o cupom/código porque a cliente o citou ou disse que tem. A única liberação é o toque já enviado a ela (lido por lead,
+como no R17.4). Depois dele, a Malu pode ajudar a usar ("é só digitar SUPER20 no checkout"), porque ela já o recebeu. O resto continua igual:
+- a Malu nunca nega o cupom;
+- as linhas fixas e as caixas nunca levam o cupom;
+- o gate e o prompt dizem o mesmo;
+- o follow-up continua levando o cupom.
+
+**Correção.**
+- `handleTurn` volta a `conversationCoupon(CONFIG, couponTouchSent)`: saem `couponHers` e a busca em `messages` (a consulta nova deste
+  conserto deixou de existir).
+- `namesCoupon` foi apagado de `followups.ts` (espelhado).
+- O briefing liberado do `coupon_exists` diz "já chegou a ela pelo lembrete e você pode ajudá-la a usá-lo".
+- Re-revisão do 5adb420: com o cupom liberado, o preço verdadeiro com o cupom ("Com o cupom de 20% fica R$ 87,92.") era vetado; antes só
+  passava porque 87,92 coincide com o preço por peça do kit de 3. O `price_promise` passa a aceitar `codBrl` e `prepayBrl` com o percentual
+  do cupom (`withCoupon`) só com `ctx.config.coupon.active`. O cupom guardado chega ao gate com `active: false`, então esse preço segue
+  vetado. Os kits com cupom não entram: o turno (`couponCut`/`shopPrices`) também não os calcula. O briefing do `price_promise` ensina os
+  mesmos números só com o cupom liberado ("com o cupom de 20%: R$ 87,92 por peça").
+
+**Guarda.**
+- `tests/real-test-2026-10-29.test.ts`: as frases dela ("tenho o SUPER20", "recebi um cupom de 20%", "tem cupom de 20%?", "nao tenho…")
+  deixam o cupom guardado. Confirmar o código continua vetado. O turno só lê `couponTouchSent`, sem `couponHers` nem `namesCoupon`. O preço
+  com o cupom passa liberado e é vetado guardado; um preço que não é o com cupom segue vetado.
+- `tests/prompt.test.ts`: os cantos "guardado" e "liberado pelo lembrete". O briefing e o gate concordam sobre o código e sobre R$ 87,92.
+- Mutações:
+  - saíram `O39-cupom-dela`, `O39-cupom-dela-sem-percentual`, `O39-cupom-dela-no-turno` e as três `O40-cupom-*` de `namesCoupon`;
+  - entraram `O40-cupom-so-pelo-lembrete` (reinstala "a palavra dela libera"), `O40-cupom-preco-liberado` e `O40-cupom-preco-guardado`.
+- `G121-preco-da-peca-vetado` escapou na primeira rodada: no config de 20/10 (cupom cru ativo), R$ 103,92 é também 129,90 − 20%, e o preço
+  com o cupom passou a esconder a peça do kit. `tests/operator-test-2026-10-21.test.ts` ganhou a mesma frase com o cupom guardado, que é o
+  estado da conversa antes do toque.
+- `pnpm verificar:guardas` numa cópia commitada (5adb420 + este conserto), sobre as `O39-*`, as `O40-*`, toda mutação do `price_promise` e
+  do `coupon_exists`, e as que este conserto tocou: 66/66 pegas. As 1.041 mutações acham o texto de origem.
 
 ## Lições (valem para qualquer correção futura)
 

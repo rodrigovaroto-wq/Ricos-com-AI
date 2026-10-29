@@ -1335,21 +1335,6 @@ export const conversationCoupon = <C extends { coupon: { percent: number; active
 ): C => (config.coupon.active && !couponTouchSent ? { ...config, coupon: { ...config.coupon, active: false } } : config);
 
 /**
- * She names the coupon herself (operator, 2026-10-29, grafo §137): its code ("SUPER20", "o SUPER20 vale?"), or she says she HAS it,
- * with its percent ("recebi um cupom de 20%", "tenho 20% de cupom"). Then the conversation may confirm it, as after the touch. A
- * question or a request never does ("tem cupom de 20%?", "consegue um cupom de 20%?", Opus review of cfa04fe), nor a denied
- * "não tenho cupom de 20%": the coupon is the follow-up's, never offered to whoever asks.
- */
-export const namesCoupon = (text: string, coupon: { percent: number; code?: string }): boolean => {
-  const t = text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  const code = coupon.code?.trim().toLowerCase();
-  if (code && new RegExp(`(?<![a-z0-9])${code.replace(/[^a-z0-9]/g, (c) => `\\${c}`)}(?![a-z0-9])`).test(t)) return true;
-  const pct = String.raw`${coupon.percent}\s*(?:%|por\s*cento)`;
-  const has = String.raw`(?<!\b(?:nao|nem|nunca)\s+(?:\S+\s+)?)\b(?:tenho|recebi|ganhei|chegou|veio|me\s+(?:mandaram|deram|enviaram))\s+(?:(?:aqui|ja|tambem|um|uma|o|a|esse|essa|este|esta|seu|sua)\s+){0,3}`;
-  return new RegExp(String.raw`${has}(?:cupo(?:m|ns)\b[^.!?\n]{0,30}\b${pct}|${pct}[^.!?\n]{0,30}\bcupo(?:m|ns)\b)`).test(t);
-};
-
-/**
  * The Coinzz touches and the retomada (operator, 2026-10-27), word for word the templates in
  * docs/agente-ia/06-script/03-templates-meta.md (§5–§7): the text gated here is the text she reads.
  */

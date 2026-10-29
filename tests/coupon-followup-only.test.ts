@@ -83,7 +83,7 @@ describe("o turno liga o cupom ao toque (R17.4)", () => {
     // `sent_at`, not `status`: the end-of-turn re-arm turns the row back into `scheduled`.
     expect(turn).toContain("kind=eq.silence_3&sent_at=not.is.null");
     expect(turn).not.toContain("kind=eq.silence_3&status=eq.sent");
-    expect(turn).toContain("const turnConfig = conversationCoupon(CONFIG, couponHers);");
+    expect(turn).toContain("const turnConfig = conversationCoupon(CONFIG, couponTouchSent);");
   });
 
   it("nenhum gate nem prompt do turno lê o CONFIG cru, e a leitura de preço próprio usa o cupom do turno", () => {
