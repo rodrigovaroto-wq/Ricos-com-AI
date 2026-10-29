@@ -193,8 +193,9 @@ export const PIX_PENDING_MS = 30 * MINUTE;
 /**
  * Whether the abandoned-cart webhook arms the cart touch (operator, 2026-10-27). She typed her phone in our checkout to buy and the
  * operator asked for this recovery, so it does NOT wait for the marketing opt-in question — the operator's decision, recorded in
- * grafo §134. Never twice to the same woman, never to an opted-out phone, never over an order (any status: the order's own ruler
- * speaks), never while she is talking to Malu (her last message under 30 minutes ago: the conversation handles it in the window),
+ * grafo §134. Never twice to the same woman, never to an opted-out phone, never over an order of hers created in the 24 h before
+ * the cart or after it (`cartOrderSince`, any status: the order's own ruler speaks; an older one, a returning buyer, does not
+ * count — the same rule the sweep reads at sending, grafo §136), never while she is talking to Malu (her last message under 30 minutes ago: the conversation handles it in the window),
  * and never on top of the link's own touch (`checkout_reminder` waiting). The hours rule is the sweep's (`business_hours`).
  */
 export const armsCartRecovery = (s: {
@@ -207,6 +208,31 @@ export const armsCartRecovery = (s: {
 }): boolean =>
   !s.optedOut && !s.hasOrder && !s.cartTouchSent && !s.checkoutReminderPending &&
   !(s.lastInboundAt !== null && s.now.getTime() - s.lastInboundAt.getTime() < CART_RECOVERY_MS);
+
+/** Grafo §136: the orders that end the cart touch are those created from 24 h before the cart on — at arming and at sending. */
+export const cartOrderSince = (cartAt: Date): Date => new Date(cartAt.getTime() - DAY);
+
+/**
+ * The cart's checkout as kept on her lead (grafo §136): origin and path only — the query of our prefilled links carries her CPF,
+ * e-mail and phone. A URL `checkoutSlug` does not read (the Coinzz test cart's ".../cart/abc123") is the config's checkout for her
+ * quantity (one piece: the prepaid, else the delivery URL; a kit: its own), so the template's button has a slug. Unknown: null.
+ */
+export const cartCheckoutUrl = (
+  url: string | null | undefined,
+  quantity: number | null,
+  checkout: { readonly prepayUrl?: string; readonly codUrl?: string } | undefined,
+  kits: ReadonlyArray<{ readonly units: number; readonly path: string; readonly checkoutUrl?: string }>,
+): string | null => {
+  const kit = (path: string) => kits.find((k) => k.units === quantity && k.path === path && checkoutSlug(k.checkoutUrl))?.checkoutUrl;
+  const own = checkoutSlug(url)
+    ? String(url).trim()
+    : quantity === 1
+    ? [checkout?.prepayUrl, checkout?.codUrl].find((u) => checkoutSlug(u))
+    : quantity !== null ? kit("prepay") ?? kit("cod") : undefined;
+  if (!own) return null;
+  const u = new URL(own);
+  return `${u.origin}${u.pathname}`;
+};
 
 /**
  * A checkout phone as a lead's (2026-10-27): 55 + DDD + number, as typed in the Coinzz checkout ("(11) 98765-4321" →
@@ -722,7 +748,17 @@ export const pixStillDue = (
 export const sizeSells = (
   region: { readonly stockAware?: boolean; readonly sizeOutOfStock?: boolean; readonly askedSize?: string | null; readonly size?: string | null } | null | undefined,
   size: string | null | undefined,
-): boolean => !!region && !!size && region.stockAware === true && region.sizeOutOfStock !== true && (region.askedSize ?? region.size ?? null) === size;
+  /** The Logzz dates say delivery for her (`logzzSells`): the Coinzz "out of stock" is not the answer then (grafo §136). */
+  logzz = false,
+): boolean => !!region && !!size && region.stockAware === true && (region.sizeOutOfStock !== true || logzz) && (region.askedSize ?? region.size ?? null) === size;
+
+/**
+ * Grafo §136: the Logzz dates stored for her package (`leads.address.codDates`) said delivery at the CEP of her stored region. The
+ * turn then sells her size on delivery whatever the Coinzz said (`handleTurn`'s override), and the stored region keeps the Coinzz
+ * answer — the cache the next turn reads for the prepaid link — so the ruler, the sweep and the retomada read the two together.
+ */
+export const logzzSells = (regionZip: string | null | undefined, datesCep: string | null | undefined, datesKind: string | null | undefined): boolean =>
+  datesKind === "dates" && !!regionZip && String(datesCep ?? "").replace(/\D/g, "") === regionZip.replace(/\D/g, "");
 
 /** The Pix again, as the webhook gave it (2026-10-27): the line, then the copy-and-paste code on its own, or the Pix page's link. */
 export const pixResendTexts = (details: { orderNumber?: string | null; pixCode?: string | null; pixUrl?: string | null }): string[] => {
@@ -945,9 +981,11 @@ export const onOrderConfirmed = (
   const scheduled = existing.filter((f) => f.status === "scheduled");
   const theirs = (f: ExistingFollowup) => !orderId || !f.orderId || f.orderId === orderId;
   // Any order ends the cart touch (2026-10-27): the checkout was finished. The Pix touch lives while this order awaits the Pix.
-  const pixArm: ScheduledFollowup[] = awaitsPix(status, pix) && !existing.some((e) => e.kind === "pix_pending")
-    ? [{ kind: "pix_pending", runAt: new Date(now.getTime() + PIX_PENDING_MS) }]
-    : [];
+  const pixDue: ScheduledFollowup[] = awaitsPix(status, pix) ? [{ kind: "pix_pending", runAt: new Date(now.getTime() + PIX_PENDING_MS) }] : [];
+  const pixRow = existing.find((e) => e.kind === "pix_pending");
+  const pixArm = pixRow ? [] : pixDue;
+  // One row per kind (grafo §136): a later order's Pix re-arms the row an earlier order left cancelled or sent, never a waiting one.
+  const pixMove = pixRow && pixRow.status !== "scheduled" && !!orderId && pixRow.orderId !== orderId ? pixDue : [];
   // Any PAID order of hers ends the Pix touch too, whichever order armed it (review of ecea0c3, 1: she paid a second order and the
   // first one's "aguardando o Pix" went to a buyer).
   const checkoutDone = (f: ExistingFollowup) =>
@@ -970,7 +1008,7 @@ export const onOrderConfirmed = (
     return {
       cancel: scheduled.filter((f) => (inSilenceRuler(f.kind) && f.kind !== "checkout_reminder") || checkoutDone(f)).map((f) => f.kind),
       arm: pixArm,
-      move: [],
+      move: pixMove,
     };
   }
   const plan = scheduleOrder({ orderedAt, status, scheduledFor }, now);

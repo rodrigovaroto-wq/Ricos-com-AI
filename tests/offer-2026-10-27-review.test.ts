@@ -71,13 +71,13 @@ describe("5. o desconto do antecipado vem do config (27/10: nenhum)", () => {
 describe("2. a régua não persegue quem ouviu que o tamanho dela acabou", () => {
   it("scheduleSilenceTouches sai cancelando tudo com o sizeOut do turno ou a região guardada sem estoque", () => {
     const fn = turn.slice(turn.indexOf("const scheduleSilenceTouches = async"), turn.indexOf("/** How close to a reply the checkout touch may go (L2). */"));
-    const exit = fn.indexOf('if (sizeOut || at?.leads?.stock_out === "true") {');
+    const exit = fn.indexOf('if (sizeOut || (at?.leads?.stock_out === "true" && !logzzSells(at.leads.stock_zip, at.leads.dates_cep, at.leads.dates_kind))) {');
     expect(exit).toBeGreaterThan(-1);
     expect(fn.indexOf("rulerFor(")).toBeGreaterThan(exit);
     expect(fn).toContain("stock_out:address->region->>sizeOutOfStock");
     expect(turn).toContain("    endsWithQuestion(replyText),\n    sizeOut !== null,\n  );");
     // At send time too: a touch armed before (or by a deferred reply) to a size out of stock never goes.
-    expect(turn).toContain("if (inSilenceRuler(kind) && lead.address?.region?.sizeOutOfStock === true) {");
+    expect(turn).toContain("if (inSilenceRuler(kind) && lead.address?.region?.sizeOutOfStock === true && !logzzSells(lead.address.region.zip, lead.address.codDates?.cep, lead.address.codDates?.result?.kind)) {");
   });
 });
 

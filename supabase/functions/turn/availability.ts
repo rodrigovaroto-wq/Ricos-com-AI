@@ -302,6 +302,24 @@ export interface Region {
  */
 export const VIACEP_ENDPOINT = "https://viacep.com.br/ws";
 
+/**
+ * Grafo §136: one ViaCEP answer per CEP in a turn — the region lookup, the kit's sizes and the close's street read the same body
+ * (`cache` lives for one turn). Only an answer is kept: a throw or a null is asked again, so a failure never reads as a CEP with
+ * no street. A call with headers, or to anything else, passes through.
+ */
+export const reuseViaCep = (cache: Map<string, Promise<unknown>>, fetcher: Fetcher): Fetcher => (url, headers) => {
+  if (headers || !url.startsWith(VIACEP_ENDPOINT)) return fetcher(url, headers);
+  const hit = cache.get(url) ?? fetcher(url).then(
+    (body) => (body == null && cache.delete(url), body),
+    (error: unknown) => {
+      cache.delete(url);
+      throw error;
+    },
+  );
+  cache.set(url, hit);
+  return hit;
+};
+
 export const readPlace = (body: unknown): Place | null => {
   const j = body as { localidade?: string; uf?: string; bairro?: string; erro?: unknown } | null;
   if (!j || j.erro || !j.localidade || !j.uf) return null;

@@ -131,7 +131,7 @@ describe("5. a retomada só com o tamanho que vende", () => {
     expect(r({})).toBeNull();
     expect(r({ sizeSells: false })).toBeNull();
     expect(r({ sizeSells: true })).toContain("no tamanho M");
-    expect(turn).toContain("sizeSells: sizeSells(lead.address?.region ?? null, lead.size ?? null),");
+    expect(turn).toContain("sizeSells: sizeSells(lead.address?.region ?? null, lead.size ?? null, logzzSells(lead.address?.region?.zip, lead.address?.codDates?.cep, lead.address?.codDates?.result?.kind)),");
   });
 });
 

@@ -398,7 +398,8 @@ describe("região", () => {
 
   it("a função de produção repassa o cabeçalho ao fetch, e a varredura de dev também", () => {
     const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
-    expect(turn).toMatch(/const lookup = await lookupRegion\(\s*regionFetcher\(/);
+    expect(turn).toMatch(/const lookup = await lookupRegion\(\s*cepFetcher\(/);
+    expect(turn).toContain("const cepFetcher = (timeoutMs: number): Fetcher => reuseViaCep(viaCepBodies, regionFetcher(timeoutMs));");
     expect(turn).toContain("const regionFetcher = (timeoutMs: number): Fetcher => async (url, headers) => {\n  const r = await fetch(url, { headers,");
     const sweep = readFileSync("src/dev/availability.ts", "utf8");
     expect(sweep).toContain("{ headers: AVAILABILITY_HEADERS }");

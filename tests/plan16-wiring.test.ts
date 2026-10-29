@@ -51,7 +51,7 @@ describe("a régua pela faixa do score (§4.2)", () => {
   });
 
   it("o turno lê a faixa guardada ao armar a régua: só o tamanho e a faixa do lead (0029 aplicada em 21/10)", () => {
-    expect(turn).toContain("select=*,leads(size,score_band,stock_out:address->region->>sizeOutOfStock,orders(status)),followups(kind,sent_at)");
+    expect(turn).toContain("select=*,leads(size,score_band,stock_out:address->region->>sizeOutOfStock,stock_zip:address->region->>zip,dates_cep:address->codDates->>cep,dates_kind:address->codDates->result->>kind,orders(status)),followups(kind,sent_at)");
     expect(turn).toContain("body: JSON.stringify(rulerForBand(rows, at?.leads?.score_band)),");
   });
 });
@@ -310,7 +310,7 @@ describe("/code-review do PR 77", () => {
   });
 
   it("a régua lê só o tamanho e a faixa do lead, nunca a linha inteira", () => {
-    expect(turn).toContain("leads(size,score_band,stock_out:address->region->>sizeOutOfStock,orders(status))");
+    expect(turn).toContain("leads(size,score_band,stock_out:address->region->>sizeOutOfStock,stock_zip:address->region->>zip,dates_cep:address->codDates->>cep,dates_kind:address->codDates->result->>kind,orders(status))");
     expect(turn).not.toContain("leads(*,");
   });
 });

@@ -110,7 +110,7 @@ describe("R26.3 — consulta de cobertura que falha (persona Jussara, 15/10)", (
   it("a consulta que falha (ou lança, 'fetch failed') é tentada de novo, curta, antes do link com a ressalva", () => {
     const lookup = turn.slice(turn.indexOf("else if (addressDraft.cep) {"), turn.indexOf("region = lookup.kind === \"found\" ? lookup.region : null;"));
     expect(lookup).toContain('.catch((): RegionLookup => ({ kind: "failed" }))');
-    expect(lookup).toContain('.then((first) => (first.kind === "failed" && !isRetry && !isRevise ? lookupRegion(regionFetcher(RETRY_REGION_TIMEOUT_MS), zip, regionSize, logzzIdsOf(CONFIG.checkout)).catch((): RegionLookup => first) : first));');
+    expect(lookup).toContain('.then((first) => (first.kind === "failed" && !isRetry && !isRevise ? lookupRegion(cepFetcher(RETRY_REGION_TIMEOUT_MS), zip, regionSize, logzzIdsOf(CONFIG.checkout)).catch((): RegionLookup => first) : first));');
   });
 
   it("negação (revisão Opus): na nova tentativa da varredura e na revisão, sem a segunda consulta — o orçamento é do modelo", () => {

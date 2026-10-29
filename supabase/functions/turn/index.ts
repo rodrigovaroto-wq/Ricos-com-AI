@@ -75,6 +75,9 @@ import {
   pixResendFor,
   pixStillDue,
   sizeSells,
+  logzzSells,
+  cartCheckoutUrl,
+  cartOrderSince,
   CART_RECOVERY_MS,
   checkoutSlug,
   firstNameOf,
@@ -88,7 +91,7 @@ import {
 import { asksForSize, type Size, SIZES, sizeBeyondTable, sizeFromDressSize, statedSizeOf, TABLE_TOP_DRESS, TABLE_TOP_WAIST } from "./sizing.ts";
 import { acceptsOffers, mayAskOptIn, optInAnswer, optInMessage, suspendsMarketingOptIn } from "./opt-in.ts";
 import { furthest, overwritableBy, reachedStage, type Stage } from "./state-machine.ts";
-import { cachedRegion, type CachedRegion, kitRegion, cepsByStreet, checkCoverage, type Fetcher, healthOf, logzzIdsOf, lookupRegion, lookupsDegraded, prepayFreight, type Region, type RegionLookup, VIACEP_ENDPOINT } from "./availability.ts";
+import { cachedRegion, type CachedRegion, kitRegion, cepsByStreet, checkCoverage, type Fetcher, healthOf, logzzIdsOf, lookupRegion, lookupsDegraded, prepayFreight, type Region, type RegionLookup, reuseViaCep, VIACEP_ENDPOINT } from "./availability.ts";
 import {
   cachedCodDates,
   type CachedCodDates,
@@ -104,6 +107,7 @@ import {
   type CodDate,
   codPackage,
   importedTwin,
+  importBlocksClose,
   importPayload,
   asksHowItWorks,
   isCloseMessage,
@@ -1304,7 +1308,7 @@ const scheduleSilenceTouches = async (
   // messages ride in the same request, newest 20 by messages_conversation_idx (conversation_id, created_at).
   // The lead's size and `score_band` only (leads_pkey; 0029 applied on 2026-10-21): never the whole row, which carries her
   // address and the profile's free text (/code-review of plan 16).
-  const at = (await db(`conversations?id=eq.${conversationId}&select=*,leads(size,score_band,stock_out:address->region->>sizeOutOfStock,orders(status)),followups(kind,sent_at),messages(direction,body,created_at)&messages.order=created_at.desc&messages.limit=20`).catch(() => null))?.[0];
+  const at = (await db(`conversations?id=eq.${conversationId}&select=*,leads(size,score_band,stock_out:address->region->>sizeOutOfStock,stock_zip:address->region->>zip,dates_cep:address->codDates->>cep,dates_kind:address->codDates->result->>kind,orders(status)),followups(kind,sent_at),messages(direction,body,created_at)&messages.order=created_at.desc&messages.limit=20`).catch(() => null))?.[0];
   const orderStatuses = (at?.leads?.orders ?? []).map((o: { status: string | null }) => o.status ?? "");
   // She said no and has not come back to the sale (grafo §69): nothing is chased, the checkout touch included.
   // R26.2: her "então deixa" refuses only where the region has no payment at the door — read from what Malu told her.
@@ -1318,8 +1322,9 @@ const scheduleSilenceTouches = async (
     return;
   }
   // Her size has no stock on either path (review of 481f2d3): every touch would sell a size the checkout does not sell — "No
-  // antecipado o colete sai por R$ 109,90" went to the M an hour later. This turn's reading, or the last region stored for her size.
-  if (sizeOut || at?.leads?.stock_out === "true") {
+  // antecipado o colete sai por R$ 109,90" went to the M an hour later. This turn's reading, or the last region stored for her size —
+  // unless the Logzz dates stored for her say delivery there (`logzzSells`, grafo §136: the M in BH is sold on delivery).
+  if (sizeOut || (at?.leads?.stock_out === "true" && !logzzSells(at.leads.stock_zip, at.leads.dates_cep, at.leads.dates_kind))) {
     await cancelScheduled(conversationId, "all");
     return;
   }
@@ -1431,8 +1436,10 @@ const leadForPhone = async (phone: string): Promise<{ id: string; phone: string;
  * A lead the checkout made (2026-10-27): she bought or abandoned a cart in the Coinzz checkout without writing to us — the site
  * test's path. No `source`: a lead with no ad behind it is a site lead. Her conversation, open, so the touches have one.
  */
+// An upsert on the phone (leads_phone_key, grafo §136): the cart and the sale webhooks of a new phone racing made the second POST a
+// unique violation, a 500, and the sale not filed. The row that exists comes back untouched (only `phone`, the same value, is merged).
 const checkoutLead = async (phone: string): Promise<{ id: string; opted_out_at?: string | null }> =>
-  (await db("leads", { method: "POST", body: JSON.stringify({ phone }) }))[0];
+  (await db("leads?on_conflict=phone", { method: "POST", headers: { Prefer: "resolution=merge-duplicates,return=representation" }, body: JSON.stringify({ phone }) }))[0];
 
 /** Digits only, which is how a phone survives being written six different ways. */
 const digits = (v: string): string => v.replace(/\D/g, "");
@@ -1495,7 +1502,9 @@ const recordOrder = async (order: OrderWebhook, mayCreateLead = false) => {
       webhookId: shortText(webhookId, MAX_EXTERNAL_ID),
     }).filter(([, v]) => v !== null),
   );
-  const pix = Boolean(details.pixCode || details.pixUrl);
+  // The Pix this order holds, stored or new (grafo §136): a status webhook without `url_pix` never cancels the armed Pix touch.
+  const merged: Record<string, unknown> = { ...(stored?.[0]?.details ?? {}), ...details };
+  const pix = Boolean(merged.pixCode || merged.pixUrl);
   const status = orderStatusAfter(stored?.[0]?.status, order.status ?? "created");
   // The delivery day in force (D1): a status webhook without `date_delivery` does not erase
   // the day she chose — without it the eve has no date and the sweep would cancel it.
@@ -1518,7 +1527,7 @@ const recordOrder = async (order: OrderWebhook, mayCreateLead = false) => {
       amount_brl: order.amountBrl,
       status,
       scheduled_for: scheduledFor,
-      ...(Object.keys(details).length > 0 ? { details: { ...(stored?.[0]?.details ?? {}), ...details } } : {}),
+      ...(Object.keys(details).length > 0 ? { details: merged } : {}),
       ...(orderedOn && !Number.isNaN(orderedOn.getTime()) ? { created_at: orderedOn.toISOString() } : {}),
       updated_at: new Date().toISOString(),
     }),
@@ -1599,9 +1608,10 @@ const recordOrder = async (order: OrderWebhook, mayCreateLead = false) => {
       ),
     });
   }
-  // A new delivery day re-dates the eve this order holds, in place (D1): one row per kind.
+  // A new delivery day re-dates the eve this order holds, in place (D1): one row per kind. The Pix of a later order re-arms its row
+  // even when sent (grafo §136, `onOrderConfirmed`).
   for (const f of effect.move) {
-    await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.${f.kind}&status=neq.sent`, {
+    await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.${f.kind}${f.kind === "pix_pending" ? "" : "&status=neq.sent"}`, {
       method: "PATCH",
       body: JSON.stringify({ status: "scheduled", run_at: f.runAt.toISOString(), order_id: orderRowId ?? null, sent_at: null }),
     });
@@ -1656,6 +1666,7 @@ const recordCart = async (cart: CartWebhook) => {
     (await db("conversations", { method: "POST", body: JSON.stringify({ lead_id: lead.id }) }))[0];
   const now = new Date();
   const quantity = Number(cart.quantity);
+  const cartQuantity = Number.isInteger(quantity) && quantity >= 1 && quantity <= 10 ? quantity : null;
   const price = Number(String(cart.offerPrice ?? "").replace(",", "."));
   await db(`leads?id=eq.${lead.id}`, {
     method: "PATCH",
@@ -1664,17 +1675,17 @@ const recordCart = async (cart: CartWebhook) => {
         at: now.toISOString(),
         firstName: firstNameOf(cart.name),
         offerName: shortText(cart.offerName, 120),
-        quantity: Number.isInteger(quantity) && quantity >= 1 && quantity <= 10 ? quantity : null,
+        quantity: cartQuantity,
         offerPriceBrl: Number.isFinite(price) && price > 0 ? price : null,
-        checkoutUrl: checkoutSlug(cart.checkoutUrl) ? String(cart.checkoutUrl).trim() : null,
+        // Origin and path only, or the config's checkout for her quantity (grafo §136).
+        checkoutUrl: cartCheckoutUrl(cart.checkoutUrl, cartQuantity, CONFIG.checkout, CONFIG.kits ?? []),
       },
     }),
   });
-  // Her orders of the last day (orders_lead_idx) and her cart and link touches in any conversation (conversations_lead_idx, then
-  // the unique (conversation_id, kind)): the facts `armsCartRecovery` decides on.
-  const since = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+  // Her orders of the last day (orders_lead_idx, `cartOrderSince`, the sweep's rule too) and her cart and link touches in any
+  // conversation (conversations_lead_idx, then the unique (conversation_id, kind)): the facts `armsCartRecovery` decides on.
   const [orders, touches] = await Promise.all([
-    db(`orders?lead_id=eq.${lead.id}&created_at=gte.${encodeURIComponent(since)}&select=id&limit=1`).catch(() => null),
+    db(`orders?lead_id=eq.${lead.id}&created_at=gte.${encodeURIComponent(cartOrderSince(now).toISOString())}&select=id&limit=1`).catch(() => null),
     db(`followups?select=kind,status,sent_at,conversations!inner(lead_id)&conversations.lead_id=eq.${lead.id}&kind=in.(cart_recovery,checkout_reminder)`).catch(() => null),
   ]);
   // A read that failed arms nothing: a second touch is worse than none.
@@ -1808,7 +1819,7 @@ const runFollowupSweep = async () => {
       "&select=id,kind,run_at,stop_point,body,order_id,conversation_id,conversations(id,lead_id,stage,last_inbound_at,leads(id,phone,size,opted_out_at,handoff_at,units,units_at,payment_choice,payment_choice_at,address,score,score_band,score_at" +
       (ASK_OPT_IN ? ",marketing_opt_in_at,marketing_opt_in_asked_at,marketing_opt_in_suspended_at,marketing_opt_in_declined_at" : "") +
       // Her orders, for `chasesSilence` below. Index: orders_lead_idx (lead_id).
-      ",orders(status)))&limit=50",
+      ",orders(status,created_at)))&limit=50",
   );
 
   /**
@@ -2027,13 +2038,14 @@ const runFollowupSweep = async () => {
     // A post-order touch speaks of THAT order — its total, pieces and sizes — never the
     // 1-piece price (fifth review, kits).
     // The Coinzz touches (2026-10-27) read what they speak of on their own, so a missing 0033 column fails only them.
-    // The cart: on her lead (leads_pkey). Gone, an order since, or her message after it: nothing to say.
+    // The cart: on her lead (leads_pkey). Gone, an order from 24 h before it on (`cartOrderSince`, the rule `recordCart` armed on —
+    // a returning buyer's older order does not count, grafo §136), or her message after it: nothing to say.
     // deno-lint-ignore no-explicit-any
     let checkoutCtx: any = {};
     if (kind === "cart_recovery") {
       const cart = (await db(`leads?id=eq.${lead.id}&select=cart`))?.[0]?.cart ?? null;
       const wrote = typeof row.conversations?.last_inbound_at === "string" && cart?.at && Date.parse(row.conversations.last_inbound_at) > Date.parse(cart.at);
-      if (!cart || wrote || statuses.some((st: string) => !isOrderDead(st))) {
+      if (!cart || wrote || (lead.orders ?? []).some((o: { created_at: string }) => Date.parse(o.created_at) >= cartOrderSince(new Date(cart.at)).getTime())) {
         await leave("canceled");
         skipped.push({ followupId: row.id, reason: !cart ? "carrinho sem dados" : wrote ? "ela escreveu depois do carrinho" : "ela já tem pedido" });
         return;
@@ -2053,7 +2065,8 @@ const runFollowupSweep = async () => {
       checkoutCtx = { firstName: d.firstName ?? null, orderNumber: d.orderNumber ?? pixOrder.external_id, amountBrl: Number(pixOrder.amount_brl), prepaid: true, paymentPath: "prepay" };
     }
     // Her size out of stock, as the last lookup stored it (review of 481f2d3): no silence touch sells it — armed before the deploy too.
-    if (inSilenceRuler(kind) && lead.address?.region?.sizeOutOfStock === true) {
+    // Not where the Logzz dates stored for her say delivery (`logzzSells`, grafo §136).
+    if (inSilenceRuler(kind) && lead.address?.region?.sizeOutOfStock === true && !logzzSells(lead.address.region.zip, lead.address.codDates?.cep, lead.address.codDates?.result?.kind)) {
       await leave("canceled");
       skipped.push({ followupId: row.id, reason: "tamanho dela sem estoque: régua encerrada" });
       return;
@@ -2113,7 +2126,7 @@ const runFollowupSweep = async () => {
       body: row.body ?? undefined,
       marketingOptIn: ASK_OPT_IN && !!lead.marketing_opt_in_at && !lead.marketing_opt_in_declined_at,
       // The retomada names her size only where her region's last lookup said it sells (review of ecea0c3, 5).
-      sizeSells: sizeSells(lead.address?.region ?? null, lead.size ?? null),
+      sizeSells: sizeSells(lead.address?.region ?? null, lead.size ?? null, logzzSells(lead.address?.region?.zip, lead.address?.codDates?.cep, lead.address?.codDates?.result?.kind)),
       ...checkoutCtx,
     };
     // The 24-hour window (WA-1): outside it only an approved template leaves, and the text
@@ -4159,6 +4172,9 @@ const handleTurn = async (
   let freshRegion: (CachedRegion & { prepayFreightBrl?: number | null; prepayFreightFor?: string | null }) | null = null;
   // The region is asked for her size when she has one (R28 review): the G in São Paulo is not the GG's stock.
   const regionSize = (SIZES as readonly string[]).includes(stated?.size ?? lead.size ?? "") ? (stated?.size ?? lead.size) as Size : null;
+  // One ViaCEP answer per CEP in this turn (`reuseViaCep`, grafo §136): the region, the kit's sizes and the close's street.
+  const viaCepBodies = new Map<string, Promise<unknown>>();
+  const cepFetcher = (timeoutMs: number): Fetcher => reuseViaCep(viaCepBodies, regionFetcher(timeoutMs));
   const cached = addressDraft.cep ? cachedRegion(storedAddress.region, addressDraft.cep, Date.now(), regionSize) : null;
   if (cached) region = cached;
   else if (addressDraft.cep) {
@@ -4167,14 +4183,14 @@ const handleTurn = async (
       // R26.3 (persona Jussara, 15/10): a lookup that failed ("fetch failed") sent the delivery link with the checkout's
       // caveat, and the next turn's lookup said no delivery. One short second try first; still failing, L2 holds.
       const lookup = await lookupRegion(
-        regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS),
+        cepFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS),
         zip,
         regionSize,
         logzzIdsOf(CONFIG.checkout),
       )
         .catch((): RegionLookup => ({ kind: "failed" }))
         // Not on the sweep's retry nor a revision (review of R26): their short budget is the model's.
-        .then((first) => (first.kind === "failed" && !isRetry && !isRevise ? lookupRegion(regionFetcher(RETRY_REGION_TIMEOUT_MS), zip, regionSize, logzzIdsOf(CONFIG.checkout)).catch((): RegionLookup => first) : first));
+        .then((first) => (first.kind === "failed" && !isRetry && !isRevise ? lookupRegion(cepFetcher(RETRY_REGION_TIMEOUT_MS), zip, regionSize, logzzIdsOf(CONFIG.checkout)).catch((): RegionLookup => first) : first));
       region = lookup.kind === "found" ? lookup.region : null;
       failedPlace = lookup.kind === "failed" ? lookup.place ?? null : null;
       // What the real lookups answer, for the health job (grafo §111). Not the retry or the revision: the same CEP twice is one.
@@ -4203,6 +4219,19 @@ const handleTurn = async (
       region = null; // The checkout being down is not a reason to stop selling.
     }
   }
+  // Grafo §135 (operator, 2026-10-28): with the close configured, the door is the Logzz dates for HER package — a unit holding all
+  // of it and serving the CEP, the rule the import itself uses. Dates: the delivery, closed here, even for a size the Coinzz 404s.
+  // Its own "no": the prepaid. Failed: the lookup above stands, as before — a failure is never "no delivery" (L2).
+  // Asked now, beside the kit's sizes below (grafo §136): neither waits for the other. `lookupCodDates` never throws.
+  const closeSizes = (units > 1 ? unitSizes : regionSize ? [regionSize] : []).filter((x): x is Size => (SIZES as readonly string[]).includes(x));
+  const closePkg = LOGZZ_TOKEN ? codPackage(CONFIG.logzzImport, closeSizes, units > 1 ? units : 1) : null;
+  let codDates: readonly CodDate[] = [];
+  let freshCodDates: CachedCodDates | null = null;
+  const codPlace = region?.place ?? (failedPlace ? { ...failedPlace, district: "Centro" } : null);
+  const cachedDates = closePkg && addressDraft.cep && codPlace ? cachedCodDates(storedAddress.codDates, addressDraft.cep, closePkg.key, Date.now()) : null;
+  const datesLook = closePkg && addressDraft.cep && codPlace
+    ? cachedDates ? Promise.resolve(cachedDates) : lookupCodDates(logzzPoster(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS), addressDraft.cep, closePkg)
+    : null;
   // A kit is delivered only when every size she chose is (operator, 2026-10-20, grafo §117): the Logzz kit checkout with an M where the M
   // has no stock does not schedule. The other sizes are asked each turn — the cache keeps one size's answer. On either path since the
   // review of 481f2d3: a piece out of stock is read wherever her own size goes (`kitRegion`).
@@ -4211,25 +4240,16 @@ const handleTurn = async (
     const others = [...new Set(unitSizes)].filter((x): x is Size => (SIZES as readonly string[]).includes(x) && x !== regionSize);
     // In parallel, inside the region's own timeout: the model's budget is not theirs (review).
     const answers = await Promise.all(others.map((s) =>
-      lookupRegion(regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS), cep, s, logzzIdsOf(CONFIG.checkout))
+      lookupRegion(cepFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS), cep, s, logzzIdsOf(CONFIG.checkout))
         .catch((): RegionLookup => ({ kind: "failed" }))
         .then((r) => ({ s, r }))));
     // A size without delivery, or one the lookup could not answer, makes the kit prepaid: a delivery link with a size the Logzz may
     // not schedule never goes, and a failure never turns a known answer into the two links (review: the offers flip-flopped).
     region = kitRegion(region, regionSize, answers);
   }
-  // Grafo §135 (operator, 2026-10-28): with the close configured, the door is the Logzz dates for HER package — a unit holding all
-  // of it and serving the CEP, the rule the import itself uses. Dates: the delivery, closed here, even for a size the Coinzz 404s.
-  // Its own "no": the prepaid. Failed: the lookup above stands, as before — a failure is never "no delivery" (L2).
   const coinzzSizeOut = region?.sizeOutOfStock === true;
-  const closeSizes = (units > 1 ? unitSizes : regionSize ? [regionSize] : []).filter((x): x is Size => (SIZES as readonly string[]).includes(x));
-  const closePkg = LOGZZ_TOKEN ? codPackage(CONFIG.logzzImport, closeSizes, units > 1 ? units : 1) : null;
-  let codDates: readonly CodDate[] = [];
-  let freshCodDates: CachedCodDates | null = null;
-  const codPlace = region?.place ?? (failedPlace ? { ...failedPlace, district: "Centro" } : null);
-  if (closePkg && addressDraft.cep && codPlace) {
-    const cachedDates = cachedCodDates(storedAddress.codDates, addressDraft.cep, closePkg.key, Date.now());
-    const look = cachedDates ?? await lookupCodDates(logzzPoster(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS), addressDraft.cep, closePkg);
+  if (datesLook && closePkg && addressDraft.cep && codPlace) {
+    const look = await datesLook;
     if (!cachedDates && look.kind !== "failed") freshCodDates = { cep: addressDraft.cep, key: closePkg.key, checkedAt: new Date().toISOString(), result: look };
     if (look.kind === "dates") {
       codDates = look.dates;
@@ -4653,9 +4673,10 @@ const handleTurn = async (
   // Grafo §135: the sale on delivery closes here, with no link, while she has no live order (the Logzz keeps one open main order
   // per customer). A kit only with its price in the config. Index: orders_lead_idx, her few rows.
   const herStatuses = closePkg !== null && codDates.length > 0 && linkPath === "cod" && sizeOut === null && (units === 1 || kits.some((k) => k.path === "cod" && k.units === units))
-    ? ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(",")})&select=status&limit=20`).catch(() => null)) ?? [])
+    ? ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(",")})&select=status,updated_at&limit=20`).catch(() => null)) ?? [])
     : null;
-  const closeOn = herStatuses !== null && herStatuses.every((o: { status: string | null }) => ["recusado", "entregue_pago"].includes(stageForOrder(o.status ?? undefined) ?? ""));
+  // An import whose `orders` row failed keeps the close shut until a webhook files an order of hers (`importBlocksClose`, grafo §136).
+  const closeOn = herStatuses !== null && !importBlocksClose(storedAddress.codClose, herStatuses) && herStatuses.every((o: { status: string | null }) => ["recusado", "entregue_pago"].includes(stageForOrder(o.status ?? undefined) ?? ""));
   if (closeOn) {
     gateCodDates = codDates.map((d) => d.date);
     gateCloseOpen = true;
@@ -4665,7 +4686,7 @@ const handleTurn = async (
   // of the street (ViaCEP): empty on a town's general CEP, and then her street is asked.
   let closeDone = false;
   const cepBody = closeOn
-    ? ((await regionFetcher(REGION_TIMEOUT_MS)(`${VIACEP_ENDPOINT}/${addressDraft.cep!.replace(/\D/g, "")}/json/`).catch(() => null)) as { logradouro?: string; bairro?: string } | null)
+    ? ((await cepFetcher(REGION_TIMEOUT_MS)(`${VIACEP_ENDPOINT}/${addressDraft.cep!.replace(/\D/g, "")}/json/`).catch(() => null)) as { logradouro?: string; bairro?: string } | null)
     : null;
   const closeState: CloseState = storedAddress.codClose ?? {};
   // The newest of the close's own messages in the window: her answer is read against the list even when the model's answer to her
@@ -5144,8 +5165,10 @@ const handleTurn = async (
           utm: { source: "whatsapp", medium: fromAd ? "ctwa" : "site", campaign: "", content: "", term: "", id: typeof source.source_id === "string" ? source.source_id.slice(0, 64) : "" },
         }));
         if (result.kind === "created") {
-          // Filed like the webhook files a sale, so the post-order ruler runs; the webhook of the same order finds this row.
-          await recordOrder({
+          // Filed like the webhook files a sale, so the post-order ruler runs; the webhook of the same order finds this row. Checked and
+          // tried once more (grafo §136): a swallowed failure told her "Pedido confirmado" with no row, and her next message restarted the
+          // checklist into the Logzz's open order.
+          const fileImport = async () => (await recordOrder({
             externalId: importId,
             importId,
             phone: String(lead.phone ?? ""),
@@ -5157,13 +5180,15 @@ const handleTurn = async (
             scheduledFor: result.deliveryDate,
             orderNumber: result.orderCode,
             customerName: close.order.name,
-          }).catch(() => null);
-          await saveAddress({ codClose: {} });
+          }).catch(() => null))?.status === "recorded";
+          const filedOk = (await fileImport()) || (await fileImport());
+          await saveAddress({ codClose: filedOk ? {} : { orderCode: result.orderCode, importedAt: new Date().toISOString() } });
           closeDone = true;
           gateCloseOpen = false;
           gateCodDates = [result.deliveryDate];
           // Moved by the Logzz: she is told the new day and that she may ask another; the operator, the order (operator's call pending).
           if (result.rescheduled) extraNotify = `pedido ${result.orderCode} reagendado pela Logzz de ${chosen} para ${result.deliveryDate}`;
+          if (!filedOk) extraNotify = [extraNotify, `pedido ${result.orderCode} criado na Logzz e não gravado em orders: a régua pós-pedido não arma, grave o pedido`].filter(Boolean).join("; ");
           const text = closeConfirmed(result.orderCode, result.deliveryDate, result.rescheduled, closeFacts!.priceBrl);
           const sent = await sendFixed(text, `pedido na entrega criado pela importação: ${result.orderCode}`, "cod", {}, false, closePkg.units, "auto");
           // Said here, the ruler's own confirmation five minutes later would be the second one. Index: messages_conversation_idx.

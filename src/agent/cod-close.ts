@@ -160,7 +160,17 @@ export interface CloseState {
   readonly badPhone?: string;
   /** Her full name, read from her answer to the checklist. */
   readonly name?: string;
+  /** The import created this order and its local row failed (grafo §136): the close stays shut (`importBlocksClose`). */
+  readonly orderCode?: string;
+  readonly importedAt?: string;
 }
+
+/**
+ * Grafo §136: an import whose `orders` row failed is still an order at the Logzz — the close does not restart (her next "sim" would
+ * meet its open order) until a webhook files an order of hers after the import. Her older orders do not end the block.
+ */
+export const importBlocksClose = (state: CloseState | null | undefined, herOrders: ReadonlyArray<{ readonly updated_at?: string | null }>): boolean =>
+  !!state?.importedAt && !herOrders.some((o) => Date.parse(o.updated_at ?? "") >= Date.parse(state.importedAt!));
 
 const withoutDate = (s: CloseState): CloseState => Object.fromEntries(Object.entries(s).filter(([k]) => k !== "date")) as CloseState;
 

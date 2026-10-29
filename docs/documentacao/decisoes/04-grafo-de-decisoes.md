@@ -4920,6 +4920,80 @@ e `O35-ultimo-numero-vence` reescrita para o texto novo.
 **Resíduos.** Um nome novo inteiro depois do resumo, sem "meu nome é"/"errei o nome" e sem palavra em comum, não troca o nome: o
 resumo segue com o nome antigo até ela corrigir de forma explícita.
 
+## 136. O /code-review do 7aaf3a0 (turn v47, 2026-10-29)
+
+**Sintoma.**
+1. O M que a Logzz entrega (BH) e a Coinzz não vende: o turno sobrescreve a região com as datas da Logzz, mas `leads.address.region`
+   guardava a resposta da Coinzz (`sizeOutOfStock: true`, `cod: false`); `scheduleSilenceTouches` (`stock_out`), a varredura
+   (`runFollowupSweep`) e `sizeSells` liam a lead como sem estoque — nenhum toque de silêncio, nenhuma retomada.
+2. Depois do `created` da importação, `recordOrder(...).catch(() => null)` engolia o throw e o `{ ok: false }`: "Pedido confirmado" sem
+   linha em `orders`, sem régua pós-pedido, `closeOn` seguia verdadeiro, a lista recomeçava e a Logzz respondia `open_order`.
+3. `onOrderConfirmed`: o `pix` vinha só do webhook atual — um webhook de status sem `url_pix`/`qrcode_pix` cancelava o `pix_pending`
+   armado; e uma linha antiga do `pix_pending` (qualquer status) impedia o toque do Pix de um pedido novo na mesma conversa.
+4. `checkoutLead`: POST simples em `leads`; carrinho e venda do mesmo telefone novo em corrida → violação de `leads_phone_key` → 500 → a
+   venda não gravada.
+5. `recordCart` guardava o `checkout_url` inteiro, com a query dos nossos links preenchidos (CPF, e-mail, telefone); e a URL do carrinho
+   de teste da Coinzz (`https://checkout.coinzz.com.br/cart/abc123`), que `checkoutSlug` recusa, deixava o botão do template sem slug.
+6. O carrinho armava com "nenhum pedido nas últimas 24 h" (`recordCart`/`armsCartRecovery`) e a varredura cancelava com "qualquer
+   pedido vivo, de sempre": quem já comprou um dia nunca recebia a recuperação.
+7. Com o fechamento ligado, o `cepBody` pedia o ViaCEP de novo no turno em que `lookupRegion` já tinha pedido; e as datas da Logzz
+   esperavam as consultas do kit terminarem.
+
+**Causa.** (1) Duas fontes (Coinzz e Logzz) e só uma guardada como "a região"; os leitores fora do turno não viam a outra. (2) A
+importação confiou que gravar a linha local nunca falha. (3) O toque leu o pedido do webhook, não o pedido guardado, e a regra "uma
+linha por tipo" não distinguia a linha de outro pedido. (4) Insert onde a corrida é possível. (5) O dado guardado foi o que chegou, não o
+que o uso precisa. (6) Duas regras escritas para a mesma decisão.
+
+**Caminho descartado (1).** Gravar a região sobrescrita (ou limpar o `sizeOutOfStock`) em `leads.address.region`, como a revisão
+sugeriu: a região guardada é também o cache (`cachedRegion`) de onde o turno seguinte lê `coinzzSizeOut` — o que segura o link do
+antecipado do M que a Coinzz não vende (`prepayOut`, o `noCod`). Com a consulta da Logzz falhando ou dizendo "não" no turno seguinte, o
+cache sobrescrito mandaria esse link. A região guardada continua a resposta da Coinzz; as datas da Logzz já ficam em
+`leads.address.codDates`, e os leitores leem as duas.
+
+**Correção.**
+1. `logzzSells(regionZip, datesCep, datesKind)` (`followups.ts`, espelhado): as datas guardadas para o pacote dela dizem entrega no CEP
+   da região guardada. `scheduleSilenceTouches` (o select ganha `stock_zip`, `dates_cep`, `dates_kind`), a varredura e
+   `sizeSells(region, size, logzz)` só leem "sem estoque" sem ela.
+2. `handleTurn`: `fileImport` confere `status === "recorded"` e tenta mais uma vez; falhando, `codClose = { orderCode, importedAt }` e
+   `extraNotify` ao operador ("criado na Logzz e não gravado em orders"); `importBlocksClose` (`cod-close.ts`) segura `closeOn` até um
+   webhook gravar um pedido dela depois da importação (`orders.updated_at`, o select ganha a coluna). Os pedidos antigos dela não
+   liberam.
+3. `recordOrder`: `pix` dos detalhes guardados mesclados com os novos (`merged`, que é também o que se grava). `onOrderConfirmed`: com o
+   Pix aguardando e a linha do `pix_pending` de OUTRO pedido cancelada ou enviada, o toque volta em `move`; o laço de `move` em `recordOrder` tira o
+   `status=neq.sent` só para o `pix_pending`. Uma linha ainda agendada (de outro pedido) fica como está.
+4. `checkoutLead`: upsert `leads?on_conflict=phone` com `resolution=merge-duplicates` (só `phone`, o mesmo valor, é mesclado; a linha
+   existente volta).
+5. `cartCheckoutUrl` (`followups.ts`): só origem + caminho; URL que `checkoutSlug` não lê vira o checkout do config pela quantidade (1 →
+   `checkout.prepayUrl`/`codUrl`; 2 e 3 → o `checkoutUrl` do kit); sem quantidade ou sem kit, `null`.
+6. `cartOrderSince(cartAt)` = 24 h antes do carrinho: `recordCart` arma com os pedidos criados desde `cartOrderSince(now)`; a varredura
+   cancela com os pedidos criados desde `cartOrderSince(cart.at)` (o select embute `orders(status,created_at)`). Qualquer status, nas
+   duas pontas. Docstring de `armsCartRecovery` corrigida.
+7. `reuseViaCep` (`availability.ts`): uma resposta do ViaCEP por CEP no turno (`cepFetcher` em `handleTurn`, para a região, o kit e o
+   `cepBody`); null ou erro nunca fica guardado — uma falha não vira "CEP sem rua". As datas da Logzz começam (`datesLook`) antes das
+   consultas do kit e são esperadas depois; `lookupCodDates` nunca lança, e falha continua `failed`, nunca "sem entrega" (L2).
+
+**Não é código (8).** O toque de carrinho é o template MARKETING `encorpa_carrinho_site` sem o opt-in de marketing, por decisão
+explícita do operador (§134 B). Fica como está; **a aprovação do `compliance-reviewer` (LGPD / política de marketing da Meta) está
+pendente.**
+
+**Índices.** Nenhuma query nova: `scheduleSilenceTouches` lê mais três escalares do mesmo `leads` (conversations_pkey + leads_pkey); a
+varredura embute `created_at` nos mesmos `orders` (orders_lead_idx); `herStatuses` ganha `updated_at` (orders_lead_idx); o upsert de
+`leads` usa `leads_phone_key`.
+
+**Guarda.** `tests/code-review-2026-10-29.test.ts` (comportamental: `logzzSells`, `sizeSells`, `importBlocksClose`, `onOrderConfirmed`
+com o Pix de outro pedido, `cartCheckoutUrl` com a URL de teste da Coinzz, `cartOrderSince`, `reuseViaCep`; a fiação na `turn` por
+texto); mutações `O38-*` (17), 17/17 pegas, e as quatro antigas com o texto novo (`G66-uma-vez-por-dia-fiacao`,
+`R26-cobertura-segunda-tentativa`, `O28-regua-sem-estoque`, `O28-regua-sem-estoque-na-varredura`), pegas.
+
+**Resíduos.**
+- `logzzSells` lê as últimas datas guardadas, sem idade: com o fechamento desligado depois (`logzzImport` fora), um "dates" velho
+  continua liberando a régua do M até o próximo turno dela regravar `codDates`.
+- A conversa criada pelo carrinho (`recordCart`) e pela venda (`recordOrder`) não tem chave única em `lead_id` (0001): a corrida não dá
+  500 (a premissa da revisão para ela não vale), mas pode abrir duas conversas; a `turn` usa a mais nova. Um índice único parcial
+  (`closed_at is null`) seria migração com dado de produção a conferir — fica para decisão.
+- A importação sem linha local não arma a régua pós-pedido: o operador recebe o e-mail para gravar o pedido; o webhook da Logzz, quando
+  chega, grava e libera o fechamento.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

@@ -510,7 +510,7 @@ describe("depois da compra, a régua de silêncio não volta", () => {
   const sweep = source.slice(source.indexOf("const runFollowupSweep"), source.indexOf('return { status: "swept"'));
 
   it("scheduleSilenceTouches lê estágio e pedidos do lead e, depois da compra, só cancela", () => {
-    const read = schedule.indexOf("conversations?id=eq.${conversationId}&select=*,leads(size,score_band,stock_out:address->region->>sizeOutOfStock,orders(status))");
+    const read = schedule.indexOf("conversations?id=eq.${conversationId}&select=*,leads(size,score_band,stock_out:address->region->>sizeOutOfStock,stock_zip:address->region->>zip,dates_cep:address->codDates->>cep,dates_kind:address->codDates->result->>kind,orders(status))");
     const guard = schedule.indexOf("if (at && !chasesSilence(");
     expect(read).toBeGreaterThan(-1);
     expect(guard).toBeGreaterThan(read);
@@ -520,7 +520,7 @@ describe("depois da compra, a régua de silêncio não volta", () => {
   });
 
   it("a varredura lê os pedidos do lead e cancela o silêncio de quem comprou antes de qualquer envio", () => {
-    expect(sweep).toContain(",orders(status)))&limit=50");
+    expect(sweep).toContain(",orders(status,created_at)))&limit=50");
     const guard = sweep.indexOf('if (inSilenceRuler(row.kind) && (row.kind === "checkout_reminder" ? !checkoutStillOpen(statuses) : !chasesSilence(');
     expect(guard).toBeGreaterThan(-1);
     expect(guard).toBeLessThan(sweep.indexOf("if (row.kind === RETRY_TURN_KIND)"));
