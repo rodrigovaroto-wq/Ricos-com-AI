@@ -187,6 +187,15 @@ território é agente que inventa trabalho.
 
 ## Regras adicionais
 
+- **Estilo de resposta** (operador, 2026-10-29; substitui a skill `i-have-adhd`, grafo §139), vale para a sessão inteira:
+  - Direto ao ponto: a resposta vem na primeira frase.
+  - Frases curtas. Um assunto por parágrafo.
+  - Problema em 1 linha; solução em passos numerados.
+  - Termo técnico só se explicar em seguida, em uma frase.
+  - Se faltar informação pra executar, pergunte ANTES de fazer.
+  - Exceções: explicação pedida é o produto; ação irreversível se confirma por extenso; achado que muda a decisão do operador
+    (promessa que a operação não cumpre, custo fora da conta) nunca vira bullet curto.
+
 - **Silêncio durante a execução** (operador, 2026-10-19): enquanto executa, não mande mensagens ao operador narrando
   passos, comandos ou resultados intermediários — só execute. Ao terminar, uma única mensagem: a conclusão, um resumo
   curto e claro do que foi feito e os achados. Pergunta só quando bloqueado numa decisão que é dele.

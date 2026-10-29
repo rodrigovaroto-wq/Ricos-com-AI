@@ -5174,6 +5174,11 @@ para `docs/operacao/handoff-historico.md` sem edição, na ordem original. Regra
 grafo e `03-decisoes-tomadas.md` nunca se leem inteiros. **Guarda:** `tests/function-drift.test.ts` (publicação da `turn` sem
 `--no-verify-jwt`) passa a varrer também o histórico, para a guarda não perder as linhas movidas.
 
+**Mesma auditoria, estilo de resposta:** a skill `i-have-adhd` ("aplique em toda resposta") ficava no contexto da sessão inteira
+(~700 tokens) e repetia o bloco de estilo que o operador pediu. O bloco foi para `CLAUDE.md` §Regras adicionais, com as exceções
+da skill; a skill saiu e `hermes/DECIDIR.md` aponta para o bloco. Recusados pelo operador na mesma auditoria: tirar a tabela de
+agentes do `CLAUDE.md` e mover as `persona-*` para fora de `.claude/agents/`.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
