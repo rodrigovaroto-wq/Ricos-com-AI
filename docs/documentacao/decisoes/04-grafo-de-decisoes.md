@@ -5163,6 +5163,17 @@ Reteste com o modelo real (`muse-spark-1.3-contributor`, config 29b, R$ 0,12): s
 Fato de estoque, não código: o G em São Paulo (01310-100, 04710-090) não tem pagamento na entrega na Coinzz — o estoque do G está em
 Belo Horizonte. Quem veste G em SP só tem o antecipado hoje.
 
+## 139. O `HANDOFF.md` de 334 KB como ponto de partida de toda sessão (operador, 2026-10-29)
+
+**Sintoma:** auditoria de consumo do Claude Code (10 sessões, ~US$ 542 a preço de tabela): o custo dominante é cache relido em
+sessões longas, e "leia o HANDOFF e continue" apontava para 4.242 linhas (~90 mil tokens; só o bloco "COMECE AQUI" tinha 146 KB).
+O que entra lido fica no contexto e é relido a cada chamada até a sessão acabar. **Causa:** toda sessão acrescentava no topo e
+nada saía; o quadro do pipeline (regra, executado, falta) estava na linha 966–1476. **Correção:** o `HANDOFF.md` ficou com o
+cabeçalho, o ponteiro de estado atual, a regra da sessão e o quadro executado/falta (85 linhas, 9 KB); as outras 4.157 linhas foram
+para `docs/operacao/handoff-historico.md` sem edição, na ordem original. Regra nova no `CLAUDE.md` ("Leitura com limite"): histórico,
+grafo e `03-decisoes-tomadas.md` nunca se leem inteiros. **Guarda:** `tests/function-drift.test.ts` (publicação da `turn` sem
+`--no-verify-jwt`) passa a varrer também o histórico, para a guarda não perder as linhas movidas.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

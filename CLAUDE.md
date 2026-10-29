@@ -223,6 +223,10 @@ R20); ao fim de cada fase inteira: autoaprimoramento, personas e `/code-review` 
 que continua o pipeline confere o estado real, atualiza o quadro (onde estamos, executado, falta)
 ao começar e ao terminar, e diz ao operador em que etapa está.
 
+**Leitura com limite** (operador, 2026-10-29, grafo §139): do `HANDOFF.md`, só ele (cabe numa leitura); o histórico em
+`docs/operacao/handoff-historico.md`, o grafo e o `03-decisoes-tomadas.md` nunca se leem inteiros — `graphify explain`, `grep` ou
+`Read` com `offset`/`limit` na seção; entrada nova no grafo entra antes de `## Lições`, sem ler o resto.
+
 ## Memória entre sessões
 
 @.claude/memory/INSTRUCTIONS.md

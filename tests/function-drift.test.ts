@@ -454,7 +454,7 @@ describe("a porta do turno: selo, papel e janela (revisão de segurança, 2026-0
     expect(source).toContain("json(response.status, { ...out, sealed })");
   });
   it("a função do turno nunca é publicada sem a verificação da chave (callerRole confia nela)", () => {
-    const places = [".github/workflows/deploy-hermes.yml", "docs/operacao/whatsapp-cloud-api.md", "HANDOFF.md"];
+    const places = [".github/workflows/deploy-hermes.yml", "docs/operacao/whatsapp-cloud-api.md", "HANDOFF.md", "docs/operacao/handoff-historico.md"];
     for (const file of places) {
       for (const line of readFileSync(file, "utf8").split("\n")) {
         if (/functions deploy turn\b/.test(line)) expect({ file, line }).toEqual({ file, line: line.replace("--no-verify-jwt", "") });
