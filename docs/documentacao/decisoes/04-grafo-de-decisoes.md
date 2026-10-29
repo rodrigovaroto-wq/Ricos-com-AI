@@ -5147,6 +5147,22 @@ como no R17.4). Depois dele, a Malu pode ajudar a usar ("é só digitar SUPER20 
 - `pnpm verificar:guardas` numa cópia commitada (5adb420 + este conserto), sobre as `O39-*`, as `O40-*`, toda mutação do `price_promise` e
   do `coupon_exists`, e as que este conserto tocou: 66/66 pegas. As 1.041 mutações acham o texto de origem.
 
+## 138. O reteste curto do b6e8dfc: dois furos no caminho do kit (2026-10-29)
+
+Reteste com o modelo real (`muse-spark-1.3-contributor`, config 29b, R$ 0,12): sete cenários passaram (tamanho direto, vídeo a pedido,
+"não vi ainda, manda?", caixa do kit com R$ 197,82, "Menos de 24 Horas" no dia seguinte, cupom retido, âncora R$ 179,90). Dois furos:
+
+1. **Sintoma:** "as duas G", resposta natural a "As duas são no G também…?", virou o nome dela — "Pronto, as! 🎉" e `name=As+Duas+G`
+   no link. **Causa:** `extractName` aceita mensagem só de letras; "as", "duas", "ambas" não estavam em lista nenhuma. **Correção:**
+   os artigos e quantidades do kit (`as|os|duas|dois|ambas|ambos|todas|todos|tres`) em `NOT_A_FIRST_NAME`. **Guarda:**
+   `tests/kit-retest-2026-10-29.test.ts`, com "Maria Duarte" e "Assis Oliveira" como negação.
+2. **Sintoma:** "Oi, visto 42, quero 2", depois o CEP: a caixa do kit fechou perguntando o número da calça que ela já tinha dito.
+   **Causa:** `offerAsk` recebe só `sizeKnown`, falso com 1 de 2 tamanhos, e devolve `SIZE_ASK`. **Correção:** `kitSizeAsk` pergunta a
+   peça que falta ("A outra peça também é no G, ou em outro tamanho?"); sem tamanho nenhum continua `SIZE_ASK`. **Guarda:** o mesmo teste.
+
+Fato de estoque, não código: o G em São Paulo (01310-100, 04710-090) não tem pagamento na entrega na Coinzz — o estoque do G está em
+Belo Horizonte. Quem veste G em SP só tem o antecipado hoje.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

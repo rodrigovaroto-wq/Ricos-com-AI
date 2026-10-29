@@ -294,6 +294,18 @@ export const NAME_ASK = "Vamos agendar seu pedido e aproveitar essa mega oferta?
 /** The prepaid offer's name ask: nothing is scheduled on that path, it goes by the Correios (personas of 2026-10-24, A4). */
 export const PREPAY_NAME_ASK = "Só preciso do seu nome completo pra deixar tudo prontinho pra você 😊";
 export const offerAsk = (cod: boolean, sizeKnown: boolean): string => (!sizeKnown ? SIZE_ASK : cod ? NAME_ASK : PREPAY_NAME_ASK);
+/**
+ * A kit's box with a piece's size still open asks that piece's size, not the pants number she already gave (real-model retest,
+ * 2026-10-29: "Oi, visto 42, quero 2" then her CEP closed on `SIZE_ASK`). None known yet is the pants number.
+ */
+export const kitSizeAsk = (units: number, sizes: readonly string[]): string => {
+  const missing = units - sizes.length;
+  const last = sizes.at(-1);
+  if (!last || missing < 1) return SIZE_ASK;
+  return missing === 1
+    ? `A outra peça também é no ${last}, ou em outro tamanho? 😊`
+    : `As outras ${missing} peças também são no ${last}, ou em outros tamanhos? 😊`;
+};
 
 /**
  * Why the prepaid offer, said before it (personas of 2026-10-24, A4: 13 of 14 prepaid boxes went to women who asked to pay at the

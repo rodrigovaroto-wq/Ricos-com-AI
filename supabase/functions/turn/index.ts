@@ -255,6 +255,7 @@ import {
   funnelLinkMessage,
   type FunnelBubble,
   type FunnelMedia,
+  kitSizeAsk,
   offerAsk,
   NAME_ASK,
   offerBubbles,
@@ -5099,7 +5100,7 @@ const handleTurn = async (
       const closeAsk = cod && close?.kind === "send" && (await closeGated(close.text)) ? close.text : null;
       const sent = await sendFunnelTurn(
         await withHook([
-          ...offerBubbles(CONFIG, { cod, dates: region.dates, prepayFreightBrl: units === 1 ? prepayFreightBrl : null, closesHere: cod && close !== null }, new Date(), checkoutUrl ? null : closeAsk ?? offerAsk(cod, sizeKnown), noCodReason, units),
+          ...offerBubbles(CONFIG, { cod, dates: region.dates, prepayFreightBrl: units === 1 ? prepayFreightBrl : null, closesHere: cod && close !== null }, new Date(), checkoutUrl ? null : closeAsk ?? (units > 1 && !sizeKnown ? kitSizeAsk(units, unitSizes) : offerAsk(cod, sizeKnown)), noCodReason, units),
           ...(checkoutUrl ? [{ text: v3Link(checkoutUrl) }] : []),
         ]),
         checkoutUrl ? `roteiro v3: oferta e link — ${linkFact ?? ""}` : "roteiro v3: oferta",
