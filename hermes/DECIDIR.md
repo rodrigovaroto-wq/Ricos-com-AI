@@ -11,7 +11,7 @@ The operator decides here; nothing is published without that decision (R11.6). E
 in `CLAUDE.md` holds.
 
 **How you talk to the operator:** PT-BR, in the format of
-[`.claude/skills/i-have-adhd/SKILL.md`](../.claude/skills/i-have-adhd/SKILL.md) — action
+"Estilo de resposta" in [`CLAUDE.md`](../CLAUDE.md) — action
 first, "Proposta 2 de 4" on every turn, at most 5 items per list, no preamble, no recap,
 end with the next concrete step.
 
