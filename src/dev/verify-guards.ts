@@ -5191,7 +5191,7 @@ const MUTATIONS: Mutation[] = [
   { id: "G130-nome-na-propria-linha", bug: "'Vilma Torres\\n\\no da minha mae…' teria o nome pedido de novo (24/10)", files: ["src/agent/identity.ts"],
     from: "    : ownLine ? firstLine\n", to: "    : ownLine ? \"\"\n", guard: G130 },
   { id: "G130-interjeicao-vira-nome", bug: "'Pera ai\\nvou pegar o documento' viraria o nome dela (negação do 24/10)", files: ["src/agent/identity.ts"],
-    from: "|nossa|vixe|pera|perai|antes|calma|eita|gente|ah|ai|ui|oxe|oxi|uai|poxa|puxa|caramba|deus|gracas|aff|hum|hmm|tipo|parque|vila|jardim|bairro|centro|condominio|residencial|conjunto|segue|endereco)$/;", to: ")$/;", guard: G130 },
+    from: "|nossa|vixe|pera|perai|antes|calma|eita|gente|ah|ai|ui|oxe|oxi|uai|poxa|puxa|caramba|deus|gracas|aff|hum|hmm|tipo|parque|vila|jardim|bairro|centro|condominio|residencial|conjunto|segue|endereco|as|os|duas|dois|ambas|ambos|todas|todos|tres)$/;", to: ")$/;", guard: G130 },
   { id: "G130-oferta-antes-do-tamanho", bug: "a oferta da entrega voltaria a sair antes do tamanho e ser desdita no turno seguinte (irma-que-isso, 24/10)", files: ["supabase/functions/turn/index.ts"],
     from: "} else if (region !== null && offerNow === \"cod\" && !sizeKnown) {", to: "} else if (false) {", guard: G130 },
   { id: "G130-antecipado-sem-motivo", bug: "o cartão do antecipado voltaria a sair sem dizer por que não há entrega (13 de 14, 24/10)", files: ["src/agent/funnel.ts"],
@@ -6880,6 +6880,8 @@ const MUTATIONS: Mutation[] = [
   { id: "O40-cupom-preco-guardado", bug: "com o cupom guardado, o preço com o cupom passaria na conversa", files: ["src/agent/guardrails.ts"], from: "const withCoupon = coupon.active ? ", to: "const withCoupon = true ? ", guard: ["pnpm",  "-s",  "vitest",  "run",  "tests/real-test-2026-10-29.test.ts"] },
   { id: "O40-peca-do-kit-sozinha", bug: "\"Fica R$ 87,92 pra você\" passava com o cupom guardado (a peça do kit de 3 = uma peça com 20%)", files: ["src/agent/guardrails.ts"], from: "if (allowedPrices.has(m.value) && (pieceOf(m.value).length === 0 || namesKit(m.at, pieceOf(m.value)))) continue;", to: "if (allowedPrices.has(m.value)) continue;", guard: ["pnpm",  "-s",  "vitest",  "run",  "tests/real-test-2026-10-29.test.ts"] },
   { id: "O40-peca-do-kit-com-kit", bug: "a linha do kit \"3 peças saem por apenas R$ 87,92 cada!\" seria vetada", files: ["src/agent/guardrails.ts"], from: "        return new RegExp(String.raw`\\b(?:${n})", to: "        return false && new RegExp(String.raw`\\b(?:${n})", guard: ["pnpm",  "-s",  "vitest",  "run",  "tests/real-test-2026-10-29.test.ts"] },
+  { id: "O41-kit-vira-nome", bug: "'as duas G' ia ao link como o nome dela (reteste de 29/10)", files: ["src/agent/identity.ts"], from: "|endereco|as|os|duas|dois|ambas|ambos|todas|todos|tres)$/;", to: "|endereco)$/;", guard: ["pnpm",  "-s",  "vitest",  "run",  "tests/kit-retest-2026-10-29.test.ts"] },
+  { id: "O41-kit-pergunta-calca", bug: "a caixa do kit com um tamanho aberto perguntava de novo o número da calça (reteste de 29/10)", files: ["supabase/functions/turn/index.ts"], from: "(units > 1 && !sizeKnown ? kitSizeAsk(units, unitSizes) : offerAsk(cod, sizeKnown))", to: "offerAsk(cod, sizeKnown)", guard: ["pnpm",  "-s",  "vitest",  "run",  "tests/kit-retest-2026-10-29.test.ts"] },
 ];
 
 const wanted = process.argv.slice(2);
