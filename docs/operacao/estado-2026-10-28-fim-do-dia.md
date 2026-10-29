@@ -209,3 +209,41 @@ publicado como v47, `3f4d6d0` HANDOFF. Site: `1525764`.
 - Config: [`business-config-2026-10-29b.min.json`](business-config-2026-10-29b.min.json) = 29/10 com `anchorBrl: 179.9`
   (sha `76ca1786…`); as frases de preço com a âncora nova passam a cadeia de gates.
 
+## 13. PAUSA de 2026-10-29 ~12:30 UTC — estado exato para retomar
+
+### No ar agora
+| Peça | Estado |
+|---|---|
+| `turn` | **v47** (commit `329cb31`). As correções do `/code-review` (§136) e do teste prático **não** estão publicadas |
+| `BUSINESS_CONFIG` | **`business-config-2026-10-29b.min.json`**, colado pelo operador às 12:20 UTC (sha do arquivo com a quebra de linha final: `5499fc25…`, conferido). Sem `logzzImport` (WhatsApp usa os checkouts da Coinzz), cupom SUPER20 ativo, `expressActive: true`, teto R$ 0,30, âncora **R$ 179,90** |
+| Imagem de preço | `funil/preco.png` = "DE R$ 179,90 POR R$ 109,90" (a antiga em `funil/preco-129-backup.png`) |
+| Site | Encorpa-Website `main` `3c8659f`: âncora R$ 179,90, selo "40% OFF" (decisão do operador: manter 40%, a conta exata é 38,9%) |
+| Coinzz | frete grátis, pixel `4466808633585371` + API de Conversões cadastrados pelo operador (conferido nos 3 checkouts) |
+| Templates | submetidos pelo sócio, aguardando a Meta |
+| PR | **#83** (`claude/site-whatsapp-test` → `main`), CI verde até `d14f048` |
+
+### Feito hoje (29/10)
+1. `/code-review` alto do diff inteiro: 8 achados, 7 corrigidos (commit `59dffe3`, grafo §136), o 8º (template de carrinho MARKETING sem opt-in) fica como decisão do operador com aval de conformidade pendente.
+2. Regressão completa em `59dffe3`: 9.376 testes, typecheck, lint, `typecheck:function`, `dev:conversas` 1655/1655, `dev:gates` 0 afrouxados; CI do PR: `check` + 8 partes de mutações verdes.
+3. Teste prático com o modelo real (R$ 0,16 de R$ 2,50; nenhum pedido real, nenhuma mensagem; dados de teste apagados): anúncio, site, mídia a pedido, checklist + resumo + SIM da importação (contra um servidor falso), links da Coinzz, kit, M. Defeitos D1–D8 na seção 9 do relatório (abaixo, "parou no meio").
+4. Decisões do operador: WhatsApp nos checkouts da Coinzz; cupom só no follow-up; âncora R$ 179,90 com 40% OFF; Express ligado; teto R$ 0,30.
+5. Imagem de preço errada em produção achada e trocada; site e config com a âncora nova.
+
+### Parou no meio
+- **Branch `wip/practical-fixes-coupon-2026-10-29` (commit `6961ec0`), NÃO revisada, NÃO publicada, fora do PR:** correções do teste prático e o cupom só no follow-up (grafo §137 rascunhado).
+  - D1: "qual tamanho pra quem veste 42?" respondido (era vetado por `size_claim`); D3: depois do vídeo a pedido, o modelo sabe que ele já foi; D4: "não vi o vídeo ainda, manda?" é pedido; D8: caixa do kit com o preço do kit e sem "Chegará em Menos de 24 Horas" falso; D6/D5/D2 do fechamento pela Logzz (desligado).
+  - Cupom: na conversa a Malu não oferece nem cita o cupom (nem nega); só depois que o toque do cupom foi enviado a ela ou se ela citar o cupom/código. Gate + prompt.
+  - Validado no estado salvo: `pnpm test` 9.435 ✓, typecheck ✓, lint ✓, `typecheck:function` ✓, `dev:conversas` 1655/1655 ✓, `dev:gates` ✓, espelho ✓.
+  - **Faltam:** conferir/terminar as mutações `O39-*` (25 já escritas; o implementador parou ajustando quatro delas) e rodar o verificador numa cópia commitada; revisão Opus; reteste com o modelo real só de D1/D3/D4/D8 e do cupom (centavos).
+- **Risco no ar até a v48:** a v47 com cupom ativo pode **citar o cupom na conversa** (o briefing do `coupon_exists` autoriza). Se isso incomodar antes da v48: `coupon.active: false` no config.
+
+### O que falta, em ordem
+1. Terminar a `wip/practical-fixes-coupon-2026-10-29`: mutações O39, revisão Opus até APROVADO, reteste curto com o modelo real (≤ R$ 0,50), mesclar na `claude/site-whatsapp-test` (PR #83), CI verde.
+2. Publicar a **v48** (`pnpm deploy:turn`, precisa do "pode publicar" do operador — ele já deu para esta rodada) e conferir o alarme `healthy`.
+3. Operador: pedido de teste real **não se aplica mais** à importação (desligada); fazer um pedido de teste pela Malu → link da Coinzz → pagar na entrega (ou Pix) e cancelar, para provar o webhook de venda e a régua pós-pedido com a Coinzz.
+4. Sócio: templates aprovados → declarar `cart_recovery`, `pix_pending`, `silence_3_retomada` em `channel.templates` (JSON em `03-templates-meta.md`) + gravar o config.
+5. Fornecedor: alinhar o estoque Coinzz × Logzz (G em SP, M em BH perdem o pagamento na entrega no checkout da Coinzz).
+6. Lead de teste da Coinzz (telefone terminado em 4554): excluir das métricas ou apagar.
+7. Teste A/B de 5 dias (sócio liga os conjuntos), leitura diária; critério anúncio por venda ≤ R$ 27 (sem cupom; com cupom no follow-up o empate de 1 peça sobe).
+8. Merge do PR #83 com o OK do operador.
+

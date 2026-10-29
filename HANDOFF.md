@@ -13,6 +13,11 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-29 ~12:30 UTC — PAUSA pedida pelo operador. Estado exato e ordem do que falta: seção 13 de
+> [`docs/operacao/estado-2026-10-28-fim-do-dia.md`](docs/operacao/estado-2026-10-28-fim-do-dia.md).** No ar: `turn` v47 +
+> `business-config-2026-10-29b` (Coinzz no WhatsApp, cupom ativo, âncora R$ 179,90). Em andamento, salvo e não revisado: branch
+> `wip/practical-fixes-coupon-2026-10-29` (`6961ec0`). PR #83 aberto, CI verde.
+
 > **2026-10-28, fim do dia — DOCUMENTO DE RETOMADA COMPLETO: [`docs/operacao/estado-2026-10-28-fim-do-dia.md`](docs/operacao/estado-2026-10-28-fim-do-dia.md).**
 > Lá: o que está no ar (turn v47, config de 28/10, site, n8n, Coinzz, Logzz), o que foi construído, o que ficou inacabado, os
 > 8 passos que faltam em ordem, os riscos e como retomar. As entradas de 28/10 logo abaixo são o histórico do dia.
