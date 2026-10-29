@@ -126,9 +126,9 @@ describe("D8: a caixa do kit e o \"Menos de 24 Horas\"", () => {
     expect(b.some((x) => x.media?.kind === "image")).toBe(true);
   });
 
-  it("amanhã é o dia dito; \"Menos de 24 Horas\" só com o primeiro dia hoje", () => {
-    expect(codOfferText(prod, "2026-10-30", NOW)).toContain("Seu Pedido Chegará já *amanhã, sexta (30/10)!!*");
-    expect(codOfferText(prod, "2026-10-30", NOW)).not.toContain("24 Horas");
+  it("\"Menos de 24 Horas\" com o primeiro dia hoje ou amanhã (operador, 29/10); depois, o dia", () => {
+    expect(codOfferText(prod, "2026-10-30", NOW)).toContain("Seu Pedido Chegará em *Menos de 24 Horas!!*");
+    expect(codOfferText(prod, "2026-10-31", NOW)).not.toContain("24 Horas");
     expect(codOfferText(prod, "2026-10-29", NOW)).toContain("Menos de 24 Horas");
   });
 });

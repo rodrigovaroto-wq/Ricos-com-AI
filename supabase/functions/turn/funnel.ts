@@ -254,7 +254,8 @@ export const codOfferText = (
   const free = config.delivery.freeShipping === true || config.delivery.codFreeShipping !== false;
   // Operator, 2026-10-21 (grafo §121): the truck on its own line, the day on the next, the check before "Não Paga Nada Agora".
   const freeLead = free ? "🚚 *FRETE GRÁTIS*\n" : "🚚 ";
-  const when = firstDate === brtDay(now)
+  // Operator, 2026-10-29: "Menos de 24 Horas" stays for a first day of today or tomorrow (copy v4, §119).
+  const when = firstDate === brtDay(now) || day?.startsWith("amanhã")
     ? `${freeLead}Seu Pedido Chegará em *Menos de 24 Horas!!*\n\n${other}`
     : day
       ? `${freeLead}Seu Pedido Chegará já *${day}!!*\n\n${other}`

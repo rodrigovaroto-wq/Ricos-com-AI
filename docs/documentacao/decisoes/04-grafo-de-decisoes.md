@@ -5073,6 +5073,8 @@ exercitado (desligado). A negação do cupom ("não temos cupom no momento") só
 guardado e o cupom desligado pelo operador são o mesmo `active: false`, e nesse último a negação é a verdade. Falta o reteste curto com o
 modelo real de D1/D3/D4/D8 e do cupom antes da v48.
 
+- **Decisão do operador (29/10, depois da revisão):** o "Menos de 24 Horas" volta para o primeiro dia **amanhã** (copy v4, §119), e vale também para hoje; a partir do segundo dia, o dia é dito. Guarda: `O39-24-horas-amanha` (agora reinstala a retirada) e `tests/funnel.test.ts`.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

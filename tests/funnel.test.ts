@@ -88,14 +88,14 @@ describe("a primeira mensagem dela pede resposta depois da abertura?", () => {
 
 describe("a oferta depois do CEP", () => {
   it("na entrega: o preço do config, frete grátis, quem recebe e a data da consulta", () => {
-    // Grafo §137 (2026-10-29): "Menos de 24 Horas" only when literally true, the first day today; tomorrow is said as the day.
+    // Copy v4 (operator, 2026-10-20; kept on 2026-10-29): "Menos de 24 Horas" when the checkout's first day is tomorrow (or today).
     const t = codOfferText(config, "2026-10-20", now);
-    // The operator's text (2026-10-21, grafo §121), with the real day for tomorrow.
+    // The operator's exact text (2026-10-21, grafo §121).
     expect(t).toBe(
-      "⭐*~R$ 216,50~ POR R$ 129,90*⭐\n\n🚚 *FRETE GRÁTIS*\nSeu Pedido Chegará já *amanhã, terça (20/10)!!*\n\nOu se preferir outro dia, é só escolher lá no checkout." +
+      "⭐*~R$ 216,50~ POR R$ 129,90*⭐\n\n🚚 *FRETE GRÁTIS*\nSeu Pedido Chegará em *Menos de 24 Horas!!*\n\nOu se preferir outro dia, é só escolher lá no checkout." +
         "\n\n✅*Não Paga Nada Agora*, só quando chegar aí, no dinheiro, Pix ou cartão!\n\n🔁 *7 Dias de Garantia* pra trocar ou devolver se não gostar.",
     );
-    expect(t).not.toContain("24 Horas");
+    expect(t).toContain("Seu Pedido Chegará em *Menos de 24 Horas!!*");
     expect(codOfferText(config, "2026-10-19", now)).toContain("Seu Pedido Chegará em *Menos de 24 Horas!!*");
     expect(t).toContain("no dinheiro, Pix ou cartão");
     expect(t).toContain("*7 Dias de Garantia* pra trocar ou devolver");
