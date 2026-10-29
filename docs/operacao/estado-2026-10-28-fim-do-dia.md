@@ -183,3 +183,18 @@ publicado como v47, `3f4d6d0` HANDOFF. Site: `1525764`.
 - **PR #83** aberto para a `main` (CI verde: `check` e as 8 partes de mutações). Correções do `/code-review` de 29/10 (grafo §136) estão
   na branch, **não publicadas** (no ar segue a v47).
 
+## 11. Decisões do operador em 29/10
+
+- **WhatsApp usa os mesmos 3 checkouts da Coinzz do site** (nas duas origens): o fechamento pela importação da Logzz fica no código,
+  desligado (config sem `logzzImport`). Perde-se o pagamento na entrega onde só a Logzz tem estoque (G em SP/Guarulhos/Campinas/Santos,
+  M em BH) até o fornecedor alinhar os estoques; ganha-se pixel e API de Conversões em toda venda.
+- O operador gravou em 28/10 20:09 UTC um config próprio (sha `5cbc06b0…`, não reproduzível pelos arquivos do repositório) com:
+  cupom SUPER20 ativo, `expressActive: true`, `conversationCapBrl: 0.3`. **Ele ainda tem `logzzImport`.**
+- Arquivo para colar: [`business-config-2026-10-29.min.json`](business-config-2026-10-29.min.json) = 27/10 + essas três mudanças
+  (sha `fc097252…`).
+- Conferido: o cupom SUPER20 funciona nos checkouts (1 peça R$ 87,92; 2 peças R$ 158,26, empilha com o desconto do kit); o teto de
+  R$ 0,30 está acima do custo real (18 conversas desde 20/10: p50 R$ 0,018, p95 R$ 0,089, máximo R$ 0,139).
+- Atenção: nenhuma consulta de 27–29/10 devolveu entrega Express (só "Padrão"); com `expressActive` a Malu diz que o Express existe
+  "em algumas regiões" e manda conferir no checkout. Com o cupom, 1 peça rende ~R$ 16,80 por pedido (empate em ~8,4 vendas a cada
+  100 leads a CPL R$ 1), contra R$ 32,10 sem cupom.
+
