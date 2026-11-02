@@ -5191,7 +5191,9 @@ contagem ou "cada" (como a peça do kit sem cupom). O briefing do gate ensina os
 **Guarda:** `tests/kit-coupon-2026-11-02.test.ts` (liberado passa, guardado é vetado, peça sozinha e valor errado vetados, prompt) e
 as mutações `O42-*` em `src/dev/verify-guards.ts`. `dev:gates`: 0 afrouxados sobre o corpus (o cupom no corpus é guardado).
 **Resíduo aceito:** o preço de 3 peças com cupom (R$ 211,01) é a conta (263,76 × 0,8 arredondado); o checkout conferido em 29/10 foi
-o de 2 peças.
+o de 2 peças. Revisão Opus: APROVADO, com dois resíduos herdados (sem frase real, R21.6): o total do kit com cupom no antecipado
+não entra em `prepayPrices` (só importa com frete pago no antecipado e preços diferentes por caminho; em produção nenhum dos dois), e
+"Uma peça sai R$ 158,26" passa como já passa o total do kit sem cupom.
 
 **Mesma data, critério do teste A/B (operador):** "venda" conta quando o **pedido é criado**, não quando é pago — no pagamento na
 entrega o dinheiro chega de 3 a 5 dias depois e o 5º dia compararia coisas diferentes.
