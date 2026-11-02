@@ -5198,6 +5198,10 @@ não entra em `prepayPrices` (só importa com frete pago no antecipado e preços
 **Mesma data, critério do teste A/B (operador):** "venda" conta quando o **pedido é criado**, não quando é pago — no pagamento na
 entrega o dinheiro chega de 3 a 5 dias depois e o 5º dia compararia coisas diferentes.
 
+**Mesma data, varredura de cobertura na Coinzz** (40 CEPs, `docs/operacao/cobertura-coinzz-2026-11-02.txt`): `pnpm dev:estoque`
+morria no M (404 em toda cidade desde 28/10) e não chegava aos outros tamanhos; agora o tamanho sem resposta é impresso e a cidade
+segue. 22 cidades com pagamento na entrega em algum tamanho; Teresina saiu (tinha G em 21/09).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
