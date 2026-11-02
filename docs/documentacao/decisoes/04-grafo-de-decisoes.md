@@ -5179,6 +5179,23 @@ grafo e `03-decisoes-tomadas.md` nunca se leem inteiros. **Guarda:** `tests/func
 da skill; a skill saiu e `hermes/DECIDIR.md` aponta para o bloco. Recusados pelo operador na mesma auditoria: tirar a tabela de
 agentes do `CLAUDE.md` e mover as `persona-*` para fora de `.claude/agents/`.
 
+## 140. Kits com o cupom: o preço do kit seguia vetado depois do lembrete (operador, 2026-11-02)
+
+**Sintoma:** depois do toque de follow-up com o cupom, a Malu podia dizer o preço de 1 peça com o cupom (R$ 87,92), mas "as 2 peças
+saem por R$ 158,26" era vetado por `price_promise`, e o prompt não ensinava esses números. **Causa:** a liberação do §137 só montou
+`withCoupon` sobre `codBrl`/`prepayBrl`; os kits ficaram de fora, à espera da decisão do operador. **Decisão (operador, 02/11):** o kit
+segue o cupom, como no checkout da Coinzz (o cupom empilha sobre o preço do kit): 2 peças R$ 158,26, 3 peças R$ 211,01. **Correção:**
+`price_promise` libera, com a mesma condição do cupom de 1 peça (`coupon.active` depois de `conversationCoupon`), o preço de cada kit
+com o cupom e o preço por peça dele (`couponKits`); o preço por peça entra em `pieceOf`, então só passa numa frase que diz o kit, a
+contagem ou "cada" (como a peça do kit sem cupom). O briefing do gate ensina os mesmos números ("nos kits com o cupom: 2 peças …").
+**Guarda:** `tests/kit-coupon-2026-11-02.test.ts` (liberado passa, guardado é vetado, peça sozinha e valor errado vetados, prompt) e
+as mutações `O42-*` em `src/dev/verify-guards.ts`. `dev:gates`: 0 afrouxados sobre o corpus (o cupom no corpus é guardado).
+**Resíduo aceito:** o preço de 3 peças com cupom (R$ 211,01) é a conta (263,76 × 0,8 arredondado); o checkout conferido em 29/10 foi
+o de 2 peças.
+
+**Mesma data, critério do teste A/B (operador):** "venda" conta quando o **pedido é criado**, não quando é pago — no pagamento na
+entrega o dinheiro chega de 3 a 5 dias depois e o 5º dia compararia coisas diferentes.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
