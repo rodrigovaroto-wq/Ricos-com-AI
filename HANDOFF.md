@@ -13,12 +13,11 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
-> **2026-11-02 — COMECE AQUI.** No ar: `turn` v48 + `business-config-2026-10-29b` (conferido 02/11: alarme `healthy`, régua sem erro,
-> site com os 3 checkouts certos). Na branch `claude/fervent-allen-wwf47s`, **não publicado**: kits seguem o cupom depois do lembrete
-> (2 peças R$ 158,26, 3 peças R$ 211,01; grafo §140). Publicar = `pnpm deploy:turn` com o "pode publicar" do operador. Antes da
-> campanha falta só: templates da Meta aprovados (sócio) → declarar em `channel.templates`. Decidido pelo operador em 02/11: sem
-> pedido de teste nem conferência de eventos agora; prints do site são reais (assunto encerrado); cobertura não está sob nosso
-> controle; teste A/B conta venda quando o **pedido é criado**. Ordem anterior: seção 14 de
+> **2026-11-02 — COMECE AQUI.** No ar: **`turn` v49** (`agent_version` 49, função v179, commit `94c78aa`, publicada 20:55 UTC;
+> alarme de cobertura 20:56 UTC `healthy`) + `business-config-2026-10-29b`. A v49 libera os kits com o cupom depois do lembrete
+> (2 peças R$ 158,26, 3 peças R$ 211,01; grafo §140). Antes da campanha falta só: templates da Meta aprovados (sócio) → declarar em
+> `channel.templates`. Decidido pelo operador em 02/11: sem pedido de teste nem conferência de eventos agora; prints do site são
+> reais (assunto encerrado); cobertura não está sob nosso controle; teste A/B conta venda quando o **pedido é criado**. Ordem anterior: seção 14 de
 > [`docs/operacao/estado-2026-10-28-fim-do-dia.md`](docs/operacao/estado-2026-10-28-fim-do-dia.md).
 > **Histórico** (todas as entradas anteriores, de 2026-09-10 a 2026-10-29, sem edição):
 > [`docs/operacao/handoff-historico.md`](docs/operacao/handoff-historico.md) — não se lê inteiro; procure com `grep`.
