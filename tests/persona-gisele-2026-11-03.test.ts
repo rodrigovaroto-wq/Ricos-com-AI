@@ -21,6 +21,9 @@ describe("você só paga quando receber: o caminho, não chegada nem avaliação
     "É qualidade garantida, com 124 avaliações positivas, e você só paga quando o colete chegar.",
     "Com *7 Dias de Garantia* pra devolver se não gostar, e você só paga quando o colete chegar.",
     "Com *7 Dias de Garantia* pra trocar, e você paga quando chega.",
+    // prompt.ts:710 and :515, word for word around the warranty.
+    "Com *7 Dias de Garantia* pra devolver, e você pode pagar só quando o colete chegar.",
+    "São 124 avaliações positivas, e no pagamento na entrega ela só paga quando recebe.",
   ])("os rascunhos reais passam: %s", (s) => expect(vetoes(s)).toEqual([]));
 
   it.each([

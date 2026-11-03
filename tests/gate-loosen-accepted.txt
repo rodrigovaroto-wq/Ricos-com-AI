@@ -289,3 +289,4 @@ R28-rafa | shipping_promise | Não dá pra pagar frete adicional pra chegar ante
 §143 | delivery_promise | Com *7 Dias de Garantia* pra devolver se não gostar, e você só paga quando o colete chegar.
 §143 | delivery_promise | Com *7 Dias de Garantia* pra trocar, e você paga quando chega.
 §143 | delivery_promise | Com *7 Dias de Garantia* pra devolver se não gostar, e você só paga quando receber.
+§143 | delivery_promise | Com *7 Dias de Garantia* pra devolver, e você pode pagar só quando o colete chegar.

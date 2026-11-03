@@ -5257,7 +5257,7 @@ negações com contagem e o `charge_promise`), `tests/checkout-touches-2026-10-2
 template com o config de 03/11), mutação `O43-paga-quando-o-colete-chegar`. `dev:gates`: 3 afrouxamentos, os pretendidos (§143), 0
 endurecidos. **Revisão Opus:** APROVADO. Resíduos (R21.6, sem código): "…e você só paga quando ele chegar na sua mão" ao lado da garantia
 segue vetada (a lista para em "chegar"); velocidade sem número ao lado da garantia ("…paga quando chega rapidinho") passou a passar, como
-"O colete chega rapidinho" sozinha já passava.
+"O colete chega rapidinho" sozinha já passava. **Publicado:** `turn` v51 (função v184), 2026-11-03 20:15 UTC, `job:"health"` `healthy`.
 
 ## Lições (valem para qualquer correção futura)
 
