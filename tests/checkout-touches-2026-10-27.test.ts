@@ -386,7 +386,11 @@ describe("config de 03/11: os três templates aprovados, iguais à declaração 
   it("declara cart_recovery, pix_pending e silence_3_retomada como o 03-templates-meta.md", () => {
     expect(nov3.channel?.templates).toMatchObject(declared);
   });
-  it("fora da janela, o carrinho e o Pix saem por template", () => {
+  it("fora da janela, o carrinho, o Pix e a retomada saem por template", () => {
     expect(deliveryFor("cart_recovery", { ...rctx({ firstName: "Ana", checkoutSlug: "encorpa-0" }), config: nov3 }, null)).toMatchObject({ via: "template", name: "encorpa_carrinho_site" });
+    expect(deliveryFor("pix_pending", { ...rctx({ firstName: "Ana", orderNumber: "12345", amountBrl: 109.9 }), config: nov3 }, null)).toMatchObject({ via: "template", name: "encorpa_pix_pendente" });
+    // The retomada is the coupon-off silence_3: same config with the coupon off, to a woman who said yes to offers.
+    const off = { ...nov3, coupon: { ...nov3.coupon, active: false } };
+    expect(deliveryFor("silence_3", { ...rctx({ size: "G", sizeSells: true, marketingOptIn: true, regionKnown: true, paymentPath: "cod" }), config: off }, null)).toMatchObject({ via: "template", name: "encorpa_retomada" });
   });
 });

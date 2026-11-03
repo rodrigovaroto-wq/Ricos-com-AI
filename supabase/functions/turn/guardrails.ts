@@ -623,16 +623,19 @@ const BARE_FREE_DENIED =
 const PAYMENT_FREE =
   /\b(?:gratis|gratuit[oa]|de\s+gra[cs]a|sem\s+(?:nenhum\s+)?custo|(?:nao\s+tem|nao\s+ha|zero\s+de)\s+custo|custo\s+zero|custa\s+nada|zerad[oa]|por\s+nossa\s+conta)\b/g;
 /**
+ * The pay-on-delivery path's own names: "pagando na entrega", "paga na porta / na mão do entregador", and "você só paga quando receber /
+ * quando o colete chegar" (persona Gisele, 2026-11-03, grafo §142–§143; the prompt teaches the "chegar" form). No arrival and no review the
+ * store received: `delivery_promise` and `invented_testimonial` strip it before reading time words. A count after it is judged on its own
+ * ("paga quando receber em 7 dias" stays a deadline); where she has no delivery, `charge_promise` vetoes it as a lie. Normalized text.
+ */
+const PAY_ON_DELIVERY_NAME =
+  /\b(?:(?:no\s+)?pag\w*\s+)?na\s+entrega\b|\bpag\w*\s+na\s+(?:porta|mao(?:\s+do\s+entregador)?)\b|\b(?:voce\s+)?(?:so\s+)?(?:pode\s+)?paga(?:r|ndo)?\s+(?:so\s+)?(?:quando|depois\s+que|assim\s+que)\s+(?:(?:o\s+colete|ele|voce)\s+)?(?:receb(?:er|e)|cheg(?:ar|a))\b/g;
+/**
  * The exchange or the return as what is free, for this gate's payment rule only: the return costs
  * her nothing (R16.3), "a devolução não tem custo nenhum pra você". The exchange is not free
  * (R17.1), and `warranty_promise` vetoes that claim (`EXCHANGE_FREE`) on every path. Only when
  * nothing of payment or freight sits between it and the free word ("na troca pro pix fica grátis").
  */
-/**
- * "Você só paga quando receber" names the pay-on-delivery path (persona Gisele, 2026-11-03, grafo §142): no arrival, no review the store
- * received. A count after it is judged on its own ("paga quando receber em 7 dias" stays a deadline). Normalized text.
- */
-const PAY_ON_RECEIPT = /\b(?:voce\s+)?(?:so\s+)?paga(?:r|ndo)?\s+(?:so\s+)?(?:quando|depois\s+que|assim\s+que)\s+(?:voce\s+)?receb(?:er|e)\b/g;
 const RETURN_FREE =
   /\b(?:troca|trocar|devoluc\w*|devolv\w*|garantia)\b(?:(?!\b(?:pag\w*|pix|cartao|frete|envio|entrega|site|link|antecipad\w*)\b)[^,;:])*$/;
 /**
@@ -2090,7 +2093,7 @@ const gates: readonly Gate[] = [
           // na mão do entregador você tem 7 dias pra trocar" names the path, not an arrival.
           const notDelivery = (x: string) =>
             x
-              .replace(/\b(?:(?:no\s+)?pag\w*\s+)?na\s+entrega\b|\bpag\w*\s+na\s+(?:porta|mao(?:\s+do\s+entregador)?)\b/g, " ")
+              .replace(PAY_ON_DELIVERY_NAME, " ")
               .replace(/\breceb\w*\s+(?:(?:o|a|seu|sua)\s+){0,2}(?:dinheiro(?:\s+de\s+volta)?|reembols\w*|estorno)\b/g, " ")
               // E4 (2026-10-13): who pays the exchange's freight — "e na troca o envio da peça fica por sua
               // conta" — is not an arrival. Only with that predicate: "e o envio é rapidinho" still is.
@@ -2131,8 +2134,6 @@ const gates: readonly Gate[] = [
           // tempo", "mesmo tamanho ou outro". And the prepaid window may follow, as the prompt's own
           // warranty line says it ("…7 dias pra trocar, e no antecipado o prazo varia por região, em
           // média 5 dias úteis"): its number is judged on its own.
-          // The path's own name after the warranty ("…, e dependendo da sua região você só paga quando receber") is no arrival.
-          tail = tail.replace(PAY_ON_RECEIPT, " ");
           const newClause = /^\s*(?:[,;:]|(?:e|mas|ou|se|sem|caso|porque|pois|que)\s)/.test(tail);
           // The delivery's own window may follow the same way, as a clause that is nothing but it
           // ("…7 dias pra devolver, e a entrega leva de 1 a 3 dias"): its numbers are judged on
@@ -2151,6 +2152,8 @@ const gates: readonly Gate[] = [
               !/\b(?:quando|dias?|semanas?|depois|antes|ate|junto|tempo|prazo|mesm\w*|igual\w*|tambem)\b/.test(
                 tail
                   .replace(/\btod[oa]s?\s+(?:o\s+|os\s+)?dias?\b|\bperder\s+tempo\b|\bmesm[oa]\s+(?:tamanho|numero|modelo|cor)\b/g, " ")
+                  // The path's own name after the warranty ("…, e dependendo da sua região você só paga quando receber") is no time word.
+                  .replace(PAY_ON_DELIVERY_NAME, " ")
                   // The warranty said again after it is judged on its own count: "*7 Dias de Garantia*, se não gostar você tem 7
                   // dias após o recebimento pra devolver" (persona cob-gatilho-formatura, 2026-10-24).
                   .replace(new RegExp(String.raw`\b${ctx.config.delivery.warrantyDays}\s+dias\b`, "g"), " ")
@@ -2544,7 +2547,7 @@ const gates: readonly Gate[] = [
       // Never with a clock beside it ("124 avaliações positivas só esta semana", "recebemos … hoje"): velocity again (review of v3, 12).
       const t = reviews != null
         ? norm(text).replace(new RegExp(String.raw`[^.!?\n]*\b${reviews}\s+avaliacoes\s+positivas\b[^.!?\n]*`, "g"), (sentence) =>
-          /\b(?:hoje|ontem|agora|semana|mes|ano|recebe\w*|chegar\w*)\b|\d\s*%/.test(sentence.replace(PAY_ON_RECEIPT, " ")) ? sentence : sentence.replace(/\b\d+\s+avaliacoes\s+positivas\b/, " "))
+          /\b(?:hoje|ontem|agora|semana|mes|ano|recebe\w*|chegar\w*)\b|\d\s*%/.test(sentence.replace(PAY_ON_DELIVERY_NAME, " ")) ? sentence : sentence.replace(/\b\d+\s+avaliacoes\s+positivas\b/, " "))
         : norm(text);
       const allowed = ctx.config.socialProof?.satisfiedCustomers;
       // The configured number passes only as "N clientes satisfeitas" — never as sales

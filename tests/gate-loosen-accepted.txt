@@ -286,3 +286,6 @@ R28-rafa | shipping_promise | Não dá pra pagar frete adicional pra chegar ante
 §132 | order_action_claim | Fica tranquila, eu reservo um tempinho pra te responder.
 §132 | unverified_size | O maior que a gente tem é o XGG mesmo.
 §142 | delivery_promise | Não é mais caro pra você não, o valor é o mesmo pra todo mundo, já saiu de R$ 179,90 por R$ 109,90 com *FRETE GRÁTIS*!! 🎉\n\nE é qualidade garantida, com *7 Dias de Garantia* pra devolver se não gostar, e dependendo da sua região você só paga quando receber, então o risco é zero pra você\n\nQuer seguir com o G nesse valor?
+§143 | delivery_promise | Com *7 Dias de Garantia* pra devolver se não gostar, e você só paga quando o colete chegar.
+§143 | delivery_promise | Com *7 Dias de Garantia* pra trocar, e você paga quando chega.
+§143 | delivery_promise | Com *7 Dias de Garantia* pra devolver se não gostar, e você só paga quando receber.

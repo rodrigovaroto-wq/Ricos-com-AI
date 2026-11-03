@@ -5241,6 +5241,22 @@ trocar e você só paga quando receber logo." agora passa (`logo` não é palavr
 receber" é falso e nenhum gate cobre, como já não cobria antes; "124 avaliações positivas, e você só paga quando receber, que chega
 rapidinho" passa o `invented_testimonial` (não é velocidade de avaliação).
 
+## 143. Revisão do §142: a forma que o prompt ensina ("paga quando o colete chegar") seguia vetada (code review, 2026-11-03)
+
+**Sintoma:** `/code-review` do §142. O prompt ensina "você só paga quando o colete chegar" (`prompt.ts`, `followups.ts`), e
+`PAY_ON_RECEIPT` só cobria "receber": "…124 avaliações positivas, e você só paga quando o colete chegar" (`invented_testimonial`) e
+"*7 Dias de Garantia* …, e você só paga quando o colete chegar" (`delivery_promise`) seguiam vetadas. Prompt e gate se contradiziam.
+Os nomes do caminho também estavam em duas listas (`notDelivery` e `PAY_ON_RECEIPT`). **Correção:** uma só, `PAY_ON_DELIVERY_NAME`
+("na entrega / na porta / na mão do entregador" e "(você) (só) (pode) paga(r) (só) quando / depois que / assim que (o colete / ele / você)
+receber / recebe / chegar / chega"), usada em `notDelivery`, no teste de palavras de tempo da cauda da garantia e no teste de relógio das
+avaliações. **Tentativa que falhou:** aplicar a lista à cauda inteira apagava "na entrega" antes do `codWindow` e endureceu "Você tem 7 dias
+pra trocar, e na entrega chega em 1 a 3 dias" (`prepaid-deadline-fuzz`, `dev:gates`); a lista entra só onde lê palavras de tempo.
+**Achado da revisão que não pede código:** onde a entrega não chega, "você só paga quando receber/chegar" é mentira e o `charge_promise` já
+veta (`DOOR_PAYMENT`, com `codUnavailable`) — agora com teste. **Guarda:** `tests/persona-gisele-2026-11-03.test.ts` (as formas com "chegar",
+negações com contagem e o `charge_promise`), `tests/checkout-touches-2026-10-27.test.ts` (carrinho, Pix pendente e retomada saem por
+template com o config de 03/11), mutação `O43-paga-quando-o-colete-chegar`. `dev:gates`: 3 afrouxamentos, os pretendidos (§143), 0
+endurecidos.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
