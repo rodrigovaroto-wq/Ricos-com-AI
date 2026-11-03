@@ -662,8 +662,9 @@ const MUTATIONS: Mutation[] = [
     id: "M-10-nome-da-entrega",
     bug: "\"Na entrega você tem 7 dias pra trocar.\" era vetada: o nome do caminho da entrega era lido como chegada",
     files: ["src/agent/guardrails.ts", "supabase/functions/turn/guardrails.ts"],
-    from: String.raw`.replace(/\b(?:(?:no\s+)?pag\w*\s+)?na\s+entrega\b|\bpag\w*\s+na\s+(?:porta|mao(?:\s+do\s+entregador)?)\b/g, " ")`,
-    to: "",
+    // Since §143 the path's names are one shared PAY_ON_DELIVERY_NAME; notDelivery's own strip of it is the guard.
+    from: "            x\n              .replace(PAY_ON_DELIVERY_NAME, \" \")",
+    to: "            x",
     guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
   },
   {
