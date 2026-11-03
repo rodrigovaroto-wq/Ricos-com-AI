@@ -1,0 +1,284 @@
+
+São Paulo/SP · CEP 04939180
+  P   entrega NÃO                                                      antecipado R$ 28,67 em 10 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 31,29 em 10 dias
+  GG  entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 19,34 em 6 dias
+  XGG entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 17,78 em 6 dias
+
+Aparecida de Goiânia/GO · CEP 74948030
+  P   entrega NÃO                                                      antecipado R$ 31,53 em 6 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 34,47 em 6 dias
+  GG  entrega NÃO                                                      antecipado R$ 31,29 em 6 dias
+  XGG entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 18,32 em 2 dias
+
+Belo Horizonte/MG · CEP 30510670
+  P   entrega NÃO                                                      antecipado R$ 28,67 em 5 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 19,96 em 2 dias
+  GG  entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 19,96 em 2 dias
+  XGG entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 18,32 em 2 dias
+
+Betim/MG · CEP 32681394
+  P   entrega NÃO                                                      antecipado R$ 28,67 em 5 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 19,96 em 2 dias
+  GG  entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 19,96 em 2 dias
+  XGG entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 18,32 em 2 dias
+
+Campinas/SP · CEP 13067356
+  P   entrega NÃO                                                      antecipado R$ 28,67 em 5 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 31,29 em 6 dias
+  GG  entrega SIM · frete R$ 24,98 · datas 2026-11-06, 2026-11-11, 2026-11-13 antecipado R$ 19,34 em 2 dias
+  XGG entrega SIM · frete R$ 24,98 · datas 2026-11-06, 2026-11-11, 2026-11-13 antecipado R$ 17,78 em 2 dias
+
+Caxias do Sul/RS · CEP 95010130
+  P   entrega NÃO                                                      antecipado R$ 31,53 em 7 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 37,89 em 8 dias
+  GG  entrega NÃO                                                      antecipado R$ 31,29 em 6 dias
+  XGG entrega SIM · frete R$ 24,98 · datas 2026-11-06, 2026-11-10, 2026-11-13 antecipado R$ 25,73 em 5 dias
+
+Contagem/MG · CEP 32052003
+  P   entrega NÃO                                                      antecipado R$ 28,67 em 5 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 19,96 em 2 dias
+  GG  entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 19,96 em 2 dias
+  XGG entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 18,32 em 2 dias
+
+Duque de Caxias/RJ · CEP 25030300
+  P   entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 18,07 em 2 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 31,29 em 5 dias
+  GG  entrega NÃO                                                      antecipado R$ 31,29 em 5 dias
+  XGG entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 18,07 em 2 dias
+
+Fortaleza/CE · CEP 60176210
+  P   entrega NÃO                                                      antecipado R$ 40,50 em 6 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 44,45 em 6 dias
+  GG  entrega NÃO                                                      antecipado R$ 37,89 em 7 dias
+  XGG entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 18,32 em 2 dias
+/home/user/Ricos-com-AI/src/dev/availability.ts:59
+  if (j.erro || !j.localidade || !j.uf) throw new Error(`CEP não encontrado: ${zip}`);
+                                              ^
+
+
+Goiânia/GO · CEP 74110010
+  P   entrega NÃO                                                      antecipado R$ 31,53 em 6 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 34,47 em 6 dias
+  GG  entrega NÃO                                                      antecipado R$ 31,29 em 6 dias
+  XGG entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 18,32 em 2 dias
+
+Guarulhos/SP · CEP 07230370
+  P   entrega NÃO                                                      antecipado R$ 28,67 em 5 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 31,29 em 5 dias
+  GG  entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 19,34 em 2 dias
+  XGG entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 17,78 em 2 dias
+
+Natal/RN · CEP 59073817
+  P   entrega NÃO                                                      antecipado R$ 40,50 em 7 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 44,45 em 7 dias
+  GG  entrega NÃO                                                      antecipado R$ 44,45 em 7 dias
+  XGG entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 18,60 em 2 dias
+
+Niterói/RJ · CEP 24210396
+  P   entrega SIM · frete R$ 24,98 · datas 2026-11-04, 2026-11-05, 2026-11-06 antecipado R$ 18,07 em 2 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 31,29 em 5 dias
+  GG  entrega NÃO                                                      antecipado R$ 31,29 em 5 dias
+  XGG entrega SIM · frete R$ 24,98 · datas 2026-11-04, 2026-11-05, 2026-11-06 antecipado R$ 18,07 em 2 dias
+
+Nova Iguaçu/RJ · CEP 26293591
+  P   entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 18,07 em 2 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 31,29 em 5 dias
+  GG  entrega NÃO                                                      antecipado R$ 31,29 em 5 dias
+  XGG entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 18,07 em 2 dias
+
+Osasco/SP · CEP 06149290
+  P   entrega NÃO                                                      antecipado R$ 28,67 em 5 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 31,29 em 5 dias
+  GG  entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 19,34 em 2 dias
+  XGG entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 17,78 em 2 dias
+
+Porto Alegre/RS · CEP 91250373
+  P   entrega NÃO                                                      antecipado R$ 31,53 em 7 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 37,89 em 7 dias
+  GG  entrega NÃO                                                      antecipado R$ 31,29 em 5 dias
+  XGG entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 18,32 em 2 dias
+
+Rio de Janeiro/RJ · CEP 21011718
+  P   entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 18,07 em 2 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 31,29 em 5 dias
+  GG  entrega NÃO                                                      antecipado R$ 31,29 em 5 dias
+  XGG entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 18,07 em 2 dias
+
+Salvador/BA · CEP 41500620
+  P   entrega NÃO                                                      antecipado R$ 34,59 em 6 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 34,47 em 6 dias
+  GG  entrega NÃO                                                      antecipado R$ 34,47 em 6 dias
+  XGG entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 18,32 em 2 dias
+
+Santo André/SP · CEP 09230590
+  P   entrega NÃO                                                      antecipado R$ 28,67 em 7 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 31,29 em 7 dias
+  GG  entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 19,34 em 2 dias
+  XGG entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 17,78 em 2 dias
+
+São Bernardo do Campo/SP · CEP 09857170
+  P   entrega NÃO                                                      antecipado R$ 28,67 em 12 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 31,29 em 12 dias
+  GG  entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 19,34 em 6 dias
+  XGG entrega SIM · frete R$ 24,98 · datas 2026-11-03, 2026-11-04, 2026-11-05 antecipado R$ 17,78 em 6 dias
+
+São José dos Campos/SP · CEP 12244546
+  P   entrega NÃO                                                      antecipado R$ 28,67 em 5 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 31,29 em 6 dias
+  GG  entrega SIM · frete R$ 24,98 · datas 2026-11-04, 2026-11-06, 2026-11-11 antecipado R$ 19,34 em 2 dias
+  XGG entrega SIM · frete R$ 24,98 · datas 2026-11-04, 2026-11-06, 2026-11-11 antecipado R$ 17,78 em 2 dias
+
+Teresina/PI · CEP 64060810
+  P   entrega NÃO                                                      antecipado R$ 40,50 em 8 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 44,45 em 8 dias
+  GG  entrega NÃO                                                      antecipado R$ 44,45 em 8 dias
+  XGG entrega NÃO                                                      antecipado R$ 28,67 em 6 dias
+
+Santos/SP · CEP 11010000
+  P   entrega NÃO                                                      antecipado R$ 28,67 em 7 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 31,29 em 7 dias
+  GG  entrega SIM · frete R$ 24,98 · datas 2026-11-04, 2026-11-06, 2026-11-11 antecipado R$ 19,34 em 2 dias
+  XGG entrega SIM · frete R$ 24,98 · datas 2026-11-04, 2026-11-06, 2026-11-11 antecipado R$ 17,78 em 2 dias
+
+Aracaju/SE · CEP 49081000
+  P   entrega NÃO                                                      antecipado R$ 34,59 em 8 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 44,45 em 7 dias
+  GG  entrega NÃO                                                      antecipado R$ 44,45 em 7 dias
+  XGG entrega NÃO                                                      antecipado R$ 28,67 em 5 dias
+
+Belém/PA · CEP 66814133
+  P   entrega NÃO                                                      antecipado R$ 40,50 em 9 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 44,45 em 9 dias
+  GG  entrega NÃO                                                      antecipado R$ 37,89 em 8 dias
+  XGG entrega NÃO                                                      antecipado R$ 31,53 em 8 dias
+
+Brasília/DF · CEP 72615002
+  P   entrega NÃO                                                      antecipado R$ 28,67 em 6 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 31,29 em 6 dias
+  GG  entrega NÃO                                                      antecipado R$ 31,29 em 6 dias
+  XGG entrega NÃO                                                      antecipado R$ 25,93 em 5 dias
+
+Campo Grande/MS · CEP 79070060
+  P   entrega NÃO                                                      antecipado R$ 31,53 em 6 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 34,47 em 7 dias
+  GG  entrega NÃO                                                      antecipado R$ 31,29 em 6 dias
+  XGG entrega NÃO                                                      antecipado R$ 28,67 em 6 dias
+
+Cuiabá/MT · CEP 78049531
+  P   entrega NÃO                                                      antecipado R$ 34,59 em 7 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 37,89 em 7 dias
+  GG  entrega NÃO                                                      antecipado R$ 34,47 em 7 dias
+  XGG entrega NÃO                                                      antecipado R$ 31,53 em 6 dias
+
+Curitiba/PR · CEP 81580480
+  P   entrega NÃO                                                      antecipado R$ 28,67 em 6 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 34,47 em 6 dias
+  GG  entrega NÃO                                                      antecipado R$ 31,29 em 5 dias
+  XGG entrega NÃO                                                      antecipado R$ 28,67 em 5 dias
+
+Feira de Santana/BA · CEP 44072502
+  P   entrega NÃO                                                      antecipado R$ 34,59 em 7 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 34,47 em 7 dias
+  GG  entrega NÃO                                                      antecipado R$ 34,47 em 7 dias
+  XGG entrega NÃO                                                      antecipado R$ 25,93 em 5 dias
+
+Jaboatão dos Guararapes/PE · CEP 54350732
+  P   entrega NÃO                                                      antecipado R$ 40,50 em 7 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 44,45 em 7 dias
+  GG  entrega NÃO                                                      antecipado R$ 37,89 em 6 dias
+  XGG entrega NÃO                                                      antecipado R$ 28,67 em 6 dias
+
+Joinville/SC · CEP 89210705
+  P   entrega NÃO                                                      antecipado R$ 31,53 em 7 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 34,47 em 7 dias
+  GG  entrega NÃO                                                      antecipado R$ 31,29 em 6 dias
+  XGG entrega NÃO                                                      antecipado R$ 28,67 em 6 dias
+
+João Pessoa/PB · CEP 58077005
+  P   entrega NÃO                                                      antecipado R$ 40,50 em 8 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 44,45 em 7 dias
+  GG  entrega NÃO                                                      antecipado R$ 44,45 em 7 dias
+  XGG entrega NÃO                                                      antecipado R$ 25,93 em 6 dias
+
+Maceió/AL · CEP 57041350
+  P   entrega NÃO                                                      antecipado R$ 40,50 em 8 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 44,45 em 7 dias
+  GG  entrega NÃO                                                      antecipado R$ 44,45 em 7 dias
+  XGG entrega NÃO                                                      antecipado R$ 28,67 em 6 dias
+
+Manaus/AM · CEP 69057004
+  P   entrega NÃO                                                      antecipado R$ 40,50 em 18 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 44,45 em 19 dias
+  GG  entrega NÃO                                                      antecipado R$ 44,45 em 19 dias
+  XGG entrega NÃO                                                      antecipado R$ 34,59 em 20 dias
+
+Recife/PE · CEP 51021080
+  P   entrega NÃO                                                      antecipado R$ 40,50 em 7 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 44,45 em 7 dias
+  GG  entrega NÃO                                                      antecipado R$ 37,89 em 6 dias
+  XGG entrega NÃO                                                      antecipado R$ 28,67 em 6 dias
+
+Ribeirão Preto/SP · CEP 14031710
+  P   entrega NÃO                                                      antecipado R$ 28,67 em 6 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 31,29 em 6 dias
+  GG  entrega NÃO                                                      antecipado R$ 27,09 em 5 dias
+  XGG entrega NÃO                                                      antecipado R$ 24,88 em 5 dias
+
+São Luís/MA · CEP 65066660
+  P   entrega NÃO                                                      antecipado R$ 40,50 em 9 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 44,45 em 9 dias
+  GG  entrega NÃO                                                      antecipado R$ 44,45 em 9 dias
+  XGG entrega NÃO                                                      antecipado R$ 28,67 em 6 dias
+
+Uberlândia/MG · CEP 38401140
+  P   entrega NÃO                                                      antecipado R$ 28,67 em 6 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 28,02 em 5 dias
+  GG  entrega NÃO                                                      antecipado R$ 28,02 em 5 dias
+  XGG entrega NÃO                                                      antecipado R$ 25,73 em 5 dias
+
+Vitória/ES · CEP 29016345
+  P   entrega NÃO                                                      antecipado R$ 28,67 em 6 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado R$ 34,47 em 6 dias
+  GG  entrega NÃO                                                      antecipado R$ 31,29 em 6 dias
+  XGG entrega NÃO                                                      antecipado R$ 28,67 em 6 dias

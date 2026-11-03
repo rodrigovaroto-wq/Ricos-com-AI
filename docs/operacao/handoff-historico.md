@@ -4,6 +4,12 @@ Tudo o que estava no `HANDOFF.md` até 2026-10-29, movido sem edição em 2026-1
 sessão (grafo §139). Ordem original. Não se lê inteiro: procure com `grep` a data, a branch ou o assunto.
 
 
+> **2026-10-29 ~15:00 UTC — FIM DA SESSÃO. COMECE AQUI: seção 14 de
+> [`docs/operacao/estado-2026-10-28-fim-do-dia.md`](docs/operacao/estado-2026-10-28-fim-do-dia.md).** No ar: `turn` v48 (função v177,
+> commit `1e4609c`, alarme `healthy`) + `business-config-2026-10-29b` (Coinzz no WhatsApp e no site, R$ 109,90, âncora R$ 179,90,
+> cupom só no follow-up). PR #83 mesclado em `main`. Próximo: decisão do operador sobre o preço dos kits com cupom, pedido de teste pela
+> Malu, templates da Meta, teste A/B de 5 dias (lista em ordem na seção 14).
+
 > **2026-10-29 ~12:30 UTC — PAUSA pedida pelo operador. Estado exato e ordem do que falta: seção 13 de
 > [`docs/operacao/estado-2026-10-28-fim-do-dia.md`](docs/operacao/estado-2026-10-28-fim-do-dia.md).** No ar: `turn` v47 +
 > `business-config-2026-10-29b` (Coinzz no WhatsApp, cupom ativo, âncora R$ 179,90). Em andamento, salvo e não revisado: branch

@@ -112,7 +112,12 @@ const run = async (zips: string[]) => {
     const place = await viaCep(zip);
     console.log(`\n${place.city}/${place.state} · CEP ${zip}`);
     for (const entry of SIZE_CODES) {
-      const a = await checkSize(zip, place, entry);
+      // The M answers 404 everywhere since 2026-10-28 (not in the Coinzz catalog): one size without an answer is not the city's.
+      const a = await checkSize(zip, place, entry).catch(() => null);
+      if (!a) {
+        console.log(`  ${entry[0].padEnd(3)} sem resposta (tamanho fora do catálogo da Coinzz?)`);
+        continue;
+      }
       const cod = a.codAvailable
         ? `entrega SIM · frete ${brl(a.freightBrl)} · datas ${a.dates.join(", ")}`
         : "entrega NÃO";

@@ -1202,7 +1202,11 @@ const gates: readonly Gate[] = [
         : ``) +
       // The coupon's price, only once released (grafo §137): the gate allows the same two numbers.
       (c.coupon.active
-        ? `, e com o cupom de ${c.coupon.percent}%: ${[...new Set([c.prices.codBrl, c.prices.prepayBrl].map((p) => money(Math.round(p * (1 - c.coupon.percent / 100) * 100) / 100)))].join(" e ")} por peça`
+        ? `, e com o cupom de ${c.coupon.percent}%: ${[...new Set([c.prices.codBrl, c.prices.prepayBrl].map((p) => money(Math.round(p * (1 - c.coupon.percent / 100) * 100) / 100)))].join(" e ")} por peça` +
+          // Kits follow the coupon (operator, 2026-11-02, grafo §140): the checkout stacks it on the kit price.
+          (c.kits?.length
+            ? `; nos kits com o cupom: ${[...new Set(c.kits.map((k) => `${k.units} peças ${money(Math.round(k.priceBrl * (1 - c.coupon.percent / 100) * 100) / 100)}`))].join(" e ")}`
+            : ``)
         : ``) +
       `. ` +
       `Nenhum outro número em reais. ` +
@@ -1230,6 +1234,9 @@ const gates: readonly Gate[] = [
       const { coupon } = ctx.config;
       const withCoupon = coupon.active ? [codBrl, prepayBrl].map((p) => Math.round(p * (1 - coupon.percent / 100) * 100) / 100) : [];
       for (const p of withCoupon) allowedPrices.add(p);
+      // Kits follow the coupon (operator, 2026-11-02, grafo §140): the kit's price and its piece price with the coupon, same release.
+      const couponKits = coupon.active ? kits.map((k) => ({ ...k, priceBrl: Math.round(k.priceBrl * (1 - coupon.percent / 100) * 100) / 100 })) : [];
+      for (const k of couponKits) allowedPrices.add(k.priceBrl).add(Math.round((k.priceBrl / k.units) * 100) / 100);
       const orderAmount = ctx.stage === "logistics" ? ctx.orderAmountBrl : undefined;
       if (orderAmount !== undefined) allowedPrices.add(orderAmount);
       const t = norm(text);
@@ -1418,8 +1425,8 @@ const gates: readonly Gate[] = [
       const freight = realFreight(ctx);
       // A kit's piece price alone is no price of one piece (Opus review of cfa04fe, grafo §137: "Fica R$ 87,92 pra você" passed, the
       // 3-piece price that equals one piece with the coupon held): only in a sentence that names its count, its kit or "cada".
-      const whole = new Set([codBrl, prepayBrl, anchorBrl, ...withCoupon, ...kits.map((k) => k.priceBrl), ...(orderAmount !== undefined ? [orderAmount] : [])]);
-      const pieceOf = (v: number) => kits.filter((k) => !whole.has(v) && Math.round((k.priceBrl / k.units) * 100) / 100 === v).map((k) => k.units);
+      const whole = new Set([codBrl, prepayBrl, anchorBrl, ...withCoupon, ...[...kits, ...couponKits].map((k) => k.priceBrl), ...(orderAmount !== undefined ? [orderAmount] : [])]);
+      const pieceOf = (v: number) => [...kits, ...couponKits].filter((k) => !whole.has(v) && Math.round((k.priceBrl / k.units) * 100) / 100 === v).map((k) => k.units);
       const namesKit = (at: number, units: number[]) => {
         const sentence = `${t.slice(0, at).split(/[!?\n]|\.(?!\d)/).pop() ?? ""}${t.slice(at).split(/[!?\n]|\.(?!\d)/)[0] ?? ""}`;
         const n = units.flatMap((u) => [String(u), ...(u === 2 ? ["duas", "dois"] : u === 3 ? ["tres"] : [])]).join("|");

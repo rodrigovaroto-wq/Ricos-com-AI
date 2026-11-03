@@ -5179,6 +5179,40 @@ grafo e `03-decisoes-tomadas.md` nunca se leem inteiros. **Guarda:** `tests/func
 da skill; a skill saiu e `hermes/DECIDIR.md` aponta para o bloco. Recusados pelo operador na mesma auditoria: tirar a tabela de
 agentes do `CLAUDE.md` e mover as `persona-*` para fora de `.claude/agents/`.
 
+## 140. Kits com o cupom: o preço do kit seguia vetado depois do lembrete (operador, 2026-11-02)
+
+**Sintoma:** depois do toque de follow-up com o cupom, a Malu podia dizer o preço de 1 peça com o cupom (R$ 87,92), mas "as 2 peças
+saem por R$ 158,26" era vetado por `price_promise`, e o prompt não ensinava esses números. **Causa:** a liberação do §137 só montou
+`withCoupon` sobre `codBrl`/`prepayBrl`; os kits ficaram de fora, à espera da decisão do operador. **Decisão (operador, 02/11):** o kit
+segue o cupom, como no checkout da Coinzz (o cupom empilha sobre o preço do kit): 2 peças R$ 158,26, 3 peças R$ 211,01. **Correção:**
+`price_promise` libera, com a mesma condição do cupom de 1 peça (`coupon.active` depois de `conversationCoupon`), o preço de cada kit
+com o cupom e o preço por peça dele (`couponKits`); o preço por peça entra em `pieceOf`, então só passa numa frase que diz o kit, a
+contagem ou "cada" (como a peça do kit sem cupom). O briefing do gate ensina os mesmos números ("nos kits com o cupom: 2 peças …").
+**Guarda:** `tests/kit-coupon-2026-11-02.test.ts` (liberado passa, guardado é vetado, peça sozinha e valor errado vetados, prompt) e
+as mutações `O42-*` em `src/dev/verify-guards.ts`. `dev:gates`: 0 afrouxados sobre o corpus (o cupom no corpus é guardado).
+**Resíduo aceito:** o preço de 3 peças com cupom (R$ 211,01) é a conta (263,76 × 0,8 arredondado); o checkout conferido em 29/10 foi
+o de 2 peças. Revisão Opus: APROVADO, com dois resíduos herdados (sem frase real, R21.6): o total do kit com cupom no antecipado
+não entra em `prepayPrices` (só importa com frete pago no antecipado e preços diferentes por caminho; em produção nenhum dos dois), e
+"Uma peça sai R$ 158,26" passa como já passa o total do kit sem cupom.
+
+**Mesma data, critério do teste A/B (operador):** "venda" conta quando o **pedido é criado**, não quando é pago — no pagamento na
+entrega o dinheiro chega de 3 a 5 dias depois e o 5º dia compararia coisas diferentes.
+
+**2026-11-03, metas do teste A/B por conjunto (operador, sugeridas pela média de mercado, sem o histórico da conta):**
+
+| Conjunto | Meta | Pausar no dia 2 (R$ 50) se | Custo por pedido que resulta |
+|---|---|---|---|
+| Site | CTR do link 2%, CPC R$ 0,60, visita → pedido 3% | CTR < 1% ou CPC > R$ 1,20 | R$ 0,60 ÷ 3% = R$ 20 |
+| WhatsApp | CTR do link > 2%, CPC < R$ 1,50, custo por conversa < R$ 2,00, conversa → pedido 9% | CTR < 1%, CPC > R$ 3,00 ou conversa > R$ 4,00 | R$ 2,00 ÷ 9% = R$ 22,22 |
+
+Os dois ficam abaixo do teto de R$ 27. Metas acima da média do mercado de propósito (operador, 03/11): o pagamento na entrega agrega valor à oferta. Zero pedidos ao fim do dia 3 (R$ 75) pausa o conjunto; com pedido, roda até o 5º dia.
+Referências de mercado usadas: moda no Meta CTR 1,2–2,3%; CPC no e-commerce brasileiro R$ 0,30–1,50; conversa de moda R$ 3–8
+(estimativa de blog); IA no varejo brasileiro converte ~9% das conversas (OmniChat, 51 milhões de conversas).
+
+**Mesma data, varredura de cobertura na Coinzz** (40 CEPs, `docs/operacao/cobertura-coinzz-2026-11-02.txt`): `pnpm dev:estoque`
+morria no M (404 em toda cidade desde 28/10) e não chegava aos outros tamanhos; agora o tamanho sem resposta é impresso e a cidade
+segue. 22 cidades com pagamento na entrega em algum tamanho; Teresina saiu (tinha G em 21/09).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
