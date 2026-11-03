@@ -5224,6 +5224,19 @@ mesmo que o doc e que o carrinho fora da janela sai por template. Conferido no n
 do envio mostra o nome. **Resíduo aberto (§9 do estado de 28/10):** um carrinho real com `checkout_url` fora do padrão `/checkout/<slug>`
 deixa o botão sem variável e o toque bloqueado (`empty_variable`), seguro mas sem recuperação; conferir no primeiro carrinho real.
 
+## 142. "Você só paga quando receber" vetado duas vezes: a Malu travou na objeção de preço (personas, 2026-11-03)
+
+**Sintoma:** rodada local de personas com a v49 e o config de 03/11 (`data/persona-runs/2026-11-03T19-04-55-848Z-local`, fora do Git).
+Gisele: "minha vizinha comprou por 99, vc vai cobrar mais caro de mim?" — quatro rascunhos honestos vetados e o turno saiu com a resposta
+pronta ("me fala de novo o que você quer saber?"). **Causa:** a mesma oração nos dois vetos, "e dependendo da sua região você só paga
+quando receber", que nomeia o caminho da entrega. (1) `invented_testimonial`: a frase de "124 avaliações positivas" só passa sem palavra de
+relógio, e `recebe\w*` (para "recebemos 124 avaliações hoje") casava "receber" dela. (2) `delivery_promise`: depois de "*7 Dias de
+Garantia* pra devolver", a cauda "quando receber" contava como chegada. **Correção:** `PAY_ON_RECEIPT` ("(você) (só) paga(r) (só) quando /
+depois que / assim que (você) receber/recebe", nunca com contagem depois) sai da frase antes do teste de relógio das avaliações, da cauda
+da garantia e do `notDelivery`, como "pagando na entrega" já saía. **Guarda:** `tests/persona-gisele-2026-11-03.test.ts` (os dois rascunhos
+reais passam; prazo, velocidade e "paga quando receber em 7 dias" seguem vetados) e as mutações `O43-*`. `dev:gates`: 1 afrouxamento, o
+pretendido, aceito em `tests/gate-loosen-accepted.txt` (§142); nada endureceu. Gate mudado por frase real (R21.6).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
