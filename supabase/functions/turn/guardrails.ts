@@ -2091,7 +2091,6 @@ const gates: readonly Gate[] = [
           const notDelivery = (x: string) =>
             x
               .replace(/\b(?:(?:no\s+)?pag\w*\s+)?na\s+entrega\b|\bpag\w*\s+na\s+(?:porta|mao(?:\s+do\s+entregador)?)\b/g, " ")
-              .replace(PAY_ON_RECEIPT, " ")
               .replace(/\breceb\w*\s+(?:(?:o|a|seu|sua)\s+){0,2}(?:dinheiro(?:\s+de\s+volta)?|reembols\w*|estorno)\b/g, " ")
               // E4 (2026-10-13): who pays the exchange's freight — "e na troca o envio da peça fica por sua
               // conta" — is not an arrival. Only with that predicate: "e o envio é rapidinho" still is.
