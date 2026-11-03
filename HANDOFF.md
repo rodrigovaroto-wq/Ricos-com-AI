@@ -13,12 +13,10 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
-> **2026-11-02 — COMECE AQUI.** No ar: **`turn` v49** (`agent_version` 49, função v179, commit `94c78aa`, publicada 20:55 UTC;
-> alarme de cobertura 20:56 UTC `healthy`) + `business-config-2026-10-29b`. A v49 libera os kits com o cupom depois do lembrete
-> (2 peças R$ 158,26, 3 peças R$ 211,01; grafo §140). Antes da campanha falta só: templates da Meta aprovados (sócio) → declarar em
-> `channel.templates`. Decidido pelo operador em 02/11: sem pedido de teste nem conferência de eventos agora; prints do site são
-> reais (assunto encerrado); cobertura não está sob nosso controle; teste A/B conta venda quando o **pedido é criado**. Ordem anterior: seção 14 de
-> [`docs/operacao/estado-2026-10-28-fim-do-dia.md`](docs/operacao/estado-2026-10-28-fim-do-dia.md).
+> **2026-11-03 — COMECE AQUI.** No ar: `turn` v49 + `business-config-2026-10-29b`. **Templates aprovados (operador, 03/11):** colar
+> `docs/operacao/business-config-2026-11-03.min.json` no segredo `BUSINESS_CONFIG` (só acrescenta `cart_recovery`, `pix_pending`,
+> `silence_3_retomada`; grafo §141) e conferir o sha do valor cru. Portal: Painel novo, tema preto/branco, teste A/B Site × WhatsApp
+> (encorpa-portal PRs #9–#11 no ar; #12 com o eixo do gráfico). Falta só ligar os dois conjuntos (sócio). Metas e regras de pausa: grafo §140.
 > **Histórico** (todas as entradas anteriores, de 2026-09-10 a 2026-10-29, sem edição):
 > [`docs/operacao/handoff-historico.md`](docs/operacao/handoff-historico.md) — não se lê inteiro; procure com `grep`.
 > Nova entrada de estado entra no topo desta seção; a anterior desce para o histórico.

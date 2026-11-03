@@ -5213,6 +5213,17 @@ Referências de mercado usadas: moda no Meta CTR 1,2–2,3%; CPC no e-commerce b
 morria no M (404 em toda cidade desde 28/10) e não chegava aos outros tamanhos; agora o tamanho sem resposta é impresso e a cidade
 segue. 22 cidades com pagamento na entrega em algum tamanho; Teresina saiu (tinha G em 21/09).
 
+## 141. Templates de carrinho, Pix pendente e retomada aprovados pela Meta (operador, 2026-11-03)
+
+**Fato:** o operador avisou que `encorpa_carrinho_site`, `encorpa_pix_pendente` e `encorpa_retomada` foram aprovados. **Correção:**
+`docs/operacao/business-config-2026-11-03.min.json` = `business-config-2026-10-29b` + as três chaves de `channel.templates`, exatamente como a
+declaração do `03-templates-meta.md` (§5–§7, `pt_BR`); o resto do config é igual byte a byte depois de lido. Sem as chaves, `deliveryFor`
+bloqueava os três toques fora da janela de 24 h. **Guarda:** `tests/checkout-touches-2026-10-27.test.ts` prova que o config novo declara o
+mesmo que o doc e que o carrinho fora da janela sai por template. Conferido no n8n: "WhatsApp envio" ativo e com o `urlButton`.
+**Não conferido daqui:** os nomes e o idioma na conta da Meta (sem token da WABA no ambiente) — se a Meta recusar o envio, o e-mail de erro
+do envio mostra o nome. **Resíduo aberto (§9 do estado de 28/10):** um carrinho real com `checkout_url` fora do padrão `/checkout/<slug>`
+deixa o botão sem variável e o toque bloqueado (`empty_variable`), seguro mas sem recuperação; conferir no primeiro carrinho real.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
