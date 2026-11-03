@@ -5198,6 +5198,17 @@ não entra em `prepayPrices` (só importa com frete pago no antecipado e preços
 **Mesma data, critério do teste A/B (operador):** "venda" conta quando o **pedido é criado**, não quando é pago — no pagamento na
 entrega o dinheiro chega de 3 a 5 dias depois e o 5º dia compararia coisas diferentes.
 
+**2026-11-03, metas do teste A/B por conjunto (operador, sugeridas pela média de mercado, sem o histórico da conta):**
+
+| Conjunto | Meta | Pausar no dia 2 (R$ 50) se | Custo por pedido que resulta |
+|---|---|---|---|
+| Site | CTR do link 2%, CPC R$ 0,60, visita → pedido 3% | CTR < 1% ou CPC > R$ 1,20 | R$ 0,60 ÷ 3% = R$ 20 |
+| WhatsApp | custo por conversa R$ 1,50, conversa → pedido 9% | custo por conversa > R$ 3,00 | R$ 1,50 ÷ 9% = R$ 16,67 |
+
+Os dois ficam abaixo do teto de R$ 27. Zero pedidos ao fim do dia 3 (R$ 75) pausa o conjunto; com pedido, roda até o 5º dia.
+Referências de mercado usadas: moda no Meta CTR 1,2–2,3%; CPC no e-commerce brasileiro R$ 0,30–1,50; conversa de moda R$ 3–8
+(estimativa de blog); IA no varejo brasileiro converte ~9% das conversas (OmniChat, 51 milhões de conversas).
+
 **Mesma data, varredura de cobertura na Coinzz** (40 CEPs, `docs/operacao/cobertura-coinzz-2026-11-02.txt`): `pnpm dev:estoque`
 morria no M (404 em toda cidade desde 28/10) e não chegava aos outros tamanhos; agora o tamanho sem resposta é impresso e a cidade
 segue. 22 cidades com pagamento na entrega em algum tamanho; Teresina saiu (tinha G em 21/09).
