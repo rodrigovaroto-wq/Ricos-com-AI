@@ -5203,9 +5203,9 @@ entrega o dinheiro chega de 3 a 5 dias depois e o 5º dia compararia coisas dife
 | Conjunto | Meta | Pausar no dia 2 (R$ 50) se | Custo por pedido que resulta |
 |---|---|---|---|
 | Site | CTR do link 2%, CPC R$ 0,60, visita → pedido 3% | CTR < 1% ou CPC > R$ 1,20 | R$ 0,60 ÷ 3% = R$ 20 |
-| WhatsApp | custo por conversa R$ 1,50, conversa → pedido 9% | custo por conversa > R$ 3,00 | R$ 1,50 ÷ 9% = R$ 16,67 |
+| WhatsApp | CTR do link > 2%, CPC < R$ 1,50, custo por conversa < R$ 2,00, conversa → pedido 9% | CTR < 1%, CPC > R$ 3,00 ou conversa > R$ 4,00 | R$ 2,00 ÷ 9% = R$ 22,22 |
 
-Os dois ficam abaixo do teto de R$ 27. Zero pedidos ao fim do dia 3 (R$ 75) pausa o conjunto; com pedido, roda até o 5º dia.
+Os dois ficam abaixo do teto de R$ 27. Metas acima da média do mercado de propósito (operador, 03/11): o pagamento na entrega agrega valor à oferta. Zero pedidos ao fim do dia 3 (R$ 75) pausa o conjunto; com pedido, roda até o 5º dia.
 Referências de mercado usadas: moda no Meta CTR 1,2–2,3%; CPC no e-commerce brasileiro R$ 0,30–1,50; conversa de moda R$ 3–8
 (estimativa de blog); IA no varejo brasileiro converte ~9% das conversas (OmniChat, 51 milhões de conversas).
 
