@@ -5255,7 +5255,9 @@ pra trocar, e na entrega chega em 1 a 3 dias" (`prepaid-deadline-fuzz`, `dev:gat
 veta (`DOOR_PAYMENT`, com `codUnavailable`) — agora com teste. **Guarda:** `tests/persona-gisele-2026-11-03.test.ts` (as formas com "chegar",
 negações com contagem e o `charge_promise`), `tests/checkout-touches-2026-10-27.test.ts` (carrinho, Pix pendente e retomada saem por
 template com o config de 03/11), mutação `O43-paga-quando-o-colete-chegar`. `dev:gates`: 3 afrouxamentos, os pretendidos (§143), 0
-endurecidos.
+endurecidos. **Revisão Opus:** APROVADO. Resíduos (R21.6, sem código): "…e você só paga quando ele chegar na sua mão" ao lado da garantia
+segue vetada (a lista para em "chegar"); velocidade sem número ao lado da garantia ("…paga quando chega rapidinho") passou a passar, como
+"O colete chega rapidinho" sozinha já passava.
 
 ## Lições (valem para qualquer correção futura)
 
