@@ -5217,7 +5217,7 @@ segue. 22 cidades com pagamento na entrega em algum tamanho; Teresina saiu (tinh
 
 **Fato:** o operador avisou que `encorpa_carrinho_site`, `encorpa_pix_pendente` e `encorpa_retomada` foram aprovados. **Correção:**
 `docs/operacao/business-config-2026-11-03.min.json` = `business-config-2026-10-29b` + as três chaves de `channel.templates`, exatamente como a
-declaração do `03-templates-meta.md` (§5–§7, `pt_BR`); o resto do config é igual byte a byte depois de lido. Sem as chaves, `deliveryFor`
+declaração do `03-templates-meta.md` (§5–§7, `pt_BR`); o resto do config é igual ao de 29/10 como JSON (lido e comparado; o arquivo foi reescrito, então os bytes diferem). Sem as chaves, `deliveryFor`
 bloqueava os três toques fora da janela de 24 h. **Guarda:** `tests/checkout-touches-2026-10-27.test.ts` prova que o config novo declara o
 mesmo que o doc e que o carrinho fora da janela sai por template. Conferido no n8n: "WhatsApp envio" ativo e com o `urlButton`.
 **Não conferido daqui:** os nomes e o idioma na conta da Meta (sem token da WABA no ambiente) — se a Meta recusar o envio, o e-mail de erro
