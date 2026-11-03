@@ -13,10 +13,10 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
-> **2026-11-03 — COMECE AQUI.** No ar: `turn` v49 + `business-config-2026-10-29b`. **Templates aprovados (operador, 03/11):** colar
-> `docs/operacao/business-config-2026-11-03.min.json` no segredo `BUSINESS_CONFIG` (só acrescenta `cart_recovery`, `pix_pending`,
-> `silence_3_retomada`; grafo §141) e conferir o sha do valor cru. Portal: Painel novo, tema preto/branco, teste A/B Site × WhatsApp
-> (encorpa-portal PRs #9–#11 no ar; #12 com o eixo do gráfico). Falta só ligar os dois conjuntos (sócio). Metas e regras de pausa: grafo §140.
+> **2026-11-03 — COMECE AQUI.** No ar: `turn` v49 + **`business-config-2026-11-03`** (colado pelo operador 18:36 UTC; sha do valor cru
+> `29fe081a…6217d0b`, o arquivo sem a quebra final; `job:"health"` e alarme 18:41 UTC `healthy`). Com ele os templates aprovados
+> `cart_recovery`, `pix_pending` e `silence_3_retomada` saem fora da janela de 24 h (grafo §141). Portal: Painel novo, tema preto/branco,
+> teste A/B Site × WhatsApp (encorpa-portal PRs #9–#11 no ar). Falta só ligar os dois conjuntos (sócio). Metas e regras de pausa: grafo §140.
 > **Histórico** (todas as entradas anteriores, de 2026-09-10 a 2026-10-29, sem edição):
 > [`docs/operacao/handoff-historico.md`](docs/operacao/handoff-historico.md) — não se lê inteiro; procure com `grep`.
 > Nova entrada de estado entra no topo desta seção; a anterior desce para o histórico.
