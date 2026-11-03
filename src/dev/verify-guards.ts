@@ -4590,7 +4590,7 @@ const MUTATIONS: Mutation[] = [
     id: "R28-avaliacoes-com-relogio",
     bug: "'124 avaliações positivas só esta semana' passaria: o número do config com ritmo de venda",
     files: ["src/agent/guardrails.ts"],
-    from: "/\\b(?:hoje|ontem|agora|semana|mes|ano|recebe\\w*|chegar\\w*)\\b|\\d\\s*%/.test(sentence) ? sentence : ",
+    from: "/\\b(?:hoje|ontem|agora|semana|mes|ano|recebe\\w*|chegar\\w*)\\b|\\d\\s*%/.test(sentence.replace(PAY_ON_DELIVERY_NAME, \" \")) ? sentence : ",
     to: "",
     guard: ["pnpm", "-s", "vitest", "run", "tests/r28-script-v3.test.ts"],
   },
