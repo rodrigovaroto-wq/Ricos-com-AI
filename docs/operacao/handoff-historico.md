@@ -4,6 +4,13 @@ Tudo o que estava no `HANDOFF.md` até 2026-10-29, movido sem edição em 2026-1
 sessão (grafo §139). Ordem original. Não se lê inteiro: procure com `grep` a data, a branch ou o assunto.
 
 
+> **2026-11-02 — COMECE AQUI.** No ar: **`turn` v49** (`agent_version` 49, função v179, commit `94c78aa`, publicada 20:55 UTC;
+> alarme de cobertura 20:56 UTC `healthy`) + `business-config-2026-10-29b`. A v49 libera os kits com o cupom depois do lembrete
+> (2 peças R$ 158,26, 3 peças R$ 211,01; grafo §140). Antes da campanha falta só: templates da Meta aprovados (sócio) → declarar em
+> `channel.templates`. Decidido pelo operador em 02/11: sem pedido de teste nem conferência de eventos agora; prints do site são
+> reais (assunto encerrado); cobertura não está sob nosso controle; teste A/B conta venda quando o **pedido é criado**. Ordem anterior: seção 14 de
+> [`docs/operacao/estado-2026-10-28-fim-do-dia.md`](docs/operacao/estado-2026-10-28-fim-do-dia.md).
+
 > **2026-10-29 ~15:00 UTC — FIM DA SESSÃO. COMECE AQUI: seção 14 de
 > [`docs/operacao/estado-2026-10-28-fim-do-dia.md`](docs/operacao/estado-2026-10-28-fim-do-dia.md).** No ar: `turn` v48 (função v177,
 > commit `1e4609c`, alarme `healthy`) + `business-config-2026-10-29b` (Coinzz no WhatsApp e no site, R$ 109,90, âncora R$ 179,90,

@@ -5213,6 +5213,52 @@ Referências de mercado usadas: moda no Meta CTR 1,2–2,3%; CPC no e-commerce b
 morria no M (404 em toda cidade desde 28/10) e não chegava aos outros tamanhos; agora o tamanho sem resposta é impresso e a cidade
 segue. 22 cidades com pagamento na entrega em algum tamanho; Teresina saiu (tinha G em 21/09).
 
+## 141. Templates de carrinho, Pix pendente e retomada aprovados pela Meta (operador, 2026-11-03)
+
+**Fato:** o operador avisou que `encorpa_carrinho_site`, `encorpa_pix_pendente` e `encorpa_retomada` foram aprovados. **Correção:**
+`docs/operacao/business-config-2026-11-03.min.json` = `business-config-2026-10-29b` + as três chaves de `channel.templates`, exatamente como a
+declaração do `03-templates-meta.md` (§5–§7, `pt_BR`); o resto do config é igual ao de 29/10 como JSON (lido e comparado; o arquivo foi reescrito, então os bytes diferem). Sem as chaves, `deliveryFor`
+bloqueava os três toques fora da janela de 24 h. **Guarda:** `tests/checkout-touches-2026-10-27.test.ts` prova que o config novo declara o
+mesmo que o doc e que o carrinho fora da janela sai por template. Conferido no n8n: "WhatsApp envio" ativo e com o `urlButton`.
+**Não conferido daqui:** os nomes e o idioma na conta da Meta (sem token da WABA no ambiente) — se a Meta recusar o envio, o e-mail de erro
+do envio mostra o nome. **Resíduo aberto (§9 do estado de 28/10):** um carrinho real com `checkout_url` fora do padrão `/checkout/<slug>`
+deixa o botão sem variável e o toque bloqueado (`empty_variable`), seguro mas sem recuperação; conferir no primeiro carrinho real.
+
+## 142. "Você só paga quando receber" vetado duas vezes: a Malu travou na objeção de preço (personas, 2026-11-03)
+
+**Sintoma:** rodada local de personas com a v49 e o config de 03/11 (`data/persona-runs/2026-11-03T19-04-55-848Z-local`, fora do Git).
+Gisele: "minha vizinha comprou por 99, vc vai cobrar mais caro de mim?" — quatro rascunhos honestos vetados e o turno saiu com a resposta
+pronta ("me fala de novo o que você quer saber?"). **Causa:** a mesma oração nos dois vetos, "e dependendo da sua região você só paga
+quando receber", que nomeia o caminho da entrega. (1) `invented_testimonial`: a frase de "124 avaliações positivas" só passa sem palavra de
+relógio, e `recebe\w*` (para "recebemos 124 avaliações hoje") casava "receber" dela. (2) `delivery_promise`: depois de "*7 Dias de
+Garantia* pra devolver", a cauda "quando receber" contava como chegada. **Correção:** `PAY_ON_RECEIPT` ("(você) (só) paga(r) (só) quando /
+depois que / assim que (você) receber/recebe"; uma contagem depois dela é julgada sozinha e segue prazo) sai da frase antes do teste de relógio das avaliações e da cauda da
+garantia (no `notDelivery` também, até a revisão Opus mostrar que nenhum teste a sustentava: saiu). **Guarda:** `tests/persona-gisele-2026-11-03.test.ts` (os dois rascunhos
+reais passam; prazo, velocidade e "paga quando receber em 7 dias" seguem vetados) e as mutações `O43-*`. `dev:gates`: 1 afrouxamento, o
+pretendido, aceito em `tests/gate-loosen-accepted.txt` (§142); nada endureceu. Gate mudado por frase real (R21.6).
+**Revisão Opus:** APROVADO com ressalva (a linha do `notDelivery`, removida). **Resíduos (R21.6, hipotéticos, sem código):** "Tem 7 dias pra
+trocar e você só paga quando receber logo." agora passa (`logo` não é palavra de tempo da cauda); no antecipado, "você só paga quando
+receber" é falso e nenhum gate cobre, como já não cobria antes; "124 avaliações positivas, e você só paga quando receber, que chega
+rapidinho" passa o `invented_testimonial` (não é velocidade de avaliação).
+
+## 143. Revisão do §142: a forma que o prompt ensina ("paga quando o colete chegar") seguia vetada (code review, 2026-11-03)
+
+**Sintoma:** `/code-review` do §142. O prompt ensina "você só paga quando o colete chegar" (`prompt.ts`, `followups.ts`), e
+`PAY_ON_RECEIPT` só cobria "receber": "…124 avaliações positivas, e você só paga quando o colete chegar" (`invented_testimonial`) e
+"*7 Dias de Garantia* …, e você só paga quando o colete chegar" (`delivery_promise`) seguiam vetadas. Prompt e gate se contradiziam.
+Os nomes do caminho também estavam em duas listas (`notDelivery` e `PAY_ON_RECEIPT`). **Correção:** uma só, `PAY_ON_DELIVERY_NAME`
+("na entrega / na porta / na mão do entregador" e "(você) (só) (pode) paga(r) (só) quando / depois que / assim que (o colete / ele / você)
+receber / recebe / chegar / chega"), usada em `notDelivery`, no teste de palavras de tempo da cauda da garantia e no teste de relógio das
+avaliações. **Tentativa que falhou:** aplicar a lista à cauda inteira apagava "na entrega" antes do `codWindow` e endureceu "Você tem 7 dias
+pra trocar, e na entrega chega em 1 a 3 dias" (`prepaid-deadline-fuzz`, `dev:gates`); a lista entra só onde lê palavras de tempo.
+**Achado da revisão que não pede código:** onde a entrega não chega, "você só paga quando receber/chegar" é mentira e o `charge_promise` já
+veta (`DOOR_PAYMENT`, com `codUnavailable`) — agora com teste. **Guarda:** `tests/persona-gisele-2026-11-03.test.ts` (as formas com "chegar",
+negações com contagem e o `charge_promise`), `tests/checkout-touches-2026-10-27.test.ts` (carrinho, Pix pendente e retomada saem por
+template com o config de 03/11), mutação `O43-paga-quando-o-colete-chegar`. `dev:gates`: 3 afrouxamentos, os pretendidos (§143), 0
+endurecidos. **Revisão Opus:** APROVADO. Resíduos (R21.6, sem código): "…e você só paga quando ele chegar na sua mão" ao lado da garantia
+segue vetada (a lista para em "chegar"); velocidade sem número ao lado da garantia ("…paga quando chega rapidinho") passou a passar, como
+"O colete chega rapidinho" sozinha já passava. **Publicado:** `turn` v51 (função v184), 2026-11-03 20:15 UTC, `job:"health"` `healthy`.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

@@ -662,8 +662,9 @@ const MUTATIONS: Mutation[] = [
     id: "M-10-nome-da-entrega",
     bug: "\"Na entrega você tem 7 dias pra trocar.\" era vetada: o nome do caminho da entrega era lido como chegada",
     files: ["src/agent/guardrails.ts", "supabase/functions/turn/guardrails.ts"],
-    from: String.raw`.replace(/\b(?:(?:no\s+)?pag\w*\s+)?na\s+entrega\b|\bpag\w*\s+na\s+(?:porta|mao(?:\s+do\s+entregador)?)\b/g, " ")`,
-    to: "",
+    // Since §143 the path's names are one shared PAY_ON_DELIVERY_NAME; notDelivery's own strip of it is the guard.
+    from: "            x\n              .replace(PAY_ON_DELIVERY_NAME, \" \")",
+    to: "            x",
     guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
   },
   {
@@ -4589,7 +4590,7 @@ const MUTATIONS: Mutation[] = [
     id: "R28-avaliacoes-com-relogio",
     bug: "'124 avaliações positivas só esta semana' passaria: o número do config com ritmo de venda",
     files: ["src/agent/guardrails.ts"],
-    from: "/\\b(?:hoje|ontem|agora|semana|mes|ano|recebe\\w*|chegar\\w*)\\b|\\d\\s*%/.test(sentence) ? sentence : ",
+    from: "/\\b(?:hoje|ontem|agora|semana|mes|ano|recebe\\w*|chegar\\w*)\\b|\\d\\s*%/.test(sentence.replace(PAY_ON_DELIVERY_NAME, \" \")) ? sentence : ",
     to: "",
     guard: ["pnpm", "-s", "vitest", "run", "tests/r28-script-v3.test.ts"],
   },
@@ -6886,6 +6887,9 @@ const MUTATIONS: Mutation[] = [
   { id: "O42-kit-com-cupom-guardado", bug: "com o cupom guardado, o preço do kit com cupom passaria", files: ["src/agent/guardrails.ts"], from: "const couponKits = coupon.active ? ", to: "const couponKits = true ? ", guard: ["pnpm",  "-s",  "vitest",  "run",  "tests/kit-coupon-2026-11-02.test.ts"] },
   { id: "O42-peca-do-kit-com-cupom-sozinha", bug: "\"Fica R$ 79,13 pra você\" passaria: a peça do kit com cupom dita como preço de uma peça", files: ["src/agent/guardrails.ts"], from: "const pieceOf = (v: number) => [...kits, ...couponKits].filter(", to: "const pieceOf = (v: number) => kits.filter(", guard: ["pnpm",  "-s",  "vitest",  "run",  "tests/kit-coupon-2026-11-02.test.ts"] },
   { id: "O42-kit-com-cupom-no-prompt", bug: "o prompt não ensinava os preços dos kits com cupom que o gate libera", files: ["src/agent/guardrails.ts"], from: "          (c.kits?.length\n            ? `; nos kits com o cupom", to: "          (false\n            ? `; nos kits com o cupom", guard: ["pnpm",  "-s",  "vitest",  "run",  "tests/kit-coupon-2026-11-02.test.ts"] },
+  { id: "O43-paga-quando-receber-avaliacoes", bug: "\"124 avaliações positivas … você só paga quando receber\" vetado como avaliação recebida (persona Gisele, 03/11)", files: ["src/agent/guardrails.ts"], from: ".test(sentence.replace(PAY_ON_DELIVERY_NAME, \" \")) ? sentence", to: ".test(sentence) ? sentence", guard: ["pnpm",  "-s",  "vitest",  "run",  "tests/persona-gisele-2026-11-03.test.ts"] },
+  { id: "O43-paga-quando-receber-garantia", bug: "\"*7 Dias de Garantia* … você só paga quando receber\" vetado como prazo de entrega (persona Gisele, 03/11)", files: ["src/agent/guardrails.ts"], from: "                  .replace(PAY_ON_DELIVERY_NAME, \" \")\n", to: "", guard: ["pnpm",  "-s",  "vitest",  "run",  "tests/persona-gisele-2026-11-03.test.ts"] },
+  { id: "O43-paga-quando-o-colete-chegar", bug: "\"…você só paga quando o colete chegar\" (a forma que o prompt ensina) seguia vetado ao lado da garantia (revisão de 03/11)", files: ["src/agent/guardrails.ts"], from: "(?:(?:o\\s+colete|ele|voce)\\s+)?(?:receb(?:er|e)|cheg(?:ar|a))\\b/g;", to: "(?:voce\\s+)?receb(?:er|e)\\b/g;", guard: ["pnpm",  "-s",  "vitest",  "run",  "tests/persona-gisele-2026-11-03.test.ts"] },
 ];
 
 const wanted = process.argv.slice(2);
