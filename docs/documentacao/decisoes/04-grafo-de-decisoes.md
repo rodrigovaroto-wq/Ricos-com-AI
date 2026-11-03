@@ -5232,7 +5232,7 @@ pronta ("me fala de novo o que você quer saber?"). **Causa:** a mesma oração 
 quando receber", que nomeia o caminho da entrega. (1) `invented_testimonial`: a frase de "124 avaliações positivas" só passa sem palavra de
 relógio, e `recebe\w*` (para "recebemos 124 avaliações hoje") casava "receber" dela. (2) `delivery_promise`: depois de "*7 Dias de
 Garantia* pra devolver", a cauda "quando receber" contava como chegada. **Correção:** `PAY_ON_RECEIPT` ("(você) (só) paga(r) (só) quando /
-depois que / assim que (você) receber/recebe", nunca com contagem depois) sai da frase antes do teste de relógio das avaliações, da cauda
+depois que / assim que (você) receber/recebe"; uma contagem depois dela é julgada sozinha e segue prazo) sai da frase antes do teste de relógio das avaliações, da cauda
 da garantia e do `notDelivery`, como "pagando na entrega" já saía. **Guarda:** `tests/persona-gisele-2026-11-03.test.ts` (os dois rascunhos
 reais passam; prazo, velocidade e "paga quando receber em 7 dias" seguem vetados) e as mutações `O43-*`. `dev:gates`: 1 afrouxamento, o
 pretendido, aceito em `tests/gate-loosen-accepted.txt` (§142); nada endureceu. Gate mudado por frase real (R21.6).

@@ -630,9 +630,9 @@ const PAYMENT_FREE =
  */
 /**
  * "Você só paga quando receber" names the pay-on-delivery path (persona Gisele, 2026-11-03, grafo §142): no arrival, no review the store
- * received. Never with a count right after it ("paga quando receber em 7 dias" is a deadline). Normalized text.
+ * received. A count after it is judged on its own ("paga quando receber em 7 dias" stays a deadline). Normalized text.
  */
-const PAY_ON_RECEIPT = /\b(?:voce\s+)?(?:so\s+)?paga(?:r|ndo)?\s+(?:so\s+)?(?:quando|depois\s+que|assim\s+que)\s+(?:voce\s+)?receb(?:er|e)\b(?!\s+(?:em|de|ate|dentro|daqui)\b)/g;
+const PAY_ON_RECEIPT = /\b(?:voce\s+)?(?:so\s+)?paga(?:r|ndo)?\s+(?:so\s+)?(?:quando|depois\s+que|assim\s+que)\s+(?:voce\s+)?receb(?:er|e)\b/g;
 const RETURN_FREE =
   /\b(?:troca|trocar|devoluc\w*|devolv\w*|garantia)\b(?:(?!\b(?:pag\w*|pix|cartao|frete|envio|entrega|site|link|antecipad\w*)\b)[^,;:])*$/;
 /**
