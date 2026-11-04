@@ -114,7 +114,9 @@ Fonte: `Comparison.tsx` :8–16. Colunas: Colete (nosso) · Faixa · Cinta.
 
 ## Prova social
 
-Fonte: `Testimonials.tsx` :4–7. **São reconstruções** (ver
+Fonte: os cartões escritos que o `Testimonials.tsx` do site tinha até o Encorpa-Website #33
+(2026-11-02); hoje o site mostra 12 prints de WhatsApp em `CustomerPrints`, três deles com estes nomes e textos
+(grafo §144). **São reconstruções** (ver
 [`../../documentacao/contexto-negocio/05-decisoes-firmes.md`](../../documentacao/contexto-negocio/05-decisoes-firmes.md) §7) —
 o agente pode usar o argumento, não deve apresentá-los como depoimento verificado nem
 inventar novos.
