@@ -13,11 +13,23 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
-> **2026-11-03 — COMECE AQUI.** No ar: **`turn` v51** (função v184, publicada 20:15 UTC, `healthy`: "você só paga quando receber / quando o
-> colete chegar" deixou de ser vetado, grafo §142–§143) + **`business-config-2026-11-03`** (colado pelo operador 18:36 UTC; sha do valor cru
-> `29fe081a…6217d0b`, o arquivo sem a quebra final; `job:"health"` e alarme 18:41 UTC `healthy`). Com ele os templates aprovados
-> `cart_recovery`, `pix_pending` e `silence_3_retomada` saem fora da janela de 24 h (grafo §141). Portal: Painel novo, tema preto/branco,
-> teste A/B Site × WhatsApp (encorpa-portal PRs #9–#11 no ar). Falta só ligar os dois conjuntos (sócio). Metas e regras de pausa: grafo §140.
+> **2026-11-04 — COMECE AQUI (fim da sessão de 02–04/11).** Estado conferido em 04/11 17:10 UTC:
+> - **No ar:** `turn` v51 (função v184, `agent_versions` 51, publicada 03/11 20:15 UTC) + `business-config-2026-11-03` no segredo
+>   (sha do valor cru `29fe081a…`), alarme de cobertura `healthy`. `main` = produção (PRs #85, #86 e #87 mesclados).
+> - **O que a v49–v51 fizeram:** kits com cupom depois do lembrete (§140); "você só paga quando receber / quando o colete chegar" deixou de
+>   ser vetado ao lado da garantia e das avaliações (§142–§143, uma lista só: `PAY_ON_DELIVERY_NAME`). Templates aprovados declarados:
+>   `cart_recovery`, `pix_pending`, `silence_3_retomada` (§141).
+> - **Portal** (encorpa-portal, PRs #9–#12 no ar): Painel novo, tema preto/branco, teste A/B Site × WhatsApp em Testes de Criativos e
+>   Metas, economia da oferta de 27/10, pedidos do Site pelo lead sem marca de anúncio, atribuição por anúncio com janela.
+> - **Teste A/B** (grafo §140): Site × WhatsApp, R$ 25/dia cada, 5 dias, 22 cidades com pagamento na entrega
+>   (`docs/operacao/cobertura-coinzz-2026-11-02.txt`); venda conta quando o pedido é criado; vence custo de anúncio por pedido ≤ R$ 27;
+>   metas e pausas no §140. Sem data de início: **o sócio ainda não ligou os conjuntos**. 0 pedidos e nenhum lead novo desde 28/10.
+> - **Próximo:** (1) sócio liga os dois conjuntos; (2) acompanhar o dia 2 (R$ 50) e o dia 3 (R$ 75) pelas regras de pausa do §140 no
+>   portal; (3) no primeiro carrinho abandonado real, conferir `leads.cart->>'checkoutUrl'` (formato fora de `/checkout/<slug>` bloqueia o
+>   toque, §141); (4) no primeiro pedido, conferir no Gerenciador de Eventos se a compra da entrega chega pela Coinzz.
+> - **Não testado:** envio real de template (só com cliente fora das 24 h); portal logado e Meta Ads (falta `PORTAL_TEST_LOGIN` no ambiente).
+> - **Resíduos abertos (sem código, R21.6):** §142–§143 (antecipado "só paga quando receber" só o `charge_promise` cobre; "chegar na sua mão"
+>   ao lado da garantia segue vetado); o link "Não sei meu tamanho" do site tem 30 px de altura.
 > **Histórico** (todas as entradas anteriores, desde 2026-09-10, sem edição; a mais nova no topo):
 > [`docs/operacao/handoff-historico.md`](docs/operacao/handoff-historico.md) — não se lê inteiro; procure com `grep`.
 > Nova entrada de estado entra no topo desta seção; a anterior desce para o histórico.
