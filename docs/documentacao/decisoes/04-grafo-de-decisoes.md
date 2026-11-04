@@ -5298,19 +5298,19 @@ critério do pedido criado não mudam. **Caminho descartado:** manter R$ 25/dia 
 (`days: 7`) e a ficha de Premissas em `src/lib/constants.js`, e o veredito de `armVerdict` ("limite estourado com R$ 50", sem dia).
 **Guarda:** `tests/abtest.test.mjs` do portal (pausa com R$ 50 e com R$ 75 sem pedido).
 
-## 146. Visitas do site e equipe do portal no banco (migração 0034, operador, 2026-11-04)
+## 146. Visitas do site, equipe com login e configurações do portal no banco (migração 0034, operador, 2026-11-04)
 
-**Sintoma:** o operador pediu no Encorpa Portal o "Site ao vivo" (quem está no site agora), o funil do checkout e uma página de equipe
-com cargo e dados pessoais; nada disso tinha onde morar. **Decisão (operador, 04/11, autorizou a mudança de schema):** três tabelas
-novas, lidas e escritas só pelo portal com a service_role (RLS ligada, sem política). `site_sessions`: uma linha por visita, gravada pelo
-coletor do portal (`public/track.js` → `api/track.js`), com id aleatório, aparelho e os carimbos de produto e checkout, sem dado pessoal;
-apagada em 400 dias por `purge_site_sessions` (13 meses guardam o mesmo mês do ano anterior). `portal_users`: nome, cargo e telefone
-por e-mail; o login e o papel continuam em `PORTAL_USERS` no Vercel (a senha nunca vai ao banco). `portal_activity`: quem mudou o quê
-nas configurações. **Caminhos descartados:** Supabase Realtime direto no navegador (pediria a chave anon e política de leitura para
-visitante; o portal consulta a cada 5 s pela própria função); gravar cada evento (uma linha por clique cresce sem limite; a visita com
-carimbos responde o funil e o "agora"); senha no banco (troca o login inteiro do portal, fora do pedido). **A `turn` não muda.**
-**Correção:** só a migração; aplicar no SQL editor do Supabase. **Guarda:** os `check` das colunas; no portal, `tests/build.test.mjs`
-(funil e carrinhos) e `tests/api.test.mjs` (coletor recusa o que não é visita).
+**Sintoma:** o operador pediu no Encorpa Portal o "Site ao vivo", o funil do checkout, uma equipe com cargo e dados pessoais em que
+o convite manda e-mail e a pessoa cria o login pelo link, e a meta do mês editada no próprio portal; nada disso tinha onde morar.
+**Decisão (operador, 04/11, autorizou o schema e o acesso ao Supabase):** quatro tabelas, só com a service_role (RLS ligada, sem
+política). `site_sessions`: uma visita por linha (id aleatório, aparelho, carimbos de produto e checkout), gravada pelo coletor do portal
+(`public/track.js` → `api/track.js`); só totais, nunca quem visitou (operador: o pixel guarda o dado pessoal); apagada em 400 dias por
+`purge_site_sessions`. `portal_users`: nome, cargo, telefone, papel e o login do convidado — o banco guarda só o SHA-256 do token do
+convite (72 h) e o hash PBKDF2 da senha; quem está em `PORTAL_USERS` no Vercel continua entrando e vence a tabela. `portal_settings`:
+a meta do mês (`month_goal`). `portal_activity`: quem mudou o quê. **Caminhos descartados:** Supabase Realtime no navegador (pediria a
+chave anon e política de leitura; o portal consulta a cada 5 s); uma linha por evento (cresce sem limite); meta na variável do Vercel
+(primeira versão, trocada a pedido do operador: muda no portal). **A `turn` não muda.** **Correção:** a migração, aplicada em 04/11 pela
+API de gerência (`database/query`). **Guarda:** os `check` das colunas; no portal, `tests/build.test.mjs` e `tests/api.test.mjs`.
 
 ## Lições (valem para qualquer correção futura)
 
