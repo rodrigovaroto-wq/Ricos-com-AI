@@ -5258,6 +5258,13 @@ template com o config de 03/11), mutação `O43-paga-quando-o-colete-chegar`. `d
 endurecidos. **Revisão Opus:** APROVADO. Resíduos (R21.6, sem código): "…e você só paga quando ele chegar na sua mão" ao lado da garantia
 segue vetada (a lista para em "chegar"); velocidade sem número ao lado da garantia ("…paga quando chega rapidinho") passou a passar, como
 "O colete chega rapidinho" sozinha já passava. **Publicado:** `turn` v51 (função v184), 2026-11-03 20:15 UTC, `job:"health"` `healthy`.
+**CI do PR #86 (mesmo dia):** dois blocos de mutação vermelhos (`guards (1)` e `guards (4)`), causa deste mesmo §143: `M-10-nome-da-entrega`
+e `R28-avaliacoes-com-relogio` procuravam o texto que a lista única substituiu (a regex própria do `notDelivery` e o teste de relógio sem
+`.replace(PAY_ON_DELIVERY_NAME, " ")`), então não se aplicavam e não testavam nada. O `/code-review` e a rodada local das mutações `O43-*`
+não pegaram, porque só rodaram as mutações novas. **Correção:** as duas apontam para o texto novo (`ddcd162`, `5b2a92b`) e pegam o próprio
+bug numa cópia limpa. **Guarda:** antes do PR, conferir que toda mutação acha o texto que muda — as 1.050 achavam depois do conserto (o
+`verify-guards.ts` acusa "a mutação não se aplicou", mas só no CI, mutação por mutação). **Lição:** mudou uma linha que já tinha mutação,
+rode a mutação antiga junto (`git grep` do trecho em `src/dev/verify-guards.ts`), não só as novas.
 
 ## Lições (valem para qualquer correção futura)
 
