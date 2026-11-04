@@ -5266,6 +5266,27 @@ bug numa cópia limpa. **Guarda:** antes do PR, conferir que toda mutação acha
 `verify-guards.ts` acusa "a mutação não se aplicou", mas só no CI, mutação por mutação). **Lição:** mudou uma linha que já tinha mutação,
 rode a mutação antiga junto (`git grep` do trecho em `src/dev/verify-guards.ts`), não só as novas.
 
+## 144. Os prints de WhatsApp no site, o contador que reiniciava e a suíte de personas (Encorpa-Website #31–#34, 2026-11-01 a 04)
+
+**Sintoma:** o `/code-review` das sete PRs do site até a #30 achou três promessas que a página não cumpria. O contador "Oferta termina
+em" recomeçava 32 h a cada fim de prazo (`CountdownBar`, escassez falsa). A etiqueta "40% OFF" arredonda 38,9% para cima. E
+`scripts/personas.mjs` falhava 24 verificações no `main` desde que o checkout duplo virou `KITS` (uma oferta por quantidade), então
+não pegava mais erro nenhum. **Correção (#31):** `getDeadline` devolve o prazo salvo mesmo vencido, e o `CountdownBar` esconde o
+relógio no zero. A suíte foi reescrita para `encorpa-0`/`encorpa-site-0`/`oferta-site2-0` e para o `chromium` instalado. **Guarda:**
+`scripts/personas.mjs` (14 clientes; verde no `main` em 04/11 e em produção).
+
+**Prints — a sequência:** #31 publicou 4 prints mandados pelo operador, com nome e foto borrados. #32 tirou os 4 a pedido dele. #33
+e #34 puseram 12 prints num carrossel (`CustomerPrints`) e tiraram os cartões escritos de `Testimonials`. **Revertido pelo
+operador em 01/11:** tirar o print com a resposta da cliente (19:28) antes da pergunta (18:31), avisar que nomes foram
+alterados/escondidos e trocar a etiqueta pelo desconto real arredondado para baixo; ele manteve "40% OFF" (+ % do kit).
+
+**Divergência aberta, decisão do operador:** três dos 12 prints levam os nomes e os textos dos antigos cartões (Patricia C.,
+Juliana M., Renata S.), que a base de conhecimento (§Prova social) e a decisão 8 do `HANDOFF.md` do site chamam de reconstruções,
+enquanto o código de `CustomerPrints` diz que só entram conversas reais com o "pode usar" da cliente. Uma sessão anterior, em 01/11,
+recusou prints montados a partir desses relatos. Conversa montada mostrada como real é a prova inventada do CDC art. 37; se a
+Meta ou o Procon perguntarem, a origem dos prints é a primeira coisa a provar. A Malu não é afetada: `invented_testimonial` segue
+aceitando só os relatos de `CONFIG.testimonials` (o `BUSINESS_CONFIG`), e só quando a cliente pede (R16.7).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
