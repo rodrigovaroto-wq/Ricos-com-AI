@@ -5200,12 +5200,12 @@ entrega o dinheiro chega de 3 a 5 dias depois e o 5º dia compararia coisas dife
 
 **2026-11-03, metas do teste A/B por conjunto (operador, sugeridas pela média de mercado, sem o histórico da conta):**
 
-| Conjunto | Meta | Pausar com R$ 50 gastos (dia 2; dia 3 desde o §144) se | Custo por pedido que resulta |
+| Conjunto | Meta | Pausar com R$ 50 gastos (dia 2; dia 3 desde o §145) se | Custo por pedido que resulta |
 |---|---|---|---|
 | Site | CTR do link 2%, CPC R$ 0,60, visita → pedido 3% | CTR < 1% ou CPC > R$ 1,20 | R$ 0,60 ÷ 3% = R$ 20 |
 | WhatsApp | CTR do link > 2%, CPC < R$ 1,50, custo por conversa < R$ 2,00, conversa → pedido 9% | CTR < 1%, CPC > R$ 3,00 ou conversa > R$ 4,00 | R$ 2,00 ÷ 9% = R$ 22,22 |
 
-Os dois ficam abaixo do teto de R$ 27. Metas acima da média do mercado de propósito (operador, 03/11): o pagamento na entrega agrega valor à oferta. Zero pedidos ao fim do dia 3 (R$ 75) pausa o conjunto; com pedido, roda até o 5º dia. **Superado em 04/11 pelo §144:** 7 dias, mesmo gasto nas pausas.
+Os dois ficam abaixo do teto de R$ 27. Metas acima da média do mercado de propósito (operador, 03/11): o pagamento na entrega agrega valor à oferta. Zero pedidos ao fim do dia 3 (R$ 75) pausa o conjunto; com pedido, roda até o 5º dia. **Superado em 04/11 pelo §145:** 7 dias, mesmo gasto nas pausas.
 Referências de mercado usadas: moda no Meta CTR 1,2–2,3%; CPC no e-commerce brasileiro R$ 0,30–1,50; conversa de moda R$ 3–8
 (estimativa de blog); IA no varejo brasileiro converte ~9% das conversas (OmniChat, 51 milhões de conversas).
 
@@ -5266,7 +5266,28 @@ bug numa cópia limpa. **Guarda:** antes do PR, conferir que toda mutação acha
 `verify-guards.ts` acusa "a mutação não se aplicou", mas só no CI, mutação por mutação). **Lição:** mudou uma linha que já tinha mutação,
 rode a mutação antiga junto (`git grep` do trecho em `src/dev/verify-guards.ts`), não só as novas.
 
-## 144. Teste A/B em 7 dias em vez de 5, pela falta de caixa (operador, 2026-11-04)
+## 144. Os prints de WhatsApp no site, o contador que reiniciava e a suíte de personas (Encorpa-Website #31–#34, 2026-11-01 a 04)
+
+**Sintoma:** o `/code-review` das sete PRs do site até a #30 achou três promessas que a página não cumpria. O contador "Oferta termina
+em" recomeçava 32 h a cada fim de prazo (`CountdownBar`, escassez falsa). A etiqueta "40% OFF" arredonda 38,9% para cima. E
+`scripts/personas.mjs` falhava 24 verificações no `main` desde que o checkout duplo virou `KITS` (uma oferta por quantidade), então
+não pegava mais erro nenhum. **Correção (#31):** `getDeadline` devolve o prazo salvo mesmo vencido, e o `CountdownBar` esconde o
+relógio no zero. A suíte foi reescrita para `encorpa-0`/`encorpa-site-0`/`oferta-site2-0` e para o `chromium` instalado. **Guarda:**
+`scripts/personas.mjs` (14 clientes; verde no `main` em 04/11 e em produção).
+
+**Prints — a sequência:** #31 publicou 4 prints mandados pelo operador, com nome e foto borrados. #32 tirou os 4 a pedido dele. #33
+e #34 puseram 12 prints num carrossel (`CustomerPrints`) e tiraram os cartões escritos de `Testimonials`. **Revertido pelo
+operador em 01/11:** tirar o print com a resposta da cliente (19:28) antes da pergunta (18:31), avisar que nomes foram
+alterados/escondidos e trocar a etiqueta pelo desconto real arredondado para baixo; ele manteve "40% OFF" (+ % do kit).
+
+**Divergência aberta, decisão do operador:** três dos 12 prints levam os nomes e os textos dos antigos cartões (Patricia C.,
+Juliana M., Renata S.), que a base de conhecimento (§Prova social) e a decisão 8 do `HANDOFF.md` do site chamam de reconstruções,
+enquanto o código de `CustomerPrints` diz que só entram conversas reais com o "pode usar" da cliente. Uma sessão anterior, em 01/11,
+recusou prints montados a partir desses relatos. Conversa montada mostrada como real é a prova inventada do CDC art. 37; se a
+Meta ou o Procon perguntarem, a origem dos prints é a primeira coisa a provar. A Malu não é afetada: `invented_testimonial` segue
+aceitando só os relatos de `CONFIG.testimonials` (o `BUSINESS_CONFIG`), e só quando a cliente pede (R16.7).
+
+## 145. Teste A/B em 7 dias em vez de 5, pela falta de caixa (operador, 2026-11-04)
 
 **Sintoma:** o caixa não sustenta R$ 50/dia de anúncio (R$ 25 por conjunto) do teste A/B do §140. **Decisão (operador, 04/11):** a mesma
 verba, R$ 125 por conjunto e R$ 250 no total, dividida em **7 dias**: R$ 17,86/dia por conjunto. **As pausas seguem pelo gasto**, não pelo
