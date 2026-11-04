@@ -4,6 +4,12 @@ Tudo o que estava no `HANDOFF.md` até 2026-10-29, movido sem edição em 2026-1
 sessão (grafo §139). Ordem original. Não se lê inteiro: procure com `grep` a data, a branch ou o assunto.
 
 
+> **2026-11-03 — COMECE AQUI.** No ar: **`turn` v51** (função v184, publicada 20:15 UTC, `healthy`: "você só paga quando receber / quando o
+> colete chegar" deixou de ser vetado, grafo §142–§143) + **`business-config-2026-11-03`** (colado pelo operador 18:36 UTC; sha do valor cru
+> `29fe081a…6217d0b`, o arquivo sem a quebra final; `job:"health"` e alarme 18:41 UTC `healthy`). Com ele os templates aprovados
+> `cart_recovery`, `pix_pending` e `silence_3_retomada` saem fora da janela de 24 h (grafo §141). Portal: Painel novo, tema preto/branco,
+> teste A/B Site × WhatsApp (encorpa-portal PRs #9–#11 no ar). Falta só ligar os dois conjuntos (sócio). Metas e regras de pausa: grafo §140.
+
 > **2026-11-02 — COMECE AQUI.** No ar: **`turn` v49** (`agent_version` 49, função v179, commit `94c78aa`, publicada 20:55 UTC;
 > alarme de cobertura 20:56 UTC `healthy`) + `business-config-2026-10-29b`. A v49 libera os kits com o cupom depois do lembrete
 > (2 peças R$ 158,26, 3 peças R$ 211,01; grafo §140). Antes da campanha falta só: templates da Meta aprovados (sócio) → declarar em
