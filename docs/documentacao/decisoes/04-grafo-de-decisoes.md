@@ -5200,12 +5200,12 @@ entrega o dinheiro chega de 3 a 5 dias depois e o 5º dia compararia coisas dife
 
 **2026-11-03, metas do teste A/B por conjunto (operador, sugeridas pela média de mercado, sem o histórico da conta):**
 
-| Conjunto | Meta | Pausar no dia 2 (R$ 50) se | Custo por pedido que resulta |
+| Conjunto | Meta | Pausar com R$ 50 gastos (dia 2; dia 3 desde o §144) se | Custo por pedido que resulta |
 |---|---|---|---|
 | Site | CTR do link 2%, CPC R$ 0,60, visita → pedido 3% | CTR < 1% ou CPC > R$ 1,20 | R$ 0,60 ÷ 3% = R$ 20 |
 | WhatsApp | CTR do link > 2%, CPC < R$ 1,50, custo por conversa < R$ 2,00, conversa → pedido 9% | CTR < 1%, CPC > R$ 3,00 ou conversa > R$ 4,00 | R$ 2,00 ÷ 9% = R$ 22,22 |
 
-Os dois ficam abaixo do teto de R$ 27. Metas acima da média do mercado de propósito (operador, 03/11): o pagamento na entrega agrega valor à oferta. Zero pedidos ao fim do dia 3 (R$ 75) pausa o conjunto; com pedido, roda até o 5º dia.
+Os dois ficam abaixo do teto de R$ 27. Metas acima da média do mercado de propósito (operador, 03/11): o pagamento na entrega agrega valor à oferta. Zero pedidos ao fim do dia 3 (R$ 75) pausa o conjunto; com pedido, roda até o 5º dia. **Superado em 04/11 pelo §144:** 7 dias, mesmo gasto nas pausas.
 Referências de mercado usadas: moda no Meta CTR 1,2–2,3%; CPC no e-commerce brasileiro R$ 0,30–1,50; conversa de moda R$ 3–8
 (estimativa de blog); IA no varejo brasileiro converte ~9% das conversas (OmniChat, 51 milhões de conversas).
 
@@ -5265,6 +5265,17 @@ não pegaram, porque só rodaram as mutações novas. **Correção:** as duas ap
 bug numa cópia limpa. **Guarda:** antes do PR, conferir que toda mutação acha o texto que muda — as 1.050 achavam depois do conserto (o
 `verify-guards.ts` acusa "a mutação não se aplicou", mas só no CI, mutação por mutação). **Lição:** mudou uma linha que já tinha mutação,
 rode a mutação antiga junto (`git grep` do trecho em `src/dev/verify-guards.ts`), não só as novas.
+
+## 144. Teste A/B em 7 dias em vez de 5, pela falta de caixa (operador, 2026-11-04)
+
+**Sintoma:** o caixa não sustenta R$ 50/dia de anúncio (R$ 25 por conjunto) do teste A/B do §140. **Decisão (operador, 04/11):** a mesma
+verba, R$ 125 por conjunto e R$ 250 no total, dividida em **7 dias**: R$ 17,86/dia por conjunto. **As pausas seguem pelo gasto**, não pelo
+dia (operador escolheu a mesma amostra para decidir): limite de CTR/CPC/conversa estourado pausa com R$ 50 gastos (agora o dia 3, R$ 53,57);
+zero pedidos criados pausa com R$ 75 gastos (agora o dia 5, R$ 89,29); com pedido, roda até o 7º dia. Metas, teto de R$ 27 por pedido e
+critério do pedido criado não mudam. **Caminho descartado:** manter R$ 25/dia por 7 dias (R$ 350) — pede mais caixa, o oposto do motivo.
+**Correção:** só plano e portal, sem código da `turn`: `HANDOFF.md` e §140 aqui; no encorpa-portal, `PHASES`, `SAMPLE_FLOOR`
+(`days: 7`) e a ficha de Premissas em `src/lib/constants.js`, e o veredito de `armVerdict` ("limite estourado com R$ 50", sem dia).
+**Guarda:** `tests/abtest.test.mjs` do portal (pausa com R$ 50 e com R$ 75 sem pedido).
 
 ## Lições (valem para qualquer correção futura)
 
