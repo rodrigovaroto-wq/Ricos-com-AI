@@ -5321,7 +5321,8 @@ primeiro repasse (entrega + 14 dias). R$ 576 cobrem **9 pedidos na entrega**; R$
 de R$ 27 (9 pedidos, 6–7 na entrega, R$ 407) e de R$ 20 (12–13 pedidos, ~9 na entrega, R$ 549) cabem nos R$ 576; R$ 15 por pedido (17 pedidos,
 ~12 na entrega, R$ 733) pede os R$ 200; as premissas ideais (CPL R$ 1,25, 10%: 20 pedidos, 14 na entrega, R$ 878) passam dos R$ 776. O antecipado
 entra na hora e não está descontado. **Risco de data:** a fatura fecha dia 22 e vence dia 29; se os R$ 250 do anúncio caírem na fatura de 29/11
-antes do primeiro repasse, saem do mesmo saldo. **Guarda:** sem código; o card "Caixa necessário" do portal (`p_cash`) refaz a conta pelo gasto real.
+antes do primeiro repasse, saem do mesmo saldo. **Início (operador, 06/11): hoje, 06/11**; fim em 12/11, dia 3 = 08/11, dia 5 = 10/11. Os R$ 250 caem todos na fatura que fecha
+em 22/11 e vence em 29/11; os pedidos na entrega de 06 e 07/11 liberam o repasse por volta de 21 a 24/11, antes do vencimento. **Guarda:** sem código; o card "Caixa necessário" do portal (`p_cash`) refaz a conta pelo gasto real.
 
 ## Lições (valem para qualquer correção futura)
 
