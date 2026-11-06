@@ -13,6 +13,17 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-11-06 — COMECE AQUI (sessão de 06/11, só plano e documentação; a `turn` não mudou).**
+> - **Teste A/B em duas fases** (§148): **fase 1, criativos, sáb 07/11 a sex 13/11** (5 vídeos, R$ 250, R$ 17,86/dia por conjunto; dia 3 = 09/11,
+>   dia 5 = 11/11); em 13/11 passam os **2 vídeos de maior CTR do link** (somando os dois conjuntos, com pelo menos R$ 15 gastos cada; empate pelo
+>   menor CPC). **Fase 2, oferta, sáb 14/11 a sex 20/11** (os 2 vídeos, mais R$ 250, o mesmo A/B Site × WhatsApp; dia 3 = 16/11, dia 5 = 18/11;
+>   vence ≤ R$ 27 por pedido criado e leva o capital).
+> - **Caixa** (§147–§148): R$ 576 + R$ 200 (disponíveis desde 14/11). Cada pedido na entrega adianta ~R$ 61 até o 1º repasse (~22 a 24/11); se as
+>   duas fases baterem a meta, o caixa acaba no fim da fase 2. Os R$ 500 de anúncio vencem na fatura de 29/11.
+> - **Especificação para o sócio:** PDF gerado na sessão (não versionado); o conteúdo é o §140, §145 e §148.
+> - **Próximo:** acompanhar 09/11 e 11/11 no portal (período 07–13/11); em 13/11 escolher os 2 vídeos; subir a fase 2 em 14/11.
+> - **Portal:** `npm test` só passa depois de `npm ci` (sem `node_modules` dá 3 falhas de módulo ausente; com ele, 100 ok em 06/11).
+>
 > **2026-11-04 — COMECE AQUI (fim da sessão de 02–04/11).** Estado conferido em 04/11 17:10 UTC:
 > - **No ar:** `turn` v51 (função v184, `agent_versions` 51, publicada 03/11 20:15 UTC) + `business-config-2026-11-03` no segredo
 >   (sha do valor cru `29fe081a…`), alarme de cobertura `healthy`. `main` = produção (PRs #85, #86 e #87 mesclados).
