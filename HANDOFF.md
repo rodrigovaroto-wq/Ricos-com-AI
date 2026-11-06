@@ -23,8 +23,8 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 >   Metas, economia da oferta de 27/10, pedidos do Site pelo lead sem marca de anúncio, atribuição por anúncio com janela.
 > - **Teste A/B** (grafo §140): Site × WhatsApp, R$ 125 cada em **7 dias** (R$ 17,86/dia; §145, 04/11: eram R$ 25/dia em 5 dias), 22 cidades com pagamento na entrega
 >   (`docs/operacao/cobertura-coinzz-2026-11-02.txt`); venda conta quando o pedido é criado; vence custo de anúncio por pedido ≤ R$ 27;
->   metas e pausas no §140. Caixa R$ 576 (+ R$ 200 se precisar, §147): cobre 9 pedidos na entrega antes do 1º repasse. **Início em 06/11** (operador), fim em 12/11: dia 3 = 08/11 (R$ 50), dia 5 = 10/11 (R$ 75). 0 pedidos e nenhum lead novo desde 28/10.
-> - **Próximo:** (1) sócio liga os dois conjuntos; (2) acompanhar o dia 3 (08/11, passa de R$ 50) e o dia 5 (10/11, passa de R$ 75) pelas regras de pausa do §140/§145 no
+>   metas e pausas no §140. Caixa R$ 576 (+ R$ 200 se precisar, §147): cobre 9 pedidos na entrega antes do 1º repasse. **Fase 1 (criativos): 07 a 13/11**, dia 3 = 09/11 (R$ 50), dia 5 = 11/11 (R$ 75); passam os 2 vídeos de maior CTR do link. **Fase 2 (oferta): 14 a 20/11**, mais R$ 250, o mesmo A/B com os 2 vídeos (§148). 0 pedidos e nenhum lead novo desde 28/10.
+> - **Próximo:** (1) sócio liga os dois conjuntos; (2) acompanhar o dia 3 (09/11, passa de R$ 50) e o dia 5 (11/11, passa de R$ 75); em 13/11 escolher os 2 criativos pelas regras de pausa do §140/§145 no
 >   portal; (3) no primeiro carrinho abandonado real, conferir `leads.cart->>'checkoutUrl'` (formato fora de `/checkout/<slug>` bloqueia o
 >   toque, §141); (4) no primeiro pedido, conferir no Gerenciador de Eventos se a compra da entrega chega pela Coinzz.
 > - **Não testado:** envio real de template (só com cliente fora das 24 h); portal logado e Meta Ads (falta `PORTAL_TEST_LOGIN` no ambiente).
