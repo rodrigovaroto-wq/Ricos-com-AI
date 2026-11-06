@@ -13,6 +13,17 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-11-06 — COMECE AQUI (sessão de 06/11, só plano e documentação; a `turn` não mudou).**
+> - **Teste A/B em duas fases** (§148): **fase 1, criativos, sáb 07/11 a sex 13/11** (5 vídeos, R$ 250, R$ 17,86/dia por conjunto; dia 3 = 09/11,
+>   dia 5 = 11/11); em 13/11 passam os **2 vídeos de maior CTR do link** (somando os dois conjuntos, com pelo menos R$ 15 gastos cada; empate pelo
+>   menor CPC). **Fase 2, oferta, sáb 14/11 a sex 20/11** (os 2 vídeos, mais R$ 250, o mesmo A/B Site × WhatsApp; dia 3 = 16/11, dia 5 = 18/11;
+>   vence ≤ R$ 27 por pedido criado e leva o capital).
+> - **Caixa** (§147–§148): R$ 576 + R$ 200 (disponíveis desde 14/11). Cada pedido na entrega adianta ~R$ 61 até o 1º repasse (~22 a 24/11); se as
+>   duas fases baterem a meta, o caixa acaba no fim da fase 2. Os R$ 500 de anúncio vencem na fatura de 29/11.
+> - **Especificação para o sócio:** PDF gerado na sessão (não versionado); o conteúdo é o §140, §145 e §148.
+> - **Próximo:** acompanhar 09/11 e 11/11 no portal (período 07–13/11); em 13/11 escolher os 2 vídeos; subir a fase 2 em 14/11.
+> - **Portal:** `npm test` só passa depois de `npm ci` (sem `node_modules` dá 3 falhas de módulo ausente; com ele, 100 ok em 06/11).
+>
 > **2026-11-04 — COMECE AQUI (fim da sessão de 02–04/11).** Estado conferido em 04/11 17:10 UTC:
 > - **No ar:** `turn` v51 (função v184, `agent_versions` 51, publicada 03/11 20:15 UTC) + `business-config-2026-11-03` no segredo
 >   (sha do valor cru `29fe081a…`), alarme de cobertura `healthy`. `main` = produção (PRs #85, #86 e #87 mesclados).
@@ -23,8 +34,8 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 >   Metas, economia da oferta de 27/10, pedidos do Site pelo lead sem marca de anúncio, atribuição por anúncio com janela.
 > - **Teste A/B** (grafo §140): Site × WhatsApp, R$ 125 cada em **7 dias** (R$ 17,86/dia; §145, 04/11: eram R$ 25/dia em 5 dias), 22 cidades com pagamento na entrega
 >   (`docs/operacao/cobertura-coinzz-2026-11-02.txt`); venda conta quando o pedido é criado; vence custo de anúncio por pedido ≤ R$ 27;
->   metas e pausas no §140. Sem data de início: **o sócio ainda não ligou os conjuntos**. 0 pedidos e nenhum lead novo desde 28/10.
-> - **Próximo:** (1) sócio liga os dois conjuntos; (2) acompanhar o dia 3 (passa de R$ 50) e o dia 5 (passa de R$ 75) pelas regras de pausa do §140/§145 no
+>   metas e pausas no §140. Caixa R$ 576 (+ R$ 200 se precisar, §147): cobre 9 pedidos na entrega antes do 1º repasse. **Fase 1 (criativos): 07 a 13/11**, dia 3 = 09/11 (R$ 50), dia 5 = 11/11 (R$ 75); passam os 2 vídeos de maior CTR do link. **Fase 2 (oferta): 14 a 20/11**, mais R$ 250, o mesmo A/B com os 2 vídeos (§148). 0 pedidos e nenhum lead novo desde 28/10.
+> - **Próximo:** (1) sócio liga os dois conjuntos; (2) acompanhar o dia 3 (09/11, passa de R$ 50) e o dia 5 (11/11, passa de R$ 75); em 13/11 escolher os 2 criativos pelas regras de pausa do §140/§145 no
 >   portal; (3) no primeiro carrinho abandonado real, conferir `leads.cart->>'checkoutUrl'` (formato fora de `/checkout/<slug>` bloqueia o
 >   toque, §141); (4) no primeiro pedido, conferir no Gerenciador de Eventos se a compra da entrega chega pela Coinzz.
 > - **Não testado:** envio real de template (só com cliente fora das 24 h); portal logado e Meta Ads (falta `PORTAL_TEST_LOGIN` no ambiente).
