@@ -13,6 +13,14 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-11-06 (3ª sessão, teste geral antes dos anúncios) — COMECE AQUI.** Grafo §150.
+> - **Sistema: pronto.** CI inteiro verde (9572 testes, 1655 conversas, gates sem mudança, Deno ok), portal 100/100, `turn` e config no
+>   ar = repositório, n8n 8/8 ativos sem erro, saúde `healthy`, webhooks recusam chamada falsa, site com pixel e coletor, checkouts com o
+>   preço do config, 4 conversas reais de ponta a ponta sem defeito que bloqueie.
+> - **Bloqueio de negócio: estoque.** Coinzz em 06/11 (`docs/operacao/cobertura-coinzz-2026-11-06.txt`): **M e G não vendem em
+>   nenhuma cidade** (nem antecipado); entrega só XGG (20 cidades), GG (9), P (4). Decisão do operador antes de ligar os conjuntos.
+> - **Não testado:** WhatsApp real (última conversa real 04/11, ok), Meta Ads, compra no Gerenciador de Eventos, estoque da Logzz.
+>
 > **2026-11-06 (2ª sessão, véspera da fase 1) — COMECE AQUI.** Conferido 06/11 (grafo §149):
 > - **Fase do teste:** nenhuma. A fase 1 começa amanhã, **sáb 07/11**; hoje não há regra de pausa nem de escolha a aplicar.
 > - **Supabase:** 0 leads e 0 pedidos desde 07/11 (nem desde 28/10: 1 lead, 0 pedidos). **Caixa:** R$ 576 intacto (+ R$ 200 a partir de 14/11);
