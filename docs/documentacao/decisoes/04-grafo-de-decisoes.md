@@ -5337,6 +5337,47 @@ total, ~R$ 28 por pedido nos R$ 500): se as duas fases baterem a meta, o caixa a
 **Correção:** só plano e portal, sem código da `turn`: `HANDOFF.md`; no encorpa-portal, `REF` em `src/lib/constants.js` e o `HANDOFF.md`.
 No portal, ler cada fase com o período dela na tela (`armTotals` soma todos os conjuntos do braço no período). **Guarda:** nenhuma em código.
 
+## 149. Véspera da fase 1: nada a decidir, Meta Ads sem leitura e o carrinho nulo de 28/10 (sessão, 2026-11-06)
+
+**Sintoma:** o operador pediu aplicar a regra do dia do teste A/B (§148) com dados da Meta e do Supabase. **Fato:** hoje (06/11) é a véspera
+da fase 1 (07–13/11): nenhuma regra (dia 3, dia 5, escolha de 13/11, vencedor da fase 2) se aplica. Supabase: 0 leads e 0 pedidos desde 07/11
+(desde 28/10, 1 lead e 0 pedidos); caixa R$ 576 intacto, R$ 0 adiantado. **Caminho que falhou:** ler a Meta Ads daqui — `META_ACCESS_TOKEN` só
+existe no Vercel do portal (`api/data.js`), e o portal logado pede `PORTAL_TEST_LOGIN`, ausente no ambiente. **Carrinho:** o único `leads.cart`
+(28/10, 2 unidades) tem `checkoutUrl` nulo, mas é anterior a `cartCheckoutUrl` (`59dffe3`, 29/10); com o config de 03/11, 2 unidades viram
+`…/checkout/encorpa-site-0` do kit, então não prova nem refuta o resíduo do §141, que segue aberto até o 1º carrinho real. Compra no Gerenciador
+de Eventos: aberta, sem pedido. **Correção:** só `HANDOFF.md` (bloco da 2ª sessão de 06/11). **Guarda:** nenhuma em código; nas próximas
+datas (09, 11 e 13/11) a leitura da Meta precisa do token no ambiente ou do portal.
+
+## 150. Teste geral antes dos anúncios: o sistema funciona, o estoque não tem M nem G (sessão, 2026-11-06)
+
+**Sintoma:** o operador pediu um teste de tudo, entrada e saída, antes de ligar os anúncios em 07/11. **O que passou:** `pnpm lint`,
+`typecheck`, `test` (9572), `typecheck:function` (Deno 2.9), `dev:conversas` (1655/1655), `dev:gates` (0 afrouxou, 0 endureceu); portal
+`npm test` 100/100. No ar: `turn` v184 = HEAD de `supabase/functions/turn` (03/11) e `BUSINESS_CONFIG` = `business-config-2026-11-03`
+(sha `29fe081a…`); `whatsapp` v84 (26/10) é anterior a `ecea0c3`, mas a única mudança (`templateMessage`) não é importada pela função:
+o envio é do n8n. `job:"health"` `healthy`. `pnpm dev:n8n`: os 8 workflows ativos ok; nenhuma execução com erro. Portas: o webhook
+do WhatsApp recusa token errado (403) e assinatura ausente ou falsa (401); `job:"order"`/`job:"cart"` com token errado → 401; os
+webhooks do n8n de venda e carrinho com corpo vazio não gravam nada e mandam o e-mail de "não mapeado" ao operador (2 e-mails de teste
+em 06/11). Site: pixel `4466808633585371` dispara `PageView` (`/tr` 200, `_fbp`), o coletor `api/track` grava a visita (`site_sessions`),
+1/2/3 peças levam a `encorpa-0`, `encorpa-site-0` e `oferta-site2-0` com `?size=`, preços do checkout = config (R$ 109,90, R$ 197,82,
+R$ 263,76); mídias do funil 200. 4 compradoras pela porta `local` contra o banco (R$ 0,21): tamanho, CEP, oferta e link certos, sem
+veto que chegasse à cliente; recusa repetida respondida sem insistir (a régua após a recusa tem teste: `tests/declined.test.ts`).
+**Achado que muda a decisão (estoque, não código):** a varredura de 06/11 (`docs/operacao/cobertura-coinzz-2026-11-06.txt`, 33 CEPs)
+mostra **M sem resposta em todas as cidades e G sem entrega e sem antecipado em todas** (em 02/11 o G ainda tinha antecipado e 3
+cidades na entrega). Pagamento na entrega hoje: XGG em 20 cidades, GG em 9, P em 4. No braço Site, quem veste M ou G não compra; no
+WhatsApp, a Malu diz que o tamanho está sem estoque (`sizeOutOfStockLine`), salvo o que a Logzz tiver (não lido: sem token da Logzz aqui).
+**Menor (resíduo, R21.6):** na persona "decidida" (RJ, G) a Malu disse "na entrega chega em 1 a 3 dias" no turno do CEP e, no seguinte,
+que a entrega não chega lá. **Não testado daqui:** mensagem real pelo WhatsApp (a última real foi 04/11, respondida e com `silence_1`
+enviado), Meta Ads e a compra no Gerenciador de Eventos (sem token), estoque da Logzz. **Correção:** nenhuma em código; decisão do
+operador sobre estoque antes de ligar. **Guarda:** `pnpm dev:estoque` antes de cada fase.
+**Depois (operador, 06/11: "o estoque é do fornecedor, não tem o que fazer"; consertar o resto):** varredura completada para 38 dos 40
+CEPs (entrega: XGG 21 cidades, GG 10, P 4; M e G em nenhuma). O caso do Rio **não é defeito de código**: a mesma conversa, repetida pela porta
+`local`, consultou o CEP (`coverage_lookups` = `no_cod`) e mandou a oferta do antecipado no turno do CEP; na rodada de personas a consulta
+falhou (o ViaCEP deu `ECONNRESET` várias vezes neste container) e a Malu respondeu a frase condicional do prompt, como manda o L2 (falha nunca
+é "sem entrega"). A produção não mostra a falha (`job:"health"`: 0 consultas falhas). Os ~30 s por turno são a janela de espera da rajada
+(`BURST_WINDOW_MS`/`QUIET_WINDOW_MS`), de propósito; produção p50 20,6 s, p90 28,5 s (196 turnos). A recusa repetida tem a régua cancelada por
+`scheduleSilenceTouches` (`tests/declined.test.ts`). **Nada a corrigir em código.** Pendências de ambiente, não do sistema: Deno não vem
+instalado neste container (`npm i -g deno@2` antes de `pnpm typecheck:function`); a Meta Ads e a Logzz não têm token aqui.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

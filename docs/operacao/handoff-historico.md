@@ -4,6 +4,24 @@ Tudo o que estava no `HANDOFF.md` até 2026-10-29, movido sem edição em 2026-1
 sessão (grafo §139). Ordem original. Não se lê inteiro: procure com `grep` a data, a branch ou o assunto.
 
 
+> **2026-11-04 — COMECE AQUI (fim da sessão de 02–04/11).** Estado conferido em 04/11 17:10 UTC:
+> - **No ar:** `turn` v51 (função v184, `agent_versions` 51, publicada 03/11 20:15 UTC) + `business-config-2026-11-03` no segredo
+>   (sha do valor cru `29fe081a…`), alarme de cobertura `healthy`. `main` = produção (PRs #85, #86 e #87 mesclados).
+> - **O que a v49–v51 fizeram:** kits com cupom depois do lembrete (§140); "você só paga quando receber / quando o colete chegar" deixou de
+>   ser vetado ao lado da garantia e das avaliações (§142–§143, uma lista só: `PAY_ON_DELIVERY_NAME`). Templates aprovados declarados:
+>   `cart_recovery`, `pix_pending`, `silence_3_retomada` (§141).
+> - **Portal** (encorpa-portal, PRs #9–#12 no ar): Painel novo, tema preto/branco, teste A/B Site × WhatsApp em Testes de Criativos e
+>   Metas, economia da oferta de 27/10, pedidos do Site pelo lead sem marca de anúncio, atribuição por anúncio com janela.
+> - **Teste A/B** (grafo §140): Site × WhatsApp, R$ 125 cada em **7 dias** (R$ 17,86/dia; §145, 04/11: eram R$ 25/dia em 5 dias), 22 cidades com pagamento na entrega
+>   (`docs/operacao/cobertura-coinzz-2026-11-02.txt`); venda conta quando o pedido é criado; vence custo de anúncio por pedido ≤ R$ 27;
+>   metas e pausas no §140. Caixa R$ 576 (+ R$ 200 se precisar, §147): cobre 9 pedidos na entrega antes do 1º repasse. **Fase 1 (criativos): 07 a 13/11**, dia 3 = 09/11 (R$ 50), dia 5 = 11/11 (R$ 75); passam os 2 vídeos de maior CTR do link. **Fase 2 (oferta): 14 a 20/11**, mais R$ 250, o mesmo A/B com os 2 vídeos (§148). 0 pedidos e nenhum lead novo desde 28/10.
+> - **Próximo:** (1) sócio liga os dois conjuntos; (2) acompanhar o dia 3 (09/11, passa de R$ 50) e o dia 5 (11/11, passa de R$ 75); em 13/11 escolher os 2 criativos pelas regras de pausa do §140/§145 no
+>   portal; (3) no primeiro carrinho abandonado real, conferir `leads.cart->>'checkoutUrl'` (formato fora de `/checkout/<slug>` bloqueia o
+>   toque, §141); (4) no primeiro pedido, conferir no Gerenciador de Eventos se a compra da entrega chega pela Coinzz.
+> - **Não testado:** envio real de template (só com cliente fora das 24 h); portal logado e Meta Ads (falta `PORTAL_TEST_LOGIN` no ambiente).
+> - **Resíduos abertos (sem código, R21.6):** §142–§143 (antecipado "só paga quando receber" só o `charge_promise` cobre; "chegar na sua mão"
+>   ao lado da garantia segue vetado); o link "Não sei meu tamanho" do site tem 30 px de altura.
+
 > **2026-11-03 — COMECE AQUI.** No ar: **`turn` v51** (função v184, publicada 20:15 UTC, `healthy`: "você só paga quando receber / quando o
 > colete chegar" deixou de ser vetado, grafo §142–§143) + **`business-config-2026-11-03`** (colado pelo operador 18:36 UTC; sha do valor cru
 > `29fe081a…6217d0b`, o arquivo sem a quebra final; `job:"health"` e alarme 18:41 UTC `healthy`). Com ele os templates aprovados

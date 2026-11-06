@@ -13,6 +13,28 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-11-06 (3ª sessão, teste geral antes dos anúncios) — COMECE AQUI.** Grafo §150.
+> - **Sistema: pronto.** CI inteiro verde (9572 testes, 1655 conversas, gates sem mudança, Deno ok), portal 100/100, `turn` e config no
+>   ar = repositório, n8n 8/8 ativos sem erro, saúde `healthy`, webhooks recusam chamada falsa, site com pixel e coletor, checkouts com o
+>   preço do config, 4 conversas reais de ponta a ponta sem defeito que bloqueie.
+> - **Bloqueio de negócio: estoque.** Coinzz em 06/11 (`docs/operacao/cobertura-coinzz-2026-11-06.txt`): **M e G não vendem em
+>   nenhuma cidade** (nem antecipado); entrega só XGG (20 cidades), GG (9), P (4). Operador, 06/11: é do fornecedor, segue assim.
+> - **Não testado:** WhatsApp real (última conversa real 04/11, ok), Meta Ads, compra no Gerenciador de Eventos, estoque da Logzz.
+> - **Depois (operador: estoque é do fornecedor):** nada a corrigir em código. O caso do Rio foi o ViaCEP caindo neste container (a
+>   mesma conversa repetida saiu certa); 38/40 cidades medidas, entrega em XGG 21, GG 10, P 4. Pode ligar os conjuntos.
+>
+> **2026-11-06 (2ª sessão, véspera da fase 1) — COMECE AQUI.** Conferido 06/11 (grafo §149):
+> - **Fase do teste:** nenhuma. A fase 1 começa amanhã, **sáb 07/11**; hoje não há regra de pausa nem de escolha a aplicar.
+> - **Supabase:** 0 leads e 0 pedidos desde 07/11 (nem desde 28/10: 1 lead, 0 pedidos). **Caixa:** R$ 576 intacto (+ R$ 200 a partir de 14/11);
+>   0 pedidos na entrega, R$ 0 adiantado.
+> - **Meta Ads: não lido.** Sem `META_ACCESS_TOKEN` neste ambiente (o token só existe no Vercel do portal) e sem `PORTAL_TEST_LOGIN`. A partir de
+>   07/11, o gasto e o CTR por vídeo saem do portal (período 07–13/11) ou de uma sessão com o token.
+> - **Pendente (3), carrinho:** o único carrinho no banco (lead de 28/10, 2 unidades) tem `checkoutUrl` nulo, mas foi gravado **antes** de
+>   `cartCheckoutUrl` (commit `59dffe3`, 29/10); hoje 2 unidades viram `…/checkout/encorpa-site-0` do kit. Continua aberto até o 1º carrinho real.
+> - **Pendente (4), compra no Gerenciador de Eventos:** aberto — ainda não houve pedido.
+> - **Hoje:** o sócio deixa os dois conjuntos (Site e WhatsApp) agendados para começar 07/11 00:00, R$ 17,86/dia cada, os 5 vídeos, as 22 cidades.
+>   **Próximas datas:** 09/11 (dia 3, R$ 50: pausa o conjunto que estourou limite), 11/11 (dia 5, R$ 75: pausa o sem pedido), 13/11 (2 vídeos).
+>
 > **2026-11-06 — COMECE AQUI (sessão de 06/11, só plano e documentação; a `turn` não mudou).**
 > - **Teste A/B em duas fases** (§148): **fase 1, criativos, sáb 07/11 a sex 13/11** (5 vídeos, R$ 250, R$ 17,86/dia por conjunto; dia 3 = 09/11,
 >   dia 5 = 11/11); em 13/11 passam os **2 vídeos de maior CTR do link** (somando os dois conjuntos, com pelo menos R$ 15 gastos cada; empate pelo
@@ -24,23 +46,6 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > - **Próximo:** acompanhar 09/11 e 11/11 no portal (período 07–13/11); em 13/11 escolher os 2 vídeos; subir a fase 2 em 14/11.
 > - **Portal:** `npm test` só passa depois de `npm ci` (sem `node_modules` dá 3 falhas de módulo ausente; com ele, 100 ok em 06/11).
 >
-> **2026-11-04 — COMECE AQUI (fim da sessão de 02–04/11).** Estado conferido em 04/11 17:10 UTC:
-> - **No ar:** `turn` v51 (função v184, `agent_versions` 51, publicada 03/11 20:15 UTC) + `business-config-2026-11-03` no segredo
->   (sha do valor cru `29fe081a…`), alarme de cobertura `healthy`. `main` = produção (PRs #85, #86 e #87 mesclados).
-> - **O que a v49–v51 fizeram:** kits com cupom depois do lembrete (§140); "você só paga quando receber / quando o colete chegar" deixou de
->   ser vetado ao lado da garantia e das avaliações (§142–§143, uma lista só: `PAY_ON_DELIVERY_NAME`). Templates aprovados declarados:
->   `cart_recovery`, `pix_pending`, `silence_3_retomada` (§141).
-> - **Portal** (encorpa-portal, PRs #9–#12 no ar): Painel novo, tema preto/branco, teste A/B Site × WhatsApp em Testes de Criativos e
->   Metas, economia da oferta de 27/10, pedidos do Site pelo lead sem marca de anúncio, atribuição por anúncio com janela.
-> - **Teste A/B** (grafo §140): Site × WhatsApp, R$ 125 cada em **7 dias** (R$ 17,86/dia; §145, 04/11: eram R$ 25/dia em 5 dias), 22 cidades com pagamento na entrega
->   (`docs/operacao/cobertura-coinzz-2026-11-02.txt`); venda conta quando o pedido é criado; vence custo de anúncio por pedido ≤ R$ 27;
->   metas e pausas no §140. Caixa R$ 576 (+ R$ 200 se precisar, §147): cobre 9 pedidos na entrega antes do 1º repasse. **Fase 1 (criativos): 07 a 13/11**, dia 3 = 09/11 (R$ 50), dia 5 = 11/11 (R$ 75); passam os 2 vídeos de maior CTR do link. **Fase 2 (oferta): 14 a 20/11**, mais R$ 250, o mesmo A/B com os 2 vídeos (§148). 0 pedidos e nenhum lead novo desde 28/10.
-> - **Próximo:** (1) sócio liga os dois conjuntos; (2) acompanhar o dia 3 (09/11, passa de R$ 50) e o dia 5 (11/11, passa de R$ 75); em 13/11 escolher os 2 criativos pelas regras de pausa do §140/§145 no
->   portal; (3) no primeiro carrinho abandonado real, conferir `leads.cart->>'checkoutUrl'` (formato fora de `/checkout/<slug>` bloqueia o
->   toque, §141); (4) no primeiro pedido, conferir no Gerenciador de Eventos se a compra da entrega chega pela Coinzz.
-> - **Não testado:** envio real de template (só com cliente fora das 24 h); portal logado e Meta Ads (falta `PORTAL_TEST_LOGIN` no ambiente).
-> - **Resíduos abertos (sem código, R21.6):** §142–§143 (antecipado "só paga quando receber" só o `charge_promise` cobre; "chegar na sua mão"
->   ao lado da garantia segue vetado); o link "Não sei meu tamanho" do site tem 30 px de altura.
 > **Histórico** (todas as entradas anteriores, desde 2026-09-10, sem edição; a mais nova no topo):
 > [`docs/operacao/handoff-historico.md`](docs/operacao/handoff-historico.md) — não se lê inteiro; procure com `grep`.
 > Nova entrada de estado entra no topo desta seção; a anterior desce para o histórico.
