@@ -5369,6 +5369,14 @@ WhatsApp, a Malu diz que o tamanho está sem estoque (`sizeOutOfStockLine`), sal
 que a entrega não chega lá. **Não testado daqui:** mensagem real pelo WhatsApp (a última real foi 04/11, respondida e com `silence_1`
 enviado), Meta Ads e a compra no Gerenciador de Eventos (sem token), estoque da Logzz. **Correção:** nenhuma em código; decisão do
 operador sobre estoque antes de ligar. **Guarda:** `pnpm dev:estoque` antes de cada fase.
+**Depois (operador, 06/11: "o estoque é do fornecedor, não tem o que fazer"; consertar o resto):** varredura completada para 38 dos 40
+CEPs (entrega: XGG 21 cidades, GG 10, P 4; M e G em nenhuma). O caso do Rio **não é defeito de código**: a mesma conversa, repetida pela porta
+`local`, consultou o CEP (`coverage_lookups` = `no_cod`) e mandou a oferta do antecipado no turno do CEP; na rodada de personas a consulta
+falhou (o ViaCEP deu `ECONNRESET` várias vezes neste container) e a Malu respondeu a frase condicional do prompt, como manda o L2 (falha nunca
+é "sem entrega"). A produção não mostra a falha (`job:"health"`: 0 consultas falhas). Os ~30 s por turno são a janela de espera da rajada
+(`BURST_WINDOW_MS`/`QUIET_WINDOW_MS`), de propósito; produção p50 20,6 s, p90 28,5 s (196 turnos). A recusa repetida tem a régua cancelada por
+`scheduleSilenceTouches` (`tests/declined.test.ts`). **Nada a corrigir em código.** Pendências de ambiente, não do sistema: Deno não vem
+instalado neste container (`npm i -g deno@2` antes de `pnpm typecheck:function`); a Meta Ads e a Logzz não têm token aqui.
 
 ## Lições (valem para qualquer correção futura)
 

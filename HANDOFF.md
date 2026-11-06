@@ -18,8 +18,10 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 >   ar = repositório, n8n 8/8 ativos sem erro, saúde `healthy`, webhooks recusam chamada falsa, site com pixel e coletor, checkouts com o
 >   preço do config, 4 conversas reais de ponta a ponta sem defeito que bloqueie.
 > - **Bloqueio de negócio: estoque.** Coinzz em 06/11 (`docs/operacao/cobertura-coinzz-2026-11-06.txt`): **M e G não vendem em
->   nenhuma cidade** (nem antecipado); entrega só XGG (20 cidades), GG (9), P (4). Decisão do operador antes de ligar os conjuntos.
+>   nenhuma cidade** (nem antecipado); entrega só XGG (20 cidades), GG (9), P (4). Operador, 06/11: é do fornecedor, segue assim.
 > - **Não testado:** WhatsApp real (última conversa real 04/11, ok), Meta Ads, compra no Gerenciador de Eventos, estoque da Logzz.
+> - **Depois (operador: estoque é do fornecedor):** nada a corrigir em código. O caso do Rio foi o ViaCEP caindo neste container (a
+>   mesma conversa repetida saiu certa); 38/40 cidades medidas, entrega em XGG 21, GG 10, P 4. Pode ligar os conjuntos.
 >
 > **2026-11-06 (2ª sessão, véspera da fase 1) — COMECE AQUI.** Conferido 06/11 (grafo §149):
 > - **Fase do teste:** nenhuma. A fase 1 começa amanhã, **sáb 07/11**; hoje não há regra de pausa nem de escolha a aplicar.

@@ -1,5 +1,5 @@
-# Cobertura da Coinzz em 06/11/2026 (pnpm dev:estoque, endpoint público stock-and-delivery-day), 33 dos 40 CEPs de 02/11.
-# Faltaram por erro de rede: 09230590 09857170 64060810 54350732 58077005 38401140 29016345.
+# Cobertura da Coinzz em 06/11/2026 (pnpm dev:estoque, endpoint público stock-and-delivery-day), 38 dos 40 CEPs de 02/11.
+# Faltaram por erro de rede (ViaCEP com ECONNRESET no container): 09230590 (Santo André) e 58077005 (João Pessoa).
 
 
 São Paulo/SP · CEP 04939180
@@ -295,3 +295,57 @@ São Luís/MA · CEP 65066660
     syscall: 'read'
   }
 
+      Error.captureStackTrace(err);
+            ^
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async viaCep (/home/user/Ricos-com-AI/src/dev/availability.ts:57:13)
+    at async run (/home/user/Ricos-com-AI/src/dev/availability.ts:112:19)
+    at async <anonymous> (/home/user/Ricos-com-AI/src/dev/availability.ts:136:1) {
+  [cause]: Error: read ECONNRESET
+      at TLSWrap.onStreamRead (node:internal/stream_base_commons:216:20) {
+    errno: -104,
+    code: 'ECONNRESET',
+    syscall: 'read'
+  }
+São Bernardo do Campo/SP · CEP 09857170
+  P   entrega NÃO                                                      antecipado R$ 28,67 em 12 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado —
+  GG  entrega SIM · frete R$ 24,98 · datas 2026-11-07, 2026-11-09, 2026-11-10 antecipado R$ 19,34 em 6 dias
+  XGG entrega SIM · frete R$ 24,98 · datas 2026-11-07, 2026-11-09, 2026-11-10 antecipado R$ 17,78 em 6 dias
+Teresina/PI · CEP 64060810
+  P   entrega NÃO                                                      antecipado R$ 40,50 em 8 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado —
+  GG  entrega NÃO                                                      antecipado R$ 44,45 em 8 dias
+  XGG entrega NÃO                                                      antecipado R$ 28,67 em 6 dias
+Jaboatão dos Guararapes/PE · CEP 54350732
+  P   entrega NÃO                                                      antecipado R$ 40,50 em 7 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado —
+  GG  entrega NÃO                                                      antecipado R$ 37,89 em 6 dias
+  XGG entrega NÃO                                                      antecipado R$ 28,67 em 6 dias
+      Error.captureStackTrace(err);
+            ^
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async viaCep (/home/user/Ricos-com-AI/src/dev/availability.ts:57:13)
+    at async run (/home/user/Ricos-com-AI/src/dev/availability.ts:112:19)
+    at async <anonymous> (/home/user/Ricos-com-AI/src/dev/availability.ts:136:1) {
+  [cause]: Error: read ECONNRESET
+      at TLSWrap.onStreamRead (node:internal/stream_base_commons:216:20) {
+    errno: -104,
+    code: 'ECONNRESET',
+    syscall: 'read'
+  }
+Uberlândia/MG · CEP 38401140
+  P   entrega NÃO                                                      antecipado R$ 28,67 em 6 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado —
+  GG  entrega NÃO                                                      antecipado R$ 28,02 em 5 dias
+  XGG entrega NÃO                                                      antecipado R$ 25,73 em 5 dias
+Vitória/ES · CEP 29016345
+  P   entrega NÃO                                                      antecipado R$ 28,67 em 6 dias
+  M   sem resposta (tamanho fora do catálogo da Coinzz?)
+  G   entrega NÃO                                                      antecipado —
+  GG  entrega NÃO                                                      antecipado R$ 31,29 em 6 dias
+  XGG entrega NÃO                                                      antecipado R$ 28,67 em 6 dias
