@@ -5316,10 +5316,10 @@ API de gerência (`database/query`). **Guarda:** os `check` das colunas; no port
 
 **Fato (operador, 06/11):** o caixa hoje é **R$ 576**; se precisar, entram mais **R$ 200** (R$ 776). O plano do §145 confere: 7 dias, R$ 17,86/dia
 por conjunto, R$ 250 no total. **Conta** (encorpa-portal, `cashPlan` e `codUpfront` em `src/lib/economics.js`; quem paga o quê pelo R19.1): o
-anúncio vai no cartão; do saldo de expedição sai só o custo adiantado de cada pedido na entrega, **R$ 62,72** (1 peça de R$ 129,90), até o
+anúncio vai no cartão; do saldo de expedição sai só o custo adiantado de cada pedido na entrega, **R$ 61,32** (1 peça de R$ 109,90, oferta de 27/10), até o
 primeiro repasse (entrega + 14 dias). R$ 576 cobrem **9 pedidos na entrega**; R$ 776 cobrem **12**. Com 70% na entrega: custo por pedido
-de R$ 27 (9 pedidos, 6–7 na entrega, R$ 407) e de R$ 20 (12–13 pedidos, ~9 na entrega, R$ 549) cabem nos R$ 576; R$ 15 por pedido (17 pedidos,
-~12 na entrega, R$ 733) pede os R$ 200; as premissas ideais (CPL R$ 1,25, 10%: 20 pedidos, 14 na entrega, R$ 878) passam dos R$ 776. O antecipado
+de R$ 27 (9 pedidos, 6–7 na entrega, R$ 397) e de R$ 20 (12–13 pedidos, ~9 na entrega, R$ 537) cabem nos R$ 576; R$ 15 por pedido (17 pedidos,
+~12 na entrega, R$ 715) pede os R$ 200; as premissas ideais (CPL R$ 1,25, 10%: 20 pedidos, 14 na entrega, R$ 858) passam dos R$ 776. O antecipado
 entra na hora e não está descontado. **Risco de data:** a fatura fecha dia 22 e vence dia 29; se os R$ 250 do anúncio caírem na fatura de 29/11
 antes do primeiro repasse, saem do mesmo saldo. **Início (operador, 06/11): hoje, 06/11**; fim em 12/11, dia 3 = 08/11, dia 5 = 10/11. Os R$ 250 caem todos na fatura que fecha
 em 22/11 e vence em 29/11; os pedidos na entrega de 06 e 07/11 liberam o repasse por volta de 21 a 24/11, antes do vencimento. **Guarda:** sem código; o card "Caixa necessário" do portal (`p_cash`) refaz a conta pelo gasto real.
