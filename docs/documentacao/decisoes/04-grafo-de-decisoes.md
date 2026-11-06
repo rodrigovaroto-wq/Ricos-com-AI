@@ -5337,6 +5337,17 @@ total, ~R$ 28 por pedido nos R$ 500): se as duas fases baterem a meta, o caixa a
 **Correção:** só plano e portal, sem código da `turn`: `HANDOFF.md`; no encorpa-portal, `REF` em `src/lib/constants.js` e o `HANDOFF.md`.
 No portal, ler cada fase com o período dela na tela (`armTotals` soma todos os conjuntos do braço no período). **Guarda:** nenhuma em código.
 
+## 149. Véspera da fase 1: nada a decidir, Meta Ads sem leitura e o carrinho nulo de 28/10 (sessão, 2026-11-06)
+
+**Sintoma:** o operador pediu aplicar a regra do dia do teste A/B (§148) com dados da Meta e do Supabase. **Fato:** hoje (06/11) é a véspera
+da fase 1 (07–13/11): nenhuma regra (dia 3, dia 5, escolha de 13/11, vencedor da fase 2) se aplica. Supabase: 0 leads e 0 pedidos desde 07/11
+(desde 28/10, 1 lead e 0 pedidos); caixa R$ 576 intacto, R$ 0 adiantado. **Caminho que falhou:** ler a Meta Ads daqui — `META_ACCESS_TOKEN` só
+existe no Vercel do portal (`api/data.js`), e o portal logado pede `PORTAL_TEST_LOGIN`, ausente no ambiente. **Carrinho:** o único `leads.cart`
+(28/10, 2 unidades) tem `checkoutUrl` nulo, mas é anterior a `cartCheckoutUrl` (`59dffe3`, 29/10); com o config de 03/11, 2 unidades viram
+`…/checkout/encorpa-site-0` do kit, então não prova nem refuta o resíduo do §141, que segue aberto até o 1º carrinho real. Compra no Gerenciador
+de Eventos: aberta, sem pedido. **Correção:** só `HANDOFF.md` (bloco da 2ª sessão de 06/11). **Guarda:** nenhuma em código; nas próximas
+datas (09, 11 e 13/11) a leitura da Meta precisa do token no ambiente ou do portal.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
