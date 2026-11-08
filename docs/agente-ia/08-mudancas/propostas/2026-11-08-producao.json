@@ -1,0 +1,135 @@
+{
+  "resumo": "A rodada não tem resposta pronta nem reversão a propor: o único estouro do placar é a troca de tamanho sem dado novo em 297944fd. O custo maior está em duas vendas decididas que não receberam o link (fd7ed389 e 16f132b2) e num link do antecipado com tamanho M inventado (99bf85e7), que entra também na lista de premissa indevida com as promessas de entrega datada de becba132 e db1cb907.",
+  "checked": [
+    {
+      "ok": true,
+      "problems": [],
+      "proposal": {
+        "alvo": "prompt",
+        "o_que": "Ensinar o próximo passo obrigatório depois do sim: com decisão de compra e tamanho, a resposta seguinte traz o link (ou o CEP que falta para gerá-lo), nunca só o elogio ou só o preço.",
+        "por_que": "A cliente disse que quer comprar e a Malu respondeu sem link nem pedido que gere o link, então a venda decidida esfria: em fd7ed389 o \"(trecho guardado só em hermes_proposals, expira em 90 dias)\" recebeu só elogio ao caimento e em 16f132b2 o pedido do total de 2 peças recebeu só o valor, sem checkout.",
+        "objetivo": "Toda cliente que confirma a compra recebe o link em até 2 respostas (R13.4 volta a 0 e fica em 0).",
+        "como_medir": "R13.4",
+        "registro": "",
+        "severidade": "alta",
+        "classe": "venda_perdida",
+        "evidencias": [
+          {
+            "conversa": "conversa-fd7ed389",
+            "mensagem": 11,
+            "trecho": "(trecho guardado só em hermes_proposals, expira em 90 dias)"
+          },
+          {
+            "conversa": "conversa-16f132b2",
+            "mensagem": 21,
+            "trecho": "(trecho guardado só em hermes_proposals, expira em 90 dias)"
+          }
+        ]
+      },
+      "today": [
+        {
+          "trecho": "(trecho guardado só em hermes_proposals, expira em 90 dias)",
+          "blockedBy": []
+        },
+        {
+          "trecho": "(trecho guardado só em hermes_proposals, expira em 90 dias)",
+          "blockedBy": [
+            "price_promise"
+          ]
+        }
+      ]
+    },
+    {
+      "ok": true,
+      "problems": [],
+      "proposal": {
+        "alvo": "gate:size_claim",
+        "o_que": "Vetar a troca de tamanho já informado (GG para 48) para o G pedido no turno seguinte sem dado novo de calça, cintura ou letra.",
+        "por_que": "A cliente deu 48 e recebeu GG, depois escreveu \"(trecho guardado só em hermes_proposals, expira em 90 dias)\" e a Malu trocou para G sem nenhuma medida nova; tamanho trocado sem dado vira troca na porta, e é a única falha do placar na rodada.",
+        "objetivo": "Nenhuma troca de tamanho sem dado novo (checagem M-02 do placar volta a 0).",
+        "como_medir": "M-02",
+        "registro": "M-02",
+        "severidade": "alta",
+        "classe": "venda_perdida",
+        "evidencias": [
+          {
+            "conversa": "conversa-297944fd",
+            "mensagem": 10,
+            "trecho": "(trecho guardado só em hermes_proposals, expira em 90 dias)"
+          }
+        ]
+      },
+      "today": [
+        {
+          "trecho": "(trecho guardado só em hermes_proposals, expira em 90 dias)",
+          "blockedBy": []
+        }
+      ]
+    },
+    {
+      "ok": true,
+      "problems": [],
+      "proposal": {
+        "alvo": "prompt",
+        "o_que": "Proibir link de checkout com tamanho preenchido pela Malu: sem número de calça, cintura ou letra dados pela cliente, não há link nem tamanho.",
+        "por_que": "A cliente só pediu ofertas e nunca deu medida, mas recebeu link do antecipado mandando conferir o tamanho M; tamanho inventado no checkout vira pedido errado e a cliente sequer tinha decidido comprar.",
+        "objetivo": "Nenhum link sai com tamanho inventado e sem decisão de compra (M-04 segue em 0).",
+        "como_medir": "M-04",
+        "registro": "",
+        "severidade": "media",
+        "classe": "venda_perdida",
+        "evidencias": [
+          {
+            "conversa": "conversa-99bf85e7",
+            "mensagem": 13,
+            "trecho": "(trecho guardado só em hermes_proposals, expira em 90 dias)"
+          }
+        ]
+      },
+      "today": [
+        {
+          "trecho": "(trecho guardado só em hermes_proposals, expira em 90 dias)",
+          "blockedBy": []
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "estimated_cost_usd": 0,
+    "cost_status": "unknown",
+    "cost_source": "none",
+    "input_tokens": 86755,
+    "output_tokens": 9823,
+    "cache_read_tokens": 542713,
+    "cache_write_tokens": 0,
+    "reasoning_tokens": 7320,
+    "total_tokens": 639291,
+    "api_calls": 10,
+    "model": "muse-spark-1.3",
+    "provider": "meta-ai",
+    "session_id": "20261108_171810_48e735",
+    "completed": true,
+    "partial": false,
+    "interrupted": false,
+    "turn_exit_reason": "text_response(finish_reason=stop)",
+    "failed": false,
+    "service_tier": null,
+    "auxiliary": {
+      "api_calls": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0,
+      "reasoning_tokens": 0,
+      "estimated_cost_usd": 0,
+      "total_tokens": 0,
+      "by_task": {}
+    },
+    "total_including_auxiliary": {
+      "estimated_cost_usd": 0,
+      "total_tokens": 639291,
+      "api_calls": 10
+    }
+  },
+  "costUsd": 0.828583
+}
